@@ -3176,7 +3176,24 @@
                 </div>
                 -->
 
-                <!-- QWEN: Solo disponible como BrowserView embebido (no como API) -->
+                <!-- QWEN Provider - BrowserView Embebido -->
+                <div class="provider-btn-group">
+                  <button class="provider-btn" id="providerQwen" onclick="toggleProviderDropdown('qwen', event)" title="QWEN (Embebido)">
+                    <span class="provider-icon">🟡</span>
+                  </button>
+                  <div class="provider-dropdown" id="dropdown-qwen" style="display: none;">
+                    <div class="provider-models">
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen-embedded" onchange="selectProviderModel('qwen', 'qwen-embedded')" checked />
+                        <span>QWEN Embebido</span>
+                        <span class="model-badge">Panel Lateral</span>
+                      </label>
+                      <div class="provider-info" style="padding: 8px; margin-top: 8px; font-size: 11px; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
+                        💡 Abre QWEN con el botón verde en la sidebar izquierda
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- QWEN Connect Button (Toolbar) - DISABLED PER USER REQUEST -->
@@ -3384,6 +3401,16 @@
         models: {},
         defaultModel: null,
         status: '❌ API Key expirada'
+      },
+      qwen: {
+        name: 'QWEN',
+        icon: '🟡',
+        type: 'embedded',
+        models: {
+          'qwen-embedded': { name: 'QWEN (Embebido)', context: 65536, speed: 'balanced', tested: true }
+        },
+        defaultModel: 'qwen-embedded',
+        status: '✅ Panel embebido disponible (clic en botón verde)'
       }
     };
 
@@ -4879,6 +4906,44 @@
       const model = state.currentModel || PROVIDERS[provider]?.defaultModel || 'llama-3.3-70b-versatile';
 
       console.log(`[callAssistant] Llamando a ${provider}/${model}`);
+
+      // QWEN EMBEDDED: Enviar mensaje al BrowserView embebido
+      if (provider === 'qwen') {
+        if (!window.sandraAPI?.qwenSendMessage) {
+          throw new Error('QWEN embebido no disponible. Abre QWEN primero con el botón verde en la sidebar.');
+        }
+
+        try {
+          console.log(`[callAssistant] Enviando mensaje a QWEN BrowserView: "${(payload.message || '').substring(0, 50)}..."`);
+          
+          // Primero asegurar que QWEN está visible
+          if (!state.qwen.panelVisible) {
+            console.log('[callAssistant] Abriendo panel QWEN automáticamente...');
+            await window.sandraAPI.qwenToggle(true);
+            // Esperar a que se cargue
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+
+          const result = await window.sandraAPI.qwenSendMessage(payload.message || '');
+          
+          if (result.success) {
+            console.log(`[callAssistant] ✅ Mensaje enviado a QWEN BrowserView`);
+            // Nota: La respuesta se verá directamente en el BrowserView embebido
+            // No podemos interceptarla fácilmente, así que devolvemos un mensaje informativo
+            return {
+              text: '✅ Mensaje enviado a QWEN. Ve la respuesta en el panel lateral derecho.',
+              provider: 'qwen',
+              model: 'qwen-embedded',
+              embedded: true // Indicador de que la respuesta está en el panel embebido
+            };
+          } else {
+            throw new Error(result.error || 'Error enviando mensaje a QWEN');
+          }
+        } catch (e) {
+          console.error(`[callAssistant] ❌ Error con QWEN:`, e);
+          throw new Error(`Error en QWEN: ${e.message}`);
+        }
+      }
 
       // MODO API: Usar Groq, OpenAI, etc.
       if (state.useAPI) {
