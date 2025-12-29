@@ -3176,24 +3176,7 @@
                 </div>
                 -->
 
-                <!-- QWEN Provider - BrowserView Embebido -->
-                <div class="provider-btn-group">
-                  <button class="provider-btn" id="providerQwen" onclick="toggleProviderDropdown('qwen', event)" title="QWEN (Embebido)">
-                    <span class="provider-icon">🟡</span>
-                  </button>
-                  <div class="provider-dropdown" id="dropdown-qwen" style="display: none;">
-                    <div class="provider-models">
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen-embedded" onchange="selectProviderModel('qwen', 'qwen-embedded')" checked />
-                        <span>QWEN Embebido</span>
-                        <span class="model-badge">Panel Lateral</span>
-                      </label>
-                      <div class="provider-info" style="padding: 8px; margin-top: 8px; font-size: 11px; color: var(--text-secondary); border-top: 1px solid var(--border-color);">
-                        💡 Abre QWEN con el botón verde en la sidebar izquierda
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <!-- QWEN Provider - ELIMINADO: Solo se usa el botón verde de la sidebar -->
               </div>
 
               <!-- QWEN Connect Button (Toolbar) - DISABLED PER USER REQUEST -->
@@ -4854,6 +4837,11 @@
     function toggleQwen() {
       console.log('[UI] toggleQwen - usando BrowserView (evita X-Frame-Options)');
 
+      // IMPORTANTE: Seleccionar Qwen como proveedor antes de abrir el panel
+      if (state.currentProvider !== 'qwen') {
+        selectProviderModel('qwen', PROVIDERS.qwen.defaultModel);
+      }
+
       const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
       const label = document.getElementById('qwenLabel');
 
@@ -4869,6 +4857,9 @@
         .then(() => {
           if (state.qwen.panelVisible) {
             addTerminalLine('✅ QWEN3 abierto');
+            // Renderizar modelos cuando se abre Qwen
+            updateModelUI();
+            renderModelLists();
           } else {
             addTerminalLine('QWEN3 cerrado');
           }
@@ -5195,6 +5186,22 @@
         sendBtn.setAttribute('aria-busy', 'true');
       }
 
+      // VALIDAR: Verificar que hay un proveedor seleccionado
+      if (!state.currentProvider) {
+        addTerminalLine('⚠️ ERROR: Debes seleccionar un proveedor antes de enviar mensajes');
+        const notif = document.createElement('div');
+        notif.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger); color: var(--danger); padding: 12px 16px; border-radius: 8px; z-index: 1001; max-width: 300px; font-size: 12px;';
+        notif.textContent = '⚠️ Selecciona un proveedor (Groq, Qwen, etc.) antes de enviar mensajes';
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 5000);
+        if (sendBtn) {
+          sendBtn.disabled = false;
+          sendBtn.classList.remove('loading');
+          sendBtn.removeAttribute('aria-busy');
+        }
+        return;
+      }
+
       try {
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('messagesContainer').classList.add('visible');
@@ -5209,6 +5216,10 @@
 
         // Obtener modelo actual del proveedor actual
         const provider = PROVIDERS[state.currentProvider];
+        if (!provider) {
+          throw new Error(`Proveedor "${state.currentProvider}" no encontrado`);
+        }
+
         const modelId = state.currentModel || provider?.defaultModel || 'llama-3.3-70b-versatile';
 
         const meta = {
@@ -5740,13 +5751,16 @@
       });
 
       // PASO 2: Si hay un proveedor seleccionado, marcarlo como activo
-      if (state.currentProvider) {
+      // NOTA: Qwen ya no tiene botón en la barra (solo el verde de la sidebar)
+      if (state.currentProvider && state.currentProvider !== 'qwen') {
         const currentBtnId = `provider${state.currentProvider.charAt(0).toUpperCase() + state.currentProvider.slice(1)}`;
         const currentBtn = document.getElementById(currentBtnId);
         if (currentBtn) {
           currentBtn.classList.add('active');
           console.log(`[Provider Init] ${state.currentProvider.toUpperCase()} está activo (${state.currentModel})`);
         }
+      } else if (state.currentProvider === 'qwen') {
+        console.log(`[Provider Init] QWEN está activo (${state.currentModel}) - usa botón verde de sidebar`);
       } else {
         console.log(`[Provider Init] Ningún proveedor seleccionado - el usuario debe seleccionar uno`);
       }
@@ -5820,15 +5834,20 @@
       console.log(`   NOMBRE: ${modelName}`);
 
       // PASO 3: Marcar SOLO el botón del proveedor seleccionado como activo
-      const currentBtnId = `provider${provider.charAt(0).toUpperCase() + provider.slice(1)}`;
-      const currentBtn = document.getElementById(currentBtnId);
-      if (currentBtn) {
-        currentBtn.classList.add('active');
-        const label = currentBtn.querySelector('.provider-name-small');
-        if (label) label.textContent = modelName;
-        console.log(`   ✅ Botón iluminado: ${provider} (ID: ${currentBtnId})`);
+      // NOTA: Qwen ya no tiene botón en la barra (solo el verde de la sidebar)
+      if (provider !== 'qwen') {
+        const currentBtnId = `provider${provider.charAt(0).toUpperCase() + provider.slice(1)}`;
+        const currentBtn = document.getElementById(currentBtnId);
+        if (currentBtn) {
+          currentBtn.classList.add('active');
+          const label = currentBtn.querySelector('.provider-name-small');
+          if (label) label.textContent = modelName;
+          console.log(`   ✅ Botón iluminado: ${provider} (ID: ${currentBtnId})`);
+        } else {
+          console.error(`   ❌ Botón no encontrado: ${currentBtnId}`);
+        }
       } else {
-        console.error(`   ❌ Botón no encontrado: ${currentBtnId}`);
+        console.log(`   ✅ Qwen seleccionado (usa botón verde de sidebar)`);
       }
 
       // Cerrar dropdown
@@ -5839,6 +5858,11 @@
 
       // Actualizar UI del modelo superior
       updateModelUI();
+
+      // Si es Qwen, renderizar modelos en el selector superior
+      if (provider === 'qwen') {
+        renderModelLists();
+      }
 
       // Añadir a terminal
       addTerminalLine(`✅ MODELO ACTIVO: ${provider.toUpperCase()} → ${modelName}`);
