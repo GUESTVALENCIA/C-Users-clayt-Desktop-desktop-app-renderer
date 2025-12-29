@@ -1,6 +1,4 @@
-const { Configuration, OpenAIApi } = require('openai');
-
-// Servicio para conectar con Ollama
+// Servicio para conectar con Ollama (OpenAI SDK removido - no se usa)
 class OllamaService {
   constructor() {
     // Configurar la URL base para Ollama
