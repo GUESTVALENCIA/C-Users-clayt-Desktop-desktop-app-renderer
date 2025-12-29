@@ -36,6 +36,18 @@ try {
   chatService = null;
 }
 
+// ============ MCP UNIVERSAL CLIENT - Sincronización en tiempo real ============
+const { MCPClient } = require('./mcp-client');
+let mcpUniversalClient = null;
+
+// ============ AI MODELS MANAGER - Modelos Embebidos ============
+const { AIModelsManager } = require('./ai-models-manager');
+let aiModelsManager = null;
+
+// ============ AUTO ORCHESTRATOR - Multi-Agent Consensus ============
+const { AutoOrchestrator } = require('./auto-orchestrator');
+let autoOrchestrator = null;
+
 // Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
   console.error('[Main] ❌ Uncaught Exception:', error);
@@ -568,7 +580,65 @@ app.whenReady().then(() => {
   // try { createQwenMonitor(false); } catch (e) { console.warn('No se pudo iniciar monitor QWEN:', e.message); }
 
   createWindow();
-  
+
+  // ============ CONECTAR MCP UNIVERSAL CLIENT ============
+  // Esto sincroniza StudioLab con todos los otros editores (VS Code, Cursor, Antigravity)
+  mcpUniversalClient = new MCPClient('wss://pwa-imbf.onrender.com');
+
+  mcpUniversalClient.connect(process.env.MCP_AUTH_TOKEN || 'default-token')
+    .then(() => {
+      console.log('[Main] ✅ StudioLab sincronizado con MCP Universal');
+
+      // Escuchar propuestas de otros agentes
+      mcpUniversalClient.on('PROPOSAL_CREATED', (data) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('mcp:newProposal', data);
+        }
+      });
+
+      // Escuchar actualizaciones de implementación
+      mcpUniversalClient.on('IMPLEMENTATION_PROGRESS', (data) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('mcp:implementationUpdate', data);
+        }
+      });
+
+      // Escuchar reviews
+      mcpUniversalClient.on('REVIEW_SUBMITTED', (data) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('mcp:reviewReceived', data);
+        }
+      });
+    })
+    .catch((error) => {
+      console.error('[Main] ❌ Error conectando a MCP Universal:', error.message);
+      console.warn('[Main] Sistema funcionará en modo local sin sincronización');
+    });
+
+  // Exponer mcpUniversalClient globalmente para IPC handlers
+  global.mcpUniversalClient = mcpUniversalClient;
+
+  // ============ INICIALIZAR AI MODELS MANAGER ============
+  // Esto carga los BrowserViews para ChatGPT, QWEN, Gemini, DeepSeek
+  aiModelsManager = new AIModelsManager(mainWindow);
+
+  // Crear vistas para cada modelo (NO mostrar aún, solo cargar en background)
+  aiModelsManager.createModelView('chatgpt', 'https://chatgpt.com/', 'chatgpt-plus');
+  aiModelsManager.createModelView('qwen', 'https://chat.qwenlm.ai/', 'qwen3');
+  aiModelsManager.createModelView('gemini', 'https://gemini.google.com/', 'gemini');
+  aiModelsManager.createModelView('deepseek', 'https://chat.deepseek.com/', 'deepseek');
+
+  // Exponer globalmente para IPC handlers
+  global.aiModelsManager = aiModelsManager;
+
+  console.log('[Main] ✅ Modelos AI embebidos cargados en background');
+
+  // ============ INICIALIZAR AUTO ORCHESTRATOR ============
+  // Sistema de orquestación multi-agente que coordina consultas paralelas
+  autoOrchestrator = new AutoOrchestrator();
+  global.autoOrchestrator = autoOrchestrator;
+  console.log('[Main] ✅ Auto Orchestrator inicializado');
+
   // Sistema QWEN embebido - se inicializa cuando el usuario hace clic (no precargar)
   // Arrancar vigilancia y eventos de API al inicializar
   try { watchCritical(); } catch (e) { console.warn('watchCritical failed:', e.message); }
@@ -1746,5 +1816,184 @@ ipcMain.handle('shell:openExternal', async (_e, { url }) => {
   return { success: false, error: 'Ventanas externas bloqueadas - use iframe embebido' };
 });
 
+// ============================================================================
+// MCP UNIVERSAL HANDLERS - Sincronización Multi-Agente
+// ============================================================================
+
+ipcMain.handle('mcp:sendProposal', async (_, data) => {
+  if (!global.mcpUniversalClient) {
+    return { success: false, error: 'MCP Client no inicializado' };
+  }
+
+  try {
+    await global.mcpUniversalClient.sendProposal({
+      title: data.title || 'Propuesta sin título',
+      description: data.description || '',
+      changes: data.changes || {},
+      project: data.project || 'default'
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('[MCP] Error enviando propuesta:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('mcp:sendReview', async (_, data) => {
+  if (!global.mcpUniversalClient) {
+    return { success: false, error: 'MCP Client no inicializado' };
+  }
+
+  try {
+    await global.mcpUniversalClient.sendReview(data.proposalId, data.rating, data.feedback || '');
+    return { success: true };
+  } catch (error) {
+    console.error('[MCP] Error enviando review:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.on('mcp:streamProgress', (_, data) => {
+  if (!global.mcpUniversalClient) {
+    console.warn('[MCP] Client no inicializado para streaming');
+    return;
+  }
+
+  try {
+    global.mcpUniversalClient.streamImplementation(data);
+  } catch (error) {
+    console.error('[MCP] Error streaming progreso:', error);
+  }
+});
+
+ipcMain.handle('mcp:status', async () => {
+  if (!global.mcpUniversalClient) {
+    return { connected: false, error: 'MCP Client no inicializado' };
+  }
+
+  return {
+    connected: global.mcpUniversalClient.isConnected,
+    serverUrl: global.mcpUniversalClient.serverUrl,
+    timestamp: Date.now()
+  };
+});
+
+// ============================================================================
+// AI MODELS HANDLERS - Controlar BrowserViews embebidos
+// ============================================================================
+
+ipcMain.handle('ai-models:show', async (_, { modelId, width }) => {
+  if (!global.aiModelsManager) {
+    return { success: false, error: 'AI Models Manager no inicializado' };
+  }
+
+  try {
+    const result = global.aiModelsManager.showModel(modelId, width || 0.35);
+    return result;
+  } catch (error) {
+    console.error('[AI Models] Error mostrando modelo:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ai-models:hide', async () => {
+  if (!global.aiModelsManager) {
+    return { success: false, error: 'AI Models Manager no inicializado' };
+  }
+
+  try {
+    const result = global.aiModelsManager.hideAll();
+    return result;
+  } catch (error) {
+    console.error('[AI Models] Error ocultando:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ai-models:send', async (_, { modelId, message }) => {
+  if (!global.aiModelsManager) {
+    return { success: false, error: 'AI Models Manager no inicializado' };
+  }
+
+  try {
+    await global.aiModelsManager.sendMessage(modelId, message);
+    return { success: true };
+  } catch (error) {
+    console.error('[AI Models] Error enviando mensaje:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ai-models:list', async () => {
+  if (!global.aiModelsManager) {
+    return { models: [], error: 'AI Models Manager no inicializado' };
+  }
+
+  try {
+    const models = global.aiModelsManager.listModels();
+    return { success: true, models };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ AUTO ORCHESTRATOR IPC HANDLERS ============
+ipcMain.handle('auto:query', async (_, { message }) => {
+  if (!global.autoOrchestrator) {
+    return { success: false, error: 'Auto Orchestrator no inicializado' };
+  }
+
+  if (!global.aiModelsManager) {
+    return { success: false, error: 'AI Models Manager no inicializado' };
+  }
+
+  if (!global.mcpUniversalClient) {
+    return { success: false, error: 'MCP Universal Client no inicializado' };
+  }
+
+  try {
+    console.log('[AUTO IPC] Iniciando consulta multi-modelo...');
+    const result = await global.autoOrchestrator.query(
+      message,
+      global.mcpUniversalClient,
+      global.aiModelsManager,
+      mainWindow
+    );
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('[AUTO] Error en consulta:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('auto:getActiveQueries', async () => {
+  if (!global.autoOrchestrator) {
+    return { queries: [] };
+  }
+
+  try {
+    const queries = global.autoOrchestrator.getActiveQueries();
+    return { success: true, queries };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('auto:cancelQuery', async (_, { queryId }) => {
+  if (!global.autoOrchestrator) {
+    return { success: false, error: 'Auto Orchestrator no inicializado' };
+  }
+
+  try {
+    const cancelled = global.autoOrchestrator.cancelQuery(queryId);
+    return { success: cancelled };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+console.log('✅ IPC Handlers AI Models registrados');
+console.log('✅ IPC Handlers AUTO Orchestrator registrados');
+console.log('✅ IPC Handlers MCP Universal registrados');
 console.log('✅ IPC Handlers Sandra IA (Groq) registrados');
 console.log('📱 Arquitectura: Sandra IA (Groq) + iframes independientes para QWEN, Claude, GPT');
