@@ -1245,17 +1245,20 @@ ipcMain.handle('qwen:toggle', async (_e, show) => {
     // Asignar al mainWindow
     mainWindow.setBrowserView(qwenBrowserView);
 
-    // Configurar posición y tamaño (igual que sidebar)
+    // Configurar posición y tamaño como PANEL LATERAL (no overlay completo)
+    // Panel lateral derecho ocupando 40% del ancho
     const { width, height } = mainWindow.getContentBounds();
+    const panelWidth = Math.floor(width * 0.4);  // 40% del ancho para QWEN3
+
     qwenBrowserView.setBounds({
-      x: 52,        // Ancho del sidebar
-      y: 44,        // Alto del menubar
-      width: width - 52,
-      height: height - 44
+      x: width - panelWidth,  // Colocar en la derecha
+      y: 44,                  // Alto del menubar
+      width: panelWidth,      // 40% del ancho
+      height: height - 44     // Alto restante
     });
 
-    console.log('[QWEN3] ✅ BrowserView visible');
-    return { success: true, message: 'QWEN3 visible' };
+    console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
+    return { success: true, message: 'QWEN3 visible (panel lateral)' };
 
   } else {
     // OCULTAR QWEN3 BrowserView
