@@ -362,9 +362,16 @@ function createWindow() {
     // Mostrar ventana cuando esté lista
     mainWindow.once('ready-to-show', () => {
       console.log('[Main] Ventana lista, mostrando...');
-      // Asegurar que NO hay BrowserView adjuntado (el HTML principal debe ser visible)
-      if (mainWindow.getBrowserView()) {
+      // CRÍTICO: Asegurar que NO hay BrowserView adjuntado (el HTML principal debe ser visible)
+      // Esto previene que cualquier BrowserView bloque la vista principal
+      const existingView = mainWindow.getBrowserView();
+      if (existingView) {
+        console.log('[Main] ⚠️  Eliminando BrowserView existente que estaba bloqueando la vista');
         mainWindow.setBrowserView(null);
+        // Destruir el BrowserView si existe
+        if (existingView.webContents) {
+          existingView.webContents.destroy();
+        }
       }
       mainWindow.show();
       mainWindow.focus();
