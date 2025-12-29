@@ -4642,7 +4642,7 @@
           try {
             const result = await window.sandraAPI.chatSend('groq', payload.message || '', payload.mode || 'user');
             if (result.success) {
-              return { text: result.response || result.message || '', provider: 'groq', model: 'qwen2.5-72b-instruct' };
+              return { text: result.response || result.message || '', provider: 'groq', model: 'llama-3.3-70b-versatile' };
             } else {
               throw new Error(result.error || 'Error en Groq API');
             }
