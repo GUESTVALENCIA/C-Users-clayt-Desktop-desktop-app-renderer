@@ -2413,8 +2413,8 @@
                 <span>Buscar</span>
               </button>
 
-              <!-- QWEN Connect Button -->
-              <button class="toolbar-btn qwen-btn" id="qwenBtn" onclick="toggleQwen()">
+              <!-- QWEN Connect Button (Toolbar) -->
+              <button class="toolbar-btn qwen-btn" id="qwenBtnToolbar" onclick="toggleQwen()">
                 <span class="toolbar-btn-icon">🤖</span>
                 <span id="qwenLabel">QWEN</span>
               </button>
@@ -3555,45 +3555,66 @@
     // QWEN PANEL TOGGLE (Embedded)
     // ============================================
     async function toggleQwen() {
-      const btn = document.getElementById('qwenBtn');
+      // Buscar botón en sidebar o toolbar (hay dos botones con diferentes IDs)
+      const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
       const label = document.getElementById('qwenLabel');
       
-      const isCurrentlyVisible = !state.qwen.panelVisible;
-      state.qwen.panelVisible = isCurrentlyVisible;
+      // Invertir estado actual
+      const isCurrentlyVisible = state.qwen.panelVisible;
+      const newState = !isCurrentlyVisible;
+      
+      console.log('[UI] toggleQwen llamado - Estado actual:', isCurrentlyVisible, '→ Nuevo estado:', newState);
+      
+      // Actualizar estado ANTES de llamar a la API
+      state.qwen.panelVisible = newState;
       
       try {
         // QWEN usa BrowserView - manejado completamente desde main.js
         if (window.sandraAPI?.qwenToggle) {
-          const result = await window.sandraAPI.qwenToggle(isCurrentlyVisible);
+          console.log('[UI] Llamando a window.sandraAPI.qwenToggle(', newState, ')');
+          const result = await window.sandraAPI.qwenToggle(newState);
+          console.log('[UI] Resultado de qwenToggle:', result);
+          
           if (result && result.success) {
-            if (isCurrentlyVisible) {
-              if (btn) btn.classList.add('active');
+            if (newState) {
+              // QWEN se está mostrando
+              if (btn) {
+                btn.classList.add('active');
+                console.log('[UI] Botón QWEN activado');
+              }
               if (label) label.textContent = 'QWEN ON';
-              addTerminalLine('✅ QWEN abierto - cargando...');
+              addTerminalLine('✅ QWEN abierto - cargando URL embebida...');
               state.qwen.connected = true;
               state.qwen.panelVisible = true;
             } else {
-              if (btn) btn.classList.remove('active');
+              // QWEN se está ocultando
+              if (btn) {
+                btn.classList.remove('active');
+                console.log('[UI] Botón QWEN desactivado');
+              }
               if (label) label.textContent = 'QWEN';
-              addTerminalLine('QWEN cerrado');
+              addTerminalLine('QWEN cerrado - UI restaurada');
               state.qwen.connected = false;
               state.qwen.panelVisible = false;
             }
           } else {
             const errorMsg = result?.error || 'Error desconocido';
-            console.error('Error toggle QWEN:', errorMsg);
+            console.error('[UI] Error toggle QWEN:', errorMsg);
             addTerminalLine(`❌ Error: ${errorMsg}`);
-            // Restaurar estado
-            state.qwen.panelVisible = !isCurrentlyVisible;
+            // Restaurar estado anterior
+            state.qwen.panelVisible = isCurrentlyVisible;
+            if (btn) btn.classList.toggle('active', isCurrentlyVisible);
           }
         } else {
-          throw new Error('QWEN API no disponible');
+          console.error('[UI] window.sandraAPI.qwenToggle no disponible');
+          throw new Error('QWEN API no disponible - window.sandraAPI no está cargado');
         }
       } catch (e) {
-        console.error('Error toggle QWEN:', e);
+        console.error('[UI] Excepción en toggleQwen:', e);
         addTerminalLine(`❌ Error: ${e.message}`);
-        // Restaurar estado en caso de error
-        state.qwen.panelVisible = !isCurrentlyVisible;
+        // Restaurar estado anterior en caso de error
+        state.qwen.panelVisible = isCurrentlyVisible;
+        if (btn) btn.classList.toggle('active', isCurrentlyVisible);
       }
     }
 
@@ -4240,6 +4261,23 @@
     // INITIALIZATION - QWEN Panel Ready
     // ============================================
     console.log('✅ QWEN Panel embebido disponible - Click en botón azul para abrir');
+    
+    // Listener: Cuando QWEN se oculta, restaurar UI
+    try {
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.on('qwen:view-hidden', () => {
+        console.log('[UI] QWEN BrowserView ocultado - restaurando UI');
+        state.qwen.panelVisible = false;
+        state.qwen.connected = false;
+        const btn = document.getElementById('qwenBtn');
+        if (btn) btn.classList.remove('active');
+        const label = document.getElementById('qwenLabel');
+        if (label) label.textContent = 'QWEN';
+        addTerminalLine('QWEN cerrado - UI restaurada');
+      });
+    } catch (e) {
+      console.warn('[UI] IPC no disponible para qwen:view-hidden');
+    }
   </script>
 </body>
 </html>
