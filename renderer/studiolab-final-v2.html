@@ -3937,11 +3937,7 @@
         closeAllDropdowns('modelSelector');
         toggleModelDropdown();
         
-        // Si se abre y es Qwen, renderizar modelos
-        const selector = document.getElementById('modelSelector');
-        if (selector && selector.classList.contains('active') && state.currentProvider === 'qwen') {
-          renderModelLists();
-        }
+        // renderModelLists se llama desde toggleModelDropdown
       });
 
       moreBtn?.addEventListener('click', (e) => {
@@ -3971,11 +3967,8 @@
       if (!next) {
         selector.classList.remove('more-open');
       } else {
-        // Cuando se abre el dropdown, renderizar modelos si es Qwen
-        if (state.currentProvider === 'qwen') {
-          console.log('[toggleModelDropdown] Dropdown abierto para Qwen, renderizando modelos...');
-          renderModelLists();
-        }
+        // SIEMPRE renderizar modelos de Qwen cuando se abre el dropdown
+        renderModelLists();
       }
     }
 
@@ -4085,106 +4078,75 @@
         subEl.textContent = `${state.currentProvider.toUpperCase()} · ${contextStr} ctx`;
       }
 
-      // Si es Qwen, renderizar la lista de modelos también
-      if (state.currentProvider === 'qwen') {
-        console.log('[updateModelUI] Proveedor es Qwen, llamando renderModelLists()...');
-        renderModelLists();
-      }
+      // No renderizar aquí - se renderiza cuando se abre el dropdown
     }
 
     function renderModelLists() {
-      console.log('[renderModelLists] Iniciando renderizado...', { currentProvider: state.currentProvider });
+      // SIEMPRE renderizar modelos de Qwen cuando se abre el dropdown (no requiere proveedor seleccionado)
+      const provider = PROVIDERS.qwen;
+      if (!provider || !provider.models) {
+        console.error('[renderModelLists] ❌ Provider o models no encontrados');
+        return;
+      }
+
+      const primaryEl = document.getElementById('modelListPrimary');
+      const moreEl = document.getElementById('modelListMore');
       
-      // Si el proveedor actual es Qwen, renderizar sus modelos en el selector superior
-      if (state.currentProvider === 'qwen') {
-        const provider = PROVIDERS.qwen;
-        if (!provider || !provider.models) {
-          console.error('[renderModelLists] ❌ Provider o models no encontrados', { provider: !!provider, models: provider?.models });
-          return;
-        }
+      if (!primaryEl || !moreEl) {
+        console.error('[renderModelLists] ❌ Elementos DOM no encontrados');
+        return;
+      }
 
-        // Esperar un poco para asegurar que los elementos DOM están disponibles
-        setTimeout(() => {
-          const primaryEl = document.getElementById('modelListPrimary');
-          const moreEl = document.getElementById('modelListMore');
-          
-          console.log('[renderModelLists] Elementos DOM:', { 
-            primaryEl: !!primaryEl, 
-            moreEl: !!moreEl,
-            modelsCount: Object.keys(provider.models).length 
+      // Convertir modelos de PROVIDERS a formato de lista
+      const modelsList = Object.entries(provider.models).map(([id, config]) => ({
+        id,
+        name: config.name,
+        context: config.context
+      }));
+
+      // Separar en primarios (primeros 6) y más (resto)
+      const primary = modelsList.slice(0, 6);
+      const more = modelsList.slice(6);
+
+      const render = (root, list) => {
+        if (!root) return;
+        root.innerHTML = '';
+        
+        list.forEach((m) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          const isSelected = (state.currentProvider === 'qwen' && m.id === state.currentModel);
+          btn.className = 'model-option' + (isSelected ? ' selected' : '');
+          btn.dataset.modelId = m.id;
+
+          const ctx = formatCompactNumber(m.context || 0);
+          btn.innerHTML = `
+            <div class="model-option-left">
+              <div class="model-option-name">${m.name || m.id}</div>
+            </div>
+            <div class="model-option-right">
+              <div class="model-option-context">${ctx}</div>
+              ${isSelected ? '<div class="model-option-check">✓</div>' : ''}
+            </div>
+          `;
+
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Seleccionar Qwen como proveedor y el modelo
+            selectProviderModel('qwen', m.id);
           });
-          
-          if (!primaryEl || !moreEl) {
-            console.error('[renderModelLists] ❌ Elementos DOM no encontrados (modelListPrimary o modelListMore)');
-            console.error('[renderModelLists] primaryEl:', primaryEl);
-            console.error('[renderModelLists] moreEl:', moreEl);
-            return;
-          }
 
-          // Convertir modelos de PROVIDERS a formato de lista
-          const modelsList = Object.entries(provider.models).map(([id, config]) => ({
-            id,
-            name: config.name,
-            context: config.context
-          }));
+          root.appendChild(btn);
+        });
+      };
 
-          console.log('[renderModelLists] Modelos procesados:', modelsList.length, modelsList.map(m => m.name));
+      render(primaryEl, primary);
+      render(moreEl, more);
 
-          // Separar en primarios (primeros 6) y más (resto)
-          const primary = modelsList.slice(0, 6);
-          const more = modelsList.slice(6);
-
-          console.log('[renderModelLists] Separación:', { primary: primary.length, more: more.length });
-
-          const render = (root, list) => {
-            if (!root) {
-              console.error('[renderModelLists] Root element no existe');
-              return;
-            }
-            
-            root.innerHTML = '';
-            console.log(`[renderModelLists] Renderizando ${list.length} modelos en`, root.id);
-            
-            list.forEach((m) => {
-              const btn = document.createElement('button');
-              btn.type = 'button';
-              const isSelected = m.id === state.currentModel;
-              btn.className = 'model-option' + (isSelected ? ' selected' : '');
-              btn.dataset.modelId = m.id;
-
-              const ctx = formatCompactNumber(m.context || 0);
-              btn.innerHTML = `
-                <div class="model-option-left">
-                  <div class="model-option-name">${m.name || m.id}</div>
-                </div>
-                <div class="model-option-right">
-                  <div class="model-option-context">${ctx}</div>
-                  ${isSelected ? '<div class="model-option-check">✓</div>' : ''}
-                </div>
-              `;
-
-              btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                selectProviderModel('qwen', m.id);
-              });
-
-              root.appendChild(btn);
-            });
-          };
-
-          render(primaryEl, primary);
-          render(moreEl, more);
-
-          // Mostrar/ocultar botón "más" según si hay modelos adicionales
-          const moreBtn = document.getElementById('modelMoreBtn');
-          if (moreBtn) {
-            moreBtn.style.display = more.length > 0 ? 'flex' : 'none';
-          }
-
-          console.log('[renderModelLists] ✅ Renderizado completado - Modelos visibles en el dropdown');
-        }, 100); // Pequeño delay para asegurar que el DOM está listo
-      } else {
-        console.log('[renderModelLists] Proveedor no es Qwen, no se renderiza nada');
+      // Mostrar/ocultar botón "más" según si hay modelos adicionales
+      const moreBtn = document.getElementById('modelMoreBtn');
+      if (moreBtn) {
+        moreBtn.style.display = more.length > 0 ? 'flex' : 'none';
       }
     }
 
