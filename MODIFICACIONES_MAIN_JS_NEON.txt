@@ -26,8 +26,12 @@ function startNeonMCPServer() {
       return;
     }
     
-    // Verificar si DATABASE_URL está configurado (o usar URL directa)
-    const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_G2baKCg4FlyN@ep-fragrant-meadow-ah27lbiy-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+    // Verificar si DATABASE_URL está configurado
+    if (!process.env.DATABASE_URL) {
+      console.warn('[Main] ⚠️ DATABASE_URL no configurada en variables de entorno');
+      return;
+    }
+    const DATABASE_URL = process.env.DATABASE_URL;
     
     console.log('[Main] 🚀 Iniciando MCP Server NEON...');
     neonMCPServer = spawn('python', [neonServerPath], {
