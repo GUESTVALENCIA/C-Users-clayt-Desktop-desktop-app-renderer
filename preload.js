@@ -179,7 +179,12 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   onAutoModeChanged: (callback) => ipcRenderer.on('qwen:autoModeChanged', (event, data) => callback(data)),
   onModelSwitched: (callback) => ipcRenderer.on('qwen:modelSwitched', (event, data) => callback(data)),
   onAppStatus: (callback) => ipcRenderer.on('app-status', (_event, data) => callback(data)),
-  onQwenResponse: (callback) => ipcRenderer.on('qwen:response', (_event, data) => callback(data)),
+  onQwenResponse: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('qwen:response', handler);
+    // Retornar función para remover listener si es necesario
+    return () => ipcRenderer.removeListener('qwen:response', handler);
+  },
   // Eventos de visibilidad del BrowserView
   onQwenViewShown: (callback) => ipcRenderer.on('qwen:view-shown', (_event) => callback()),
   onQwenViewHidden: (callback) => ipcRenderer.on('qwen:view-hidden', (_event) => callback()),
@@ -205,6 +210,11 @@ contextBridge.exposeInMainWorld('sandraAPI', {
       console.warn(`[Preload] Evento desconocido para off: ${eventName}`);
     }
   },
+  
+  // Métodos específicos para remover listeners
+  offQwenResponse: (callback) => ipcRenderer.removeListener('qwen:response', callback),
+  offQwenViewShown: (callback) => ipcRenderer.removeListener('qwen:view-shown', callback),
+  offQwenViewHidden: (callback) => ipcRenderer.removeListener('qwen:view-hidden', callback),
 
   // ==================== AUTENTICACIÓN ====================
   authStartGoogle: () => ipcRenderer.invoke('auth:startGoogle'),
