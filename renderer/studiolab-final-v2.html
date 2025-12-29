@@ -3094,20 +3094,12 @@
                         <span>GPT-4o</span>
                       </label>
                       <label class="provider-model-checkbox">
-                        <input type="radio" name="openai-model" value="gpt-4o-mini" onchange="selectProviderModel('openai', 'gpt-4o-mini')" />
-                        <span>GPT-4o Mini</span>
+                        <input type="radio" name="openai-model" value="gpt-5.2-2025-12-11" onchange="selectProviderModel('openai', 'gpt-5.2-2025-12-11')" />
+                        <span>GPT-5.2 (Latest)</span>
                       </label>
                       <label class="provider-model-checkbox">
-                        <input type="radio" name="openai-model" value="gpt-4-turbo" onchange="selectProviderModel('openai', 'gpt-4-turbo')" />
-                        <span>GPT-4 Turbo</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="openai-model" value="gpt-4" onchange="selectProviderModel('openai', 'gpt-4')" />
-                        <span>GPT-4</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="openai-model" value="gpt-3.5-turbo" onchange="selectProviderModel('openai', 'gpt-3.5-turbo')" />
-                        <span>GPT-3.5 Turbo</span>
+                        <input type="radio" name="openai-model" value="o3-2025-04-16" onchange="selectProviderModel('openai', 'o3-2025-04-16')" />
+                        <span>O3 (Reasoning)</span>
                       </label>
                     </div>
                   </div>
@@ -3122,105 +3114,67 @@
                     <div class="provider-models">
                       <label class="provider-model-checkbox">
                         <input type="radio" name="groq-model" value="llama-3.3-70b-versatile" onchange="selectProviderModel('groq', 'llama-3.3-70b-versatile')" checked />
-                        <span>Llama 3.3 70B</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="groq-model" value="llama-3.1-70b-versatile" onchange="selectProviderModel('groq', 'llama-3.1-70b-versatile')" />
-                        <span>Llama 3.1 70B</span>
+                        <span>Llama 3.3 70B (RECOMENDADO)</span>
                       </label>
                       <label class="provider-model-checkbox">
                         <input type="radio" name="groq-model" value="llama-3.1-8b-instant" onchange="selectProviderModel('groq', 'llama-3.1-8b-instant')" />
-                        <span>Llama 3.1 8B</span>
+                        <span>Llama 3.1 8B Instant</span>
                       </label>
                       <label class="provider-model-checkbox">
-                        <input type="radio" name="groq-model" value="mixtral-8x7b-32768" onchange="selectProviderModel('groq', 'mixtral-8x7b-32768')" />
-                        <span>Mixtral 8x7B</span>
+                        <input type="radio" name="groq-model" value="openai/gpt-oss-120b" onchange="selectProviderModel('groq', 'openai/gpt-oss-120b')" />
+                        <span>GPT-OSS 120B</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="openai/gpt-oss-20b" onchange="selectProviderModel('groq', 'openai/gpt-oss-20b')" />
+                        <span>GPT-OSS 20B</span>
                       </label>
                       <label class="provider-model-checkbox">
                         <input type="radio" name="groq-model" value="meta-llama/llama-4-scout-17b-16e-instruct" onchange="selectProviderModel('groq', 'meta-llama/llama-4-scout-17b-16e-instruct')" />
-                        <span>Llama 4 Scout Vision</span>
+                        <span>Llama 4 Scout (Vision)</span>
                       </label>
                       <label class="provider-model-checkbox">
                         <input type="radio" name="groq-model" value="meta-llama/llama-4-maverick-17b-128e-instruct" onchange="selectProviderModel('groq', 'meta-llama/llama-4-maverick-17b-128e-instruct')" />
-                        <span>Llama 4 Maverick Vision</span>
+                        <span>Llama 4 Maverick (Vision)</span>
                       </label>
                       <label class="provider-model-checkbox">
-                        <input type="radio" name="groq-model" value="groq/compound" onchange="selectProviderModel('groq', 'groq/compound')" />
-                        <span>Groq Compound (Web+Code)</span>
+                        <input type="radio" name="groq-model" value="moonshotai/kimi-k2-instruct-0905" onchange="selectProviderModel('groq', 'moonshotai/kimi-k2-instruct-0905')" />
+                        <span>Kimi K2 (256K)</span>
                       </label>
                       <label class="provider-model-checkbox">
-                        <input type="radio" name="groq-model" value="groq/compound-mini" onchange="selectProviderModel('groq', 'groq/compound-mini')" />
-                        <span>Groq Compound Mini</span>
+                        <input type="radio" name="groq-model" value="qwen/qwen3-32b" onchange="selectProviderModel('groq', 'qwen/qwen3-32b')" />
+                        <span>Qwen 3 32B (262K)</span>
                       </label>
                     </div>
                   </div>
                 </div>
 
-                <!-- Anthropic Provider -->
+                <!-- Anthropic Provider - NO MODELOS DISPONIBLES (Comentado por ahora) -->
+                <!--
                 <div class="provider-btn-group">
-                  <button class="provider-btn" id="providerAnthropic" onclick="toggleProviderDropdown('anthropic', event)" title="Anthropic">
+                  <button class="provider-btn" id="providerAnthropic" onclick="toggleProviderDropdown('anthropic', event)" title="Anthropic" disabled style="opacity: 0.5;">
                     <span class="provider-icon">🧠</span>
                   </button>
                   <div class="provider-dropdown" id="dropdown-anthropic" style="display: none;">
-                    <div class="provider-models">
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="anthropic-model" value="claude-3-5-sonnet-20241022" onchange="selectProviderModel('anthropic', 'claude-3-5-sonnet-20241022')" checked />
-                        <span>Claude 3.5 Sonnet</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="anthropic-model" value="claude-3-5-haiku-20241022" onchange="selectProviderModel('anthropic', 'claude-3-5-haiku-20241022')" />
-                        <span>Claude 3.5 Haiku</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="anthropic-model" value="claude-3-opus-20240229" onchange="selectProviderModel('anthropic', 'claude-3-opus-20240229')" />
-                        <span>Claude 3 Opus</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="anthropic-model" value="claude-3-sonnet-20240229" onchange="selectProviderModel('anthropic', 'claude-3-sonnet-20240229')" />
-                        <span>Claude 3 Sonnet</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="anthropic-model" value="claude-3-haiku-20240307" onchange="selectProviderModel('anthropic', 'claude-3-haiku-20240307')" />
-                        <span>Claude 3 Haiku</span>
-                      </label>
+                    <div class="provider-models" style="text-align: center; padding: 10px; color: #999;">
+                      No hay modelos disponibles
                     </div>
                   </div>
                 </div>
+                -->
 
-                <!-- Gemini Provider -->
+                <!-- Gemini Provider - NO MODELOS DISPONIBLES (Comentado por ahora) -->
+                <!--
                 <div class="provider-btn-group">
-                  <button class="provider-btn" id="providerGemini" onclick="toggleProviderDropdown('gemini', event)" title="Gemini">
+                  <button class="provider-btn" id="providerGemini" onclick="toggleProviderDropdown('gemini', event)" title="Gemini" disabled style="opacity: 0.5;">
                     <span class="provider-icon">✨</span>
                   </button>
                   <div class="provider-dropdown" id="dropdown-gemini" style="display: none;">
-                    <div class="provider-models">
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="gemini-model" value="gemini-2.5-flash" onchange="selectProviderModel('gemini', 'gemini-2.5-flash')" checked />
-                        <span>Gemini 2.5 Flash</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="gemini-model" value="gemini-2.0-flash" onchange="selectProviderModel('gemini', 'gemini-2.0-flash')" />
-                        <span>Gemini 2.0 Flash</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="gemini-model" value="gemini-1.5-pro" onchange="selectProviderModel('gemini', 'gemini-1.5-pro')" />
-                        <span>Gemini 1.5 Pro</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="gemini-model" value="gemini-1.5-flash" onchange="selectProviderModel('gemini', 'gemini-1.5-flash')" />
-                        <span>Gemini 1.5 Flash</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="gemini-model" value="gemini-1.5-flash-8b" onchange="selectProviderModel('gemini', 'gemini-1.5-flash-8b')" />
-                        <span>Gemini 1.5 Flash 8B</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="gemini-model" value="gemini-1-pro" onchange="selectProviderModel('gemini', 'gemini-1-pro')" />
-                        <span>Gemini 1.0 Pro</span>
-                      </label>
+                    <div class="provider-models" style="text-align: center; padding: 10px; color: #999;">
+                      No hay modelos disponibles
                     </div>
                   </div>
                 </div>
+                -->
 
                 <!-- QWEN: Solo disponible como BrowserView embebido (no como API) -->
               </div>
@@ -3514,7 +3468,7 @@
           // Remover .active de buttons que no son el proveedor seleccionado
           document.querySelectorAll('.provider-btn').forEach(btn => {
             const btnProvider = btn.id.replace('provider', '').toLowerCase();
-            if (state.selectedProvider !== btnProvider) {
+            if (state.currentProvider !== btnProvider) {
               btn.classList.remove('active');
             }
           });
@@ -5601,18 +5555,31 @@
      * Configura el estado inicial de los botones de proveedores (Groq por defecto)
      */
     function initProviderButtons() {
-      // Establecer Groq como proveedor por defecto
-      const groqBtn = document.getElementById('providerGroq');
-      if (groqBtn && !state.selectedProvider) {
-        state.selectedProvider = 'groq';
-        state.selectedModel = 'llama-3.3-70b-versatile';
-        state.selectedModelName = 'Llama 3.3 70B';
-
-        // Iluminar botón de Groq
-        groqBtn.classList.add('active');
-
-        console.log('[Provider Init] Groq seleccionado por defecto');
+      // Establecer Groq como proveedor por defecto si no hay nada seleccionado
+      if (!state.currentProvider) {
+        state.currentProvider = 'groq';
+        state.currentModel = 'llama-3.3-70b-versatile';
       }
+
+      // Iluminar botón del proveedor actual
+      const providerNameMap = {
+        'openai': 'Openai',
+        'groq': 'Groq',
+        'anthropic': 'Anthropic',
+        'gemini': 'Gemini',
+        'qwen': 'Qwen'
+      };
+
+      document.querySelectorAll('.provider-btn').forEach(btn => {
+        const btnProvider = btn.id.replace('provider', '').toLowerCase();
+        if (btnProvider === state.currentProvider) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      console.log(`[Provider Init] ${state.currentProvider.toUpperCase()} seleccionado por defecto (${state.currentModel})`);
     }
 
     /**
@@ -5634,13 +5601,10 @@
         d.style.display = 'none';
       });
 
-      // Remover clase .active de todos los botones (excepto si son proveedores seleccionados)
+      // Remover clase .active de todos los botones (excepto si es el proveedor actual)
       document.querySelectorAll('.provider-btn').forEach(b => {
-        // Mantener .active solo si es el proveedor seleccionado actualmente
-        const btnProvider = Array.from(b.classList).some(cls => cls.includes('provider')) ?
-          b.id.replace('provider', '').toLowerCase() : null;
-
-        if (btnProvider && state.selectedProvider === btnProvider) {
+        const btnProvider = b.id.replace('provider', '').toLowerCase();
+        if (btnProvider === state.currentProvider) {
           b.classList.add('active');
         } else {
           b.classList.remove('active');
@@ -5651,8 +5615,10 @@
       if (!isOpen && dropdown) {
         dropdown.style.display = 'block';
         btn.classList.add('active');
+        console.log(`[Provider] Dropdown abierto: ${provider}`);
+      } else {
+        console.log(`[Provider] Dropdown cerrado: ${provider}`);
       }
-      // Si estaba abierto, simplemente se cierra (ya lo hicimos arriba)
     }
 
     /**
@@ -5664,24 +5630,25 @@
       // Obtener nombre del modelo desde configuración
       const providerConfig = PROVIDERS[provider];
       if (!providerConfig || !providerConfig.models[modelId]) {
-        console.error(`[Provider] Modelo inválido: ${provider}/${modelId}`);
+        console.error(`❌ [Provider] Modelo inválido: ${provider}/${modelId}`);
+        addTerminalLine(`❌ Modelo inválido: ${provider}/${modelId}`);
         return;
       }
 
       const modelName = providerConfig.models[modelId].name;
-
-      console.log(`[Provider] Seleccionado ${provider}: ${modelName} (${modelId})`);
+      const oldProvider = state.currentProvider;
+      const oldModel = state.currentModel;
 
       // Actualizar estado
       state.currentProvider = provider;
       state.currentModel = modelId;
 
-      // Remover clase .active de TODOS los botones de proveedores
-      document.querySelectorAll('.provider-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
+      console.log(`✅ [Provider] Cambio de modelo:`);
+      console.log(`   ANTES: ${oldProvider}/${oldModel}`);
+      console.log(`   DESPUÉS: ${provider}/${modelId}`);
+      console.log(`   NOMBRE: ${modelName}`);
 
-      // Actualizar UI del botón del proveedor seleccionado
+      // Actualizar UI de TODOS los botones
       const providerNameMap = {
         'openai': 'Openai',
         'groq': 'Groq',
@@ -5690,16 +5657,18 @@
         'qwen': 'Qwen'
       };
 
-      const buttonId = `provider${providerNameMap[provider] || provider.charAt(0).toUpperCase() + provider.slice(1)}`;
-      const btn = document.getElementById(buttonId);
-
-      if (btn) {
-        // Agregar clase .active para que se ilumine
-        btn.classList.add('active');
-
-        const label = btn.querySelector('.provider-name-small');
-        if (label) label.textContent = modelName;
-      }
+      document.querySelectorAll('.provider-btn').forEach(btn => {
+        const btnProvider = btn.id.replace('provider', '').toLowerCase();
+        if (btnProvider === state.currentProvider) {
+          btn.classList.add('active');
+          const label = btn.querySelector('.provider-name-small');
+          if (label) label.textContent = modelName;
+          console.log(`   ✅ Botón iluminado: ${btnProvider}`);
+        } else {
+          btn.classList.remove('active');
+          console.log(`   ⭕ Botón apagado: ${btnProvider}`);
+        }
+      });
 
       // Cerrar dropdown
       const dropdown = document.getElementById(`dropdown-${provider}`);
@@ -5708,7 +5677,7 @@
       }
 
       // Añadir a terminal
-      addTerminalLine(`📦 Proveedor: ${provider.toUpperCase()} → ${modelName}`);
+      addTerminalLine(`✅ MODELO ACTIVO: ${provider.toUpperCase()} → ${modelName}`);
     }
 
     /**
