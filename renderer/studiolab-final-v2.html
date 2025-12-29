@@ -4099,85 +4099,90 @@
       if (state.currentProvider === 'qwen') {
         const provider = PROVIDERS.qwen;
         if (!provider || !provider.models) {
-          console.error('[renderModelLists] ❌ Provider o models no encontrados');
+          console.error('[renderModelLists] ❌ Provider o models no encontrados', { provider: !!provider, models: provider?.models });
           return;
         }
 
-        const primaryEl = document.getElementById('modelListPrimary');
-        const moreEl = document.getElementById('modelListMore');
-        
-        console.log('[renderModelLists] Elementos DOM:', { 
-          primaryEl: !!primaryEl, 
-          moreEl: !!moreEl,
-          modelsCount: Object.keys(provider.models).length 
-        });
-        
-        if (!primaryEl || !moreEl) {
-          console.error('[renderModelLists] ❌ Elementos DOM no encontrados (modelListPrimary o modelListMore)');
-          return;
-        }
-
-        // Convertir modelos de PROVIDERS a formato de lista
-        const modelsList = Object.entries(provider.models).map(([id, config]) => ({
-          id,
-          name: config.name,
-          context: config.context
-        }));
-
-        console.log('[renderModelLists] Modelos procesados:', modelsList.length);
-
-        // Separar en primarios (primeros 6) y más (resto)
-        const primary = modelsList.slice(0, 6);
-        const more = modelsList.slice(6);
-
-        console.log('[renderModelLists] Separación:', { primary: primary.length, more: more.length });
-
-        const render = (root, list) => {
-          if (!root) {
-            console.error('[renderModelLists] Root element no existe');
+        // Esperar un poco para asegurar que los elementos DOM están disponibles
+        setTimeout(() => {
+          const primaryEl = document.getElementById('modelListPrimary');
+          const moreEl = document.getElementById('modelListMore');
+          
+          console.log('[renderModelLists] Elementos DOM:', { 
+            primaryEl: !!primaryEl, 
+            moreEl: !!moreEl,
+            modelsCount: Object.keys(provider.models).length 
+          });
+          
+          if (!primaryEl || !moreEl) {
+            console.error('[renderModelLists] ❌ Elementos DOM no encontrados (modelListPrimary o modelListMore)');
+            console.error('[renderModelLists] primaryEl:', primaryEl);
+            console.error('[renderModelLists] moreEl:', moreEl);
             return;
           }
-          
-          root.innerHTML = '';
-          console.log(`[renderModelLists] Renderizando ${list.length} modelos en`, root.id);
-          
-          list.forEach((m) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            const isSelected = m.id === state.currentModel;
-            btn.className = 'model-option' + (isSelected ? ' selected' : '');
-            btn.dataset.modelId = m.id;
 
-            const ctx = formatCompactNumber(m.context || 0);
-            btn.innerHTML = `
-              <div class="model-option-left">
-                <div class="model-option-name">${m.name || m.id}</div>
-              </div>
-              <div class="model-option-right">
-                <div class="model-option-context">${ctx}</div>
-                ${isSelected ? '<div class="model-option-check">✓</div>' : ''}
-              </div>
-            `;
+          // Convertir modelos de PROVIDERS a formato de lista
+          const modelsList = Object.entries(provider.models).map(([id, config]) => ({
+            id,
+            name: config.name,
+            context: config.context
+          }));
 
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              selectProviderModel('qwen', m.id);
+          console.log('[renderModelLists] Modelos procesados:', modelsList.length, modelsList.map(m => m.name));
+
+          // Separar en primarios (primeros 6) y más (resto)
+          const primary = modelsList.slice(0, 6);
+          const more = modelsList.slice(6);
+
+          console.log('[renderModelLists] Separación:', { primary: primary.length, more: more.length });
+
+          const render = (root, list) => {
+            if (!root) {
+              console.error('[renderModelLists] Root element no existe');
+              return;
+            }
+            
+            root.innerHTML = '';
+            console.log(`[renderModelLists] Renderizando ${list.length} modelos en`, root.id);
+            
+            list.forEach((m) => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              const isSelected = m.id === state.currentModel;
+              btn.className = 'model-option' + (isSelected ? ' selected' : '');
+              btn.dataset.modelId = m.id;
+
+              const ctx = formatCompactNumber(m.context || 0);
+              btn.innerHTML = `
+                <div class="model-option-left">
+                  <div class="model-option-name">${m.name || m.id}</div>
+                </div>
+                <div class="model-option-right">
+                  <div class="model-option-context">${ctx}</div>
+                  ${isSelected ? '<div class="model-option-check">✓</div>' : ''}
+                </div>
+              `;
+
+              btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectProviderModel('qwen', m.id);
+              });
+
+              root.appendChild(btn);
             });
+          };
 
-            root.appendChild(btn);
-          });
-        };
+          render(primaryEl, primary);
+          render(moreEl, more);
 
-        render(primaryEl, primary);
-        render(moreEl, more);
+          // Mostrar/ocultar botón "más" según si hay modelos adicionales
+          const moreBtn = document.getElementById('modelMoreBtn');
+          if (moreBtn) {
+            moreBtn.style.display = more.length > 0 ? 'flex' : 'none';
+          }
 
-        // Mostrar/ocultar botón "más" según si hay modelos adicionales
-        const moreBtn = document.getElementById('modelMoreBtn');
-        if (moreBtn) {
-          moreBtn.style.display = more.length > 0 ? 'flex' : 'none';
-        }
-
-        console.log('[renderModelLists] ✅ Renderizado completado');
+          console.log('[renderModelLists] ✅ Renderizado completado - Modelos visibles en el dropdown');
+        }, 100); // Pequeño delay para asegurar que el DOM está listo
       } else {
         console.log('[renderModelLists] Proveedor no es Qwen, no se renderiza nada');
       }
@@ -4897,6 +4902,8 @@
             // Renderizar modelos cuando se abre Qwen
             updateModelUI();
             renderModelLists();
+            setTimeout(() => renderModelLists(), 300);
+            setTimeout(() => renderModelLists(), 300);
           } else {
             addTerminalLine('QWEN3 cerrado');
           }
@@ -5896,9 +5903,12 @@
       // Actualizar UI del modelo superior
       updateModelUI();
 
-      // Si es Qwen, renderizar modelos en el selector superior
+      // Si es Qwen, renderizar modelos en el selector superior (con delay para asegurar DOM)
       if (provider === 'qwen') {
+        console.log('[selectProviderModel] Qwen seleccionado, renderizando modelos...');
+        // Renderizar inmediatamente y también después de un pequeño delay
         renderModelLists();
+        setTimeout(() => renderModelLists(), 200);
       }
 
       // Añadir a terminal
