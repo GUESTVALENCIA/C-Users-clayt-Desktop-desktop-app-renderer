@@ -2252,7 +2252,7 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: 'No se pudo encontrar el input de Qwen. Asegúrate de que la página esté completamente cargada.' };
     }
 
-    // Código de inyección con múltiples estrategias (sin await, usando setTimeout para delays)
+    // Código de inyección simplificado según solución de Qwen
     const messageEscaped = JSON.stringify(message);
     const injectCode = `
       (function() {
@@ -2260,350 +2260,91 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
         const messageText = ${messageEscaped};
         
         try {
-          // Re-encontrar elementos (por si el DOM cambió)
-          let input = null;
-          ${domInfo.inputSelector ? 
-            `input = document.querySelector('${domInfo.inputSelector}');` :
-            `// Buscar input nuevamente
-            const inputStrategies = [
-            () => document.querySelector('[contenteditable="true"]'),
-              () => document.querySelector('textarea:not([disabled])'),
-              () => document.querySelector('input[type="text"]:not([disabled])')
-          ];
-            for (const strategy of inputStrategies) {
-            const found = strategy();
-              if (found && found.offsetParent !== null) {
-              input = found;
-              break;
-            }
-            }`
-          }
-
+          // Encontrar el campo de entrada de texto (solución directa de Qwen)
+          const input = document.querySelector('textarea[placeholder*="ayuda" i]') ||
+                        document.querySelector('textarea[placeholder*="mensaje" i]') ||
+                        document.querySelector('textarea[placeholder*="pregunta" i]') ||
+                        document.querySelector('#chat-input') ||
+                        document.querySelector('textarea') ||
+                        document.querySelector('input[type="text"]') ||
+                        document.querySelector('div[contenteditable="true"]');
+          
           if (!input) {
-            result.error = 'Input no encontrado después del diagnóstico';
+            result.error = 'Input no encontrado';
             return result;
           }
 
-          // Escribir mensaje en el input usando InputEvent con propiedades completas
-          input.focus();
-          
-          // Función auxiliar para crear InputEvent
-          function createInputEvent(type, data) {
-            try {
-              return new InputEvent(type, {
-                inputType: 'insertText',
-                data: data,
-                bubbles: true,
-                cancelable: true,
-                composed: true
-              });
-            } catch (e) {
-              // Fallback si InputEvent no está disponible
-              return new Event(type, { bubbles: true, cancelable: true });
-            }
-          }
-
+          // Limpiar input
           if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-            // ESTRATEGIA: beforeinput + input con InputEvent
-            // 1. Disparar beforeinput primero
-            const beforeInputEvent = createInputEvent('beforeinput', messageText);
-            input.dispatchEvent(beforeInputEvent);
-            
-            // 2. Cambiar el valor
+            input.value = '';
             input.value = messageText;
-            
-            // 3. Disparar input con InputEvent completo
-            const inputEvent = createInputEvent('input', messageText);
-            input.dispatchEvent(inputEvent);
-            
-            // 4. Disparar change
-            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-          } else if (input.hasAttribute('contenteditable')) {
-            // Para contenteditable, usar beforeinput + input
-            const beforeInputEvent = createInputEvent('beforeinput', messageText);
-            input.dispatchEvent(beforeInputEvent);
-            
+          } else {
+            input.textContent = '';
             input.textContent = messageText;
-            input.innerText = messageText;
-            
-            const inputEvent = createInputEvent('input', messageText);
-            input.dispatchEvent(inputEvent);
-            
-            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
           }
           
-          // Verificar que el botón de envío apareció (micrófono desapareció)
-          function verifySendButtonAppeared() {
-            // Buscar botón de micrófono (debería estar oculto)
-            const microphoneButtons = Array.from(document.querySelectorAll('button')).filter(btn => {
-              const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
-              const title = (btn.getAttribute('title') || '').toLowerCase();
-              const hasMicIcon = btn.querySelector('svg[viewBox*="24"]');
-              return (aria.includes('mic') || title.includes('mic') || hasMicIcon) && 
-                     btn.offsetParent !== null; // Visible
+          // Disparar evento de cambio con InputEvent (solución simplificada de Qwen)
+          try {
+            const inputEvent = new InputEvent('input', {
+              inputType: 'insertText',
+              data: messageText,
+              bubbles: true,
+              cancelable: true,
+              composed: true
             });
-            
-            // Buscar botón de envío (debería estar visible)
-            const sendButtons = Array.from(document.querySelectorAll('button')).filter(btn => {
-              if (btn.disabled || btn.offsetParent === null) return false;
-              const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
-              const title = (btn.getAttribute('title') || '').toLowerCase();
-              const text = (btn.textContent || '').toLowerCase();
-              return aria.includes('send') || aria.includes('enviar') ||
-                     title.includes('send') || title.includes('enviar') ||
-                     text.includes('send') || text.includes('enviar') ||
-                     (btn.querySelector('svg') && !aria.includes('mic'));
-            });
-            
-            // Si hay botón de envío visible y no hay micrófono visible, el botón cambió
-            const micVisible = microphoneButtons.length > 0;
-            const sendVisible = sendButtons.length > 0;
-            
-            return {
-              buttonChanged: sendVisible && !micVisible,
-              sendButton: sendButtons[0] || null,
-              microphoneVisible: micVisible,
-              sendVisible: sendVisible
-            };
-          }
-
-          // Usar setTimeout para verificar el botón después de un delay
-          setTimeout(() => {
-            const buttonCheck = verifySendButtonAppeared();
-            
-            // ESTRATEGIA 1: Botón de envío (si apareció después de escribir)
-            if (buttonCheck.buttonChanged && buttonCheck.sendButton) {
-              try {
-                buttonCheck.sendButton.click();
-                result.strategy = 'send-button-after-input';
-                result.success = true;
-                console.log('[QWEN] ✅ Estrategia 1 (Botón de envío después de InputEvent) ejecutada');
-                return;
-              } catch (e) {
-                console.warn('[QWEN] Estrategia 1 falló:', e.message);
-              }
-            }
-          }, 200);
-
-          // ESTRATEGIA 1b: Botón de envío original (con delay usando setTimeout)
-          if (${domInfo.sendButtonFound ? 'true' : 'false'}) {
-            try {
-              let sendButton = null;
-              ${domInfo.sendButtonSelector ? 
-                `sendButton = document.querySelector('${domInfo.sendButtonSelector}');` :
-                `// Buscar botón nuevamente
-                const buttonStrategies = [
-                  () => input.closest('form')?.querySelector('button[type="submit"]'),
-                  () => input.parentElement?.querySelector('button:not([disabled])'),
-                  () => {
-                    const siblings = Array.from(input.parentElement?.children || []);
-                    const inputIndex = siblings.indexOf(input);
-                    return siblings[inputIndex + 1]?.tagName === 'BUTTON' ? siblings[inputIndex + 1] : null;
-                  },
-                  () => {
-                    // Buscar botón con icono de envío (SVG común)
-                    const buttons = Array.from(document.querySelectorAll('button:not([disabled])'));
-                    return buttons.find(btn => {
-                      const svg = btn.querySelector('svg');
-                      return svg && (btn.getBoundingClientRect().width < 100); // Botones pequeños suelen ser de envío
-                    });
-                  }
-                ];
-                for (const strategy of buttonStrategies) {
-                  const found = strategy();
-                  if (found && !found.disabled && found.offsetParent !== null) {
-                    sendButton = found;
-                    break;
-                  }
-                }`
-              }
-
-              if (sendButton && !sendButton.disabled) {
-                // Usar setTimeout para delay antes de hacer clic
-                setTimeout(() => {
-                  sendButton.click();
-                }, 200);
-                result.strategy = 'button-click';
-                result.success = true;
-                console.log('[QWEN] ✅ Estrategia 1 (Botón) ejecutada');
-                return result;
-              }
-            } catch (e) {
-              console.warn('[QWEN] Estrategia 1 falló:', e.message);
-            }
-          }
-
-          // ESTRATEGIA 2: Simulación carácter por carácter (si InputEvent no activó el botón)
-          // Esta estrategia se ejecutará solo si InputEvent no funcionó
-          // Se ejecuta después de un delay para verificar si el botón cambió
-          setTimeout(() => {
-            try {
-              const buttonCheck = verifySendButtonAppeared();
-              if (!buttonCheck.buttonChanged) {
-                // Si no cambió, intentar simulación carácter por carácter
-                input.value = ''; // Limpiar primero
-                
-                for (let i = 0; i < messageText.length; i++) {
-                  const char = messageText[i];
-                  setTimeout(() => {
-                    input.value += char;
-                    const charInputEvent = createInputEvent('input', char);
-                    input.dispatchEvent(charInputEvent);
-                    
-                    // Al final, verificar botón y hacer clic
-                    if (i === messageText.length - 1) {
-                      setTimeout(() => {
-                        const finalCheck = verifySendButtonAppeared();
-                        if (finalCheck.buttonChanged && finalCheck.sendButton) {
-                          finalCheck.sendButton.click();
-                          result.strategy = 'char-by-char';
-                          result.success = true;
-                          console.log('[QWEN] ✅ Estrategia 2 (Carácter por carácter) ejecutada');
-                        }
-                      }, 100);
-                    }
-                  }, i * 15); // 15ms entre caracteres
-                }
-              }
-            } catch (e) {
-              console.warn('[QWEN] Estrategia 2 falló:', e.message);
-            }
-          }, 300); // Esperar 300ms después de InputEvent para verificar
-
-          // ESTRATEGIA 3: document.execCommand (fallback legacy)
-          try {
-            input.focus();
-            input.select(); // Seleccionar todo el texto existente
-            const execResult = document.execCommand('insertText', false, messageText);
-            
-            if (execResult) {
-              setTimeout(() => {
-                const buttonCheck = verifySendButtonAppeared();
-                if (buttonCheck.buttonChanged && buttonCheck.sendButton) {
-                  buttonCheck.sendButton.click();
-                }
-              }, 150);
-              
-              result.strategy = 'execcommand';
-              result.success = true;
-              console.log('[QWEN] ✅ Estrategia 3 (execCommand) ejecutada');
-              return result;
-            }
+            input.dispatchEvent(inputEvent);
           } catch (e) {
-            console.warn('[QWEN] Estrategia 3 falló:', e.message);
+            // Fallback si InputEvent no está disponible
+            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
           }
-
-          // ESTRATEGIA 4: Enter mejorado (múltiples eventos con delays)
-          try {
-            const enterEvents = [
-              new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
-              new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
-              new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true })
-            ];
-
-            enterEvents.forEach((event, index) => {
-              setTimeout(() => {
-                input.dispatchEvent(event);
-              }, index * 50);
-            });
-
-            result.strategy = 'enter-events';
-            result.success = true;
-            console.log('[QWEN] ✅ Estrategia 4 (Enter) ejecutada');
-            return result;
-          } catch (e) {
-            console.warn('[QWEN] Estrategia 4 falló:', e.message);
-          }
-
-          // ESTRATEGIA 3: Funciones globales
-          ${domInfo.sendFunctions.length > 0 ? `
-          try {
-            ${domInfo.sendFunctions.map(funcName => `
-              if (typeof window.${funcName} === 'function') {
-                try {
-                  window.${funcName}(messageText);
-                  result.strategy = 'function-${funcName}';
-                  result.success = true;
-                  console.log('[QWEN] ✅ Estrategia 3 (Función ${funcName}) ejecutada');
-                  return result;
-                } catch (e) {
-                  console.warn('[QWEN] Función ${funcName} falló:', e.message);
-                }
-              }
-            `).join('')}
-          } catch (e) {
-            console.warn('[QWEN] Estrategia 3 falló:', e.message);
-          }
-          ` : ''}
-
-          // ESTRATEGIA 6: Submit de formulario
-          ${domInfo.hasSubmitForm ? `
-          try {
-            const form = input.closest('form');
-            if (form) {
-              form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-              if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
-          } else {
-                form.submit();
-              }
-              result.strategy = 'form-submit';
-              result.success = true;
-              console.log('[QWEN] ✅ Estrategia 4 (Form Submit) ejecutada');
-              return result;
-            }
-          } catch (e) {
-            console.warn('[QWEN] Estrategia 4 falló:', e.message);
-          }
-          ` : ''}
-
-          // ESTRATEGIA 7: Simulación completa de usuario (sin await)
-          try {
-            // Focus → escribir → eventos → blur → click botón (todo con delays)
-            input.focus();
-            
+          
+          // Buscar botón de enviar (por clase, id o texto) - solución directa de Qwen
+          let sendButton = document.querySelector('button[type="submit"]') ||
+                           document.querySelector('button[aria-label*="enviar" i]') ||
+                           document.querySelector('button[aria-label*="send" i]') ||
+                           document.querySelector('button[data-testid="send-button"]') ||
+                           document.querySelector('button[class*="send" i]') ||
+                           document.querySelector('button[class*="submit" i]') ||
+                           document.querySelector('button[title*="enviar" i]') ||
+                           document.querySelector('button[title*="send" i]') ||
+                           document.querySelector('.send-button') ||
+                           document.querySelector('.submit-button');
+          
+          // Si encuentra botón, hacer click
+          if (sendButton && !sendButton.disabled && sendButton.offsetParent !== null) {
             setTimeout(() => {
-              if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-                input.value = messageText;
-              } else {
-                input.textContent = messageText;
-                input.innerText = messageText;
-              }
-              
-          input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-
-              setTimeout(() => {
-                input.blur();
-                
-                setTimeout(() => {
-                  // Buscar y hacer clic en cualquier botón cerca del input
-                  const container = input.closest('form') || input.parentElement;
-                  const buttons = container ? Array.from(container.querySelectorAll('button:not([disabled])')) : [];
-                  if (buttons.length > 0) {
-                    buttons[0].click();
-                  } else {
-                    // Si no hay botón, intentar Enter de nuevo
-                    input.dispatchEvent(new KeyboardEvent('keydown', { 
-                      key: 'Enter', code: 'Enter', keyCode: 13, which: 13, 
-                      bubbles: true, cancelable: true 
-                    }));
-                  }
-                }, 100);
-              }, 100);
+              sendButton.click();
             }, 100);
-            
-            result.strategy = 'user-simulation';
+            result.strategy = 'button-click';
             result.success = true;
-            console.log('[QWEN] ✅ Estrategia 5 (Simulación Usuario) ejecutada');
+            console.log('[QWEN] ✅ Mensaje enviado usando botón de envío');
             return result;
-          } catch (e) {
-            console.warn('[QWEN] Estrategia 5 falló:', e.message);
+          } else {
+            // Si no encuentra botón, intentar con Enter
+            input.focus();
+            setTimeout(() => {
+              input.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+              }));
+              input.dispatchEvent(new KeyboardEvent('keyup', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+              }));
+            }, 100);
+            result.strategy = 'enter-key';
+            result.success = true;
+            console.log('[QWEN] ✅ Mensaje enviado usando Enter');
+            return result;
           }
-
-          // Si ninguna estrategia funcionó, retornar error
-          result.error = 'Todas las estrategias fallaron';
-          return result;
 
         } catch (err) {
           result.error = err.message;
