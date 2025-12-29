@@ -3844,10 +3844,8 @@
 
       trigger?.addEventListener('click', (e) => {
         e.stopPropagation();
-        closeAllDropdowns('modelSelector');
+        // NO cerrar otros dropdowns aquí - solo toggle del modelo
         toggleModelDropdown();
-        
-        // renderModelLists se llama desde toggleModelDropdown
       });
 
       moreBtn?.addEventListener('click', (e) => {
@@ -3857,7 +3855,11 @@
 
       autoToggle?.addEventListener('click', async (e) => {
         e.stopPropagation();
+        e.preventDefault(); // Prevenir comportamiento por defecto
+        // NO cerrar el dropdown cuando se hace clic en el toggle AUTO
         await setAutoMode(!state.qwen.auto);
+        // Actualizar UI del toggle
+        updateModelUI();
       });
 
       if (window.sandraAPI?.onAppStatus) {
@@ -4000,6 +4002,14 @@
         const context = currentModel?.context || 0;
         const contextStr = formatCompactNumber(context);
         subEl.textContent = `${state.currentProvider.toUpperCase()} · ${contextStr} ctx`;
+      }
+      
+      // Actualizar estado del botón AUTO cuando el proveedor es Qwen
+      const autoToggle = document.getElementById('modelAutoToggle');
+      if (autoToggle && state.currentProvider === 'qwen') {
+        const isActive = state.qwen.auto || false;
+        autoToggle.classList.toggle('on', isActive);
+        autoToggle.setAttribute('aria-pressed', String(isActive));
       }
 
       // No renderizar aquí - se renderiza cuando se abre el dropdown
@@ -5766,11 +5776,7 @@
       // Actualizar UI del modelo superior
       updateModelUI();
 
-      // Si es Qwen, renderizar modelos en el selector superior (solo una vez)
-      if (provider === 'qwen') {
-        console.log('[selectProviderModel] Qwen seleccionado, renderizando modelos...');
-        renderModelLists();
-      }
+      // NO renderizar aquí - el dropdown ya está cerrado y se renderizará cuando se abra de nuevo
 
       // Añadir a terminal
       addTerminalLine(`✅ MODELO ACTIVO: ${provider.toUpperCase()} → ${modelName}`);
