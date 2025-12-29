@@ -3587,64 +3587,57 @@
     // QWEN PANEL TOGGLE (Embedded)
     // ============================================
     // ============================================
-    // QWEN3 TOGGLE - IMPLEMENTACIÓN LIMPIA
+    // QWEN3 TOGGLE - USANDO WEBVIEW TAG (como VS Code)
     // ============================================
-    async function toggleQwen() {
-      console.log('[UI] toggleQwen llamado - implementación limpia desde cero');
+    function toggleQwen() {
+      console.log('[UI] toggleQwen - usando webview tag (como VS Code)');
       
       const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
       const label = document.getElementById('qwenLabel');
+      let webview = document.getElementById('qwenWebview');
       
-      // Invertir estado actual
-      const isCurrentlyVisible = state.qwen.panelVisible;
-      const newState = !isCurrentlyVisible;
+      // Si no existe el webview, crearlo
+      if (!webview) {
+        webview = document.createElement('webview');
+        webview.id = 'qwenWebview';
+        webview.src = 'https://chat.qwenlm.ai/';
+        webview.style.cssText = `
+          position: fixed;
+          top: 44px;
+          left: 52px;
+          right: 0;
+          bottom: 0;
+          z-index: 10000;
+          display: none;
+          border: none;
+        `;
+        document.body.appendChild(webview);
+      }
       
-      console.log('[UI] toggleQwen - Estado:', isCurrentlyVisible, '→', newState);
+      // Invertir estado
+      const isVisible = webview.style.display !== 'none';
+      const newState = !isVisible;
       
-      // Actualizar estado local
-      state.qwen.panelVisible = newState;
-      
-      try {
-        // Llamar a IPC para controlar BrowserView
-        if (window.sandraAPI?.qwenToggle) {
-          const result = await window.sandraAPI.qwenToggle(newState);
-          
-          if (result && result.success) {
-            if (newState) {
-              // QWEN3 abierto
-              if (btn) btn.classList.add('active');
-              if (label) label.textContent = 'QWEN3 ON';
-              addTerminalLine('✅ QWEN3 abierto - embebido correctamente');
-              state.qwen.connected = true;
-            } else {
-              // QWEN3 cerrado
-              if (btn) btn.classList.remove('active');
-              if (label) label.textContent = 'QWEN3';
-              addTerminalLine('QWEN3 cerrado');
-              state.qwen.connected = false;
-            }
-          } else {
-            const errorMsg = result?.error || 'Error desconocido';
-            console.error('[UI] Error toggle QWEN3:', errorMsg);
-            addTerminalLine(`❌ Error: ${errorMsg}`);
-            // Restaurar estado anterior
-            state.qwen.panelVisible = isCurrentlyVisible;
-            if (btn) btn.classList.toggle('active', isCurrentlyVisible);
-          }
-        } else {
-          console.error('[UI] window.sandraAPI.qwenToggle no disponible');
-          throw new Error('QWEN3 API no disponible');
-        }
-      } catch (e) {
-        console.error('[UI] Excepción en toggleQwen:', e);
-        addTerminalLine(`❌ Error: ${e.message}`);
-        // Restaurar estado anterior
-        state.qwen.panelVisible = isCurrentlyVisible;
-        if (btn) btn.classList.toggle('active', isCurrentlyVisible);
+      if (newState) {
+        // Mostrar webview
+        webview.style.display = 'block';
+        if (btn) btn.classList.add('active');
+        if (label) label.textContent = 'QWEN3 ON';
+        state.qwen.panelVisible = true;
+        state.qwen.connected = true;
+        addTerminalLine('✅ QWEN3 abierto - webview tag (como VS Code)');
+      } else {
+        // Ocultar webview
+        webview.style.display = 'none';
+        if (btn) btn.classList.remove('active');
+        if (label) label.textContent = 'QWEN3';
+        state.qwen.panelVisible = false;
+        state.qwen.connected = false;
+        addTerminalLine('QWEN3 cerrado');
       }
     }
     
-    // Exponer globalmente para atributos HTML inline
+    // Exponer globalmente
     window.toggleQwen = toggleQwen;
 
     function toggleSearch() {
@@ -4340,27 +4333,42 @@
     // ============================================
     console.log('✅ QWEN Panel embebido disponible - Click en botón azul para abrir');
     
-    // Listener: Cuando QWEN se oculta, restaurar UI
-    // Listener para cuando BrowserView se oculta - restaurar UI
-    try {
-      if (typeof window !== 'undefined' && window.sandraAPI) {
-        // Usar el sistema de eventos de Electron si está disponible
-        const { ipcRenderer } = require('electron');
-        if (ipcRenderer) {
-          ipcRenderer.on('qwen:view-hidden', () => {
-            console.log('[UI] QWEN3 BrowserView ocultado - restaurando UI');
-            state.qwen.panelVisible = false;
-            state.qwen.connected = false;
-            const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
-            if (btn) btn.classList.remove('active');
-            const label = document.getElementById('qwenLabel');
-            if (label) label.textContent = 'QWEN3';
-            addTerminalLine('QWEN3 cerrado - UI restaurada');
-          });
-        }
+    // Listener: Cuando QWEN3 se oculta, restaurar UI
+    // Usar window.addEventListener para eventos personalizados desde el preload
+    // El preload debe exponer un método para escuchar eventos IPC
+    function setupQwenHiddenListener() {
+      // Intentar usar el sistema de eventos expuesto por el preload
+      if (window.sandraAPI && typeof window.sandraAPI.on === 'function') {
+        window.sandraAPI.on('qwen:view-hidden', () => {
+          console.log('[UI] QWEN3 BrowserView ocultado - restaurando UI');
+          state.qwen.panelVisible = false;
+          state.qwen.connected = false;
+          const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
+          if (btn) btn.classList.remove('active');
+          const label = document.getElementById('qwenLabel');
+          if (label) label.textContent = 'QWEN3';
+          addTerminalLine('QWEN3 cerrado - UI restaurada');
+        });
+      } else {
+        // Fallback: usar window.addEventListener para eventos personalizados
+        window.addEventListener('qwen:view-hidden', () => {
+          console.log('[UI] QWEN3 BrowserView ocultado - restaurando UI (fallback)');
+          state.qwen.panelVisible = false;
+          state.qwen.connected = false;
+          const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
+          if (btn) btn.classList.remove('active');
+          const label = document.getElementById('qwenLabel');
+          if (label) label.textContent = 'QWEN3';
+          addTerminalLine('QWEN3 cerrado - UI restaurada');
+        });
       }
-    } catch (e) {
-      console.warn('[UI] IPC no disponible para qwen:view-hidden:', e.message);
+    }
+    
+    // Configurar listener cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupQwenHiddenListener);
+    } else {
+      setupQwenHiddenListener();
     }
   </script>
 </body>
