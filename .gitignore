@@ -6,6 +6,7 @@ npm-debug.log*
 # Production
 dist/
 build/
+out/
 
 # Logs
 logs
@@ -26,5 +27,29 @@ Thumbs.db
 .env.local
 .env.pro
 
-# Build artifacts
-out/
+# Backups and temp files (but NOT our needed files)
+*.bak
+*-backup*
+*-alternative*
+*-simple*
+*-clean*
+*-old*
+*-backup.js
+*-old.js
+test-chat-service.js
+test-mcp-connection.js
+test-mcp-sse-server.js
+test-multi-provider.js
+test-python-simple.py
+test-python.py
+test-qwen-complete.js
+test-qwen-integration.js
+test/
+temp/
+tmp/
+*.tmp
+
+# System files  
+.claude/
+renderer/.claude/
+system/

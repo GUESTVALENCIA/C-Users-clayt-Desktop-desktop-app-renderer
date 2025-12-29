@@ -1,5 +1,0 @@
-Para solucionar el problema de que tu interfaz principal ha desaparecido y solo se muestra la web oficial de Qwen: 
- 
-1. El problema esta en el archivo main.js en la funcion createWindow() o donde se crea la ventana principal. 
-2. La ventana principal deberia cargar tu index.html como interfaz principal, y solo mostrar el BrowserView de Qwen cuando el usuario seleccione la pesta¤a de Qwen. 
-3. El BrowserView de Qwen deberia mostrarse solo cuando el usuario seleccione la pesta¤a de Qwen, no por defecto. 
