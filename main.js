@@ -5,8 +5,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { existsSync } = require('fs');
 
-// ============ QWEN HEALTH CHECK - SISTEMA DE VERIFICACIÓN ============
-const { verifyQWENReady, sendMessageWithRetry } = require('./qwen-health-check');
+// ============ QWEN HEALTH CHECK - ELIMINADO (causaba errores con setInterval) ============
+// Reemplazado con verificación basada en eventos de Electron
 
 // ============ CARGAR VARIABLES DE ENTORNO (.env) ============
 try {
@@ -841,6 +841,9 @@ app.on('window-all-closed', async function () {
   }
   // Limpiar referencia
   qwenBrowserView = null;
+  
+  // Detener captura de respuestas
+  stopQwenResponseCapture();
 
   if (process.platform !== 'darwin') app.quit();
 });
@@ -1529,6 +1532,12 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         saveQwenCookies(qwenSession, cookiesPath).catch(e => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
         });
+
+        // Inyectar script de captura de respuestas después de que el DOM esté listo
+        setTimeout(() => {
+          injectQwenResponseObserver(qwenBrowserView);
+          startQwenResponseCapture(); // Iniciar captura de respuestas
+        }, 2000);
       });
 
       qwenBrowserView.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
@@ -1641,7 +1650,10 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       // Remover el BrowserView de la ventana (esto lo oculta completamente)
       mainWindow.setBrowserView(null);
       
-      console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado)');
+      // Detener captura de respuestas
+      stopQwenResponseCapture();
+      
+      console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado, captura detenida)');
     } else if (qwenCookieInterval) {
       // Si el BrowserView ya fue destruido pero el intervalo aún existe, limpiarlo
       clearInterval(qwenCookieInterval);
@@ -1652,7 +1664,216 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
   }
 });
 
-// ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW (MEJORADO) ============
+// ============ QWEN: INYECTAR OBSERVADOR DE RESPUESTAS ============
+function injectQwenResponseObserver(browserView) {
+  if (!browserView || browserView.webContents.isDestroyed()) return;
+
+  const observerScript = `
+    (function() {
+      if (window.qwenResponseObserverInjected) return;
+      window.qwenResponseObserverInjected = true;
+
+      // Almacenar última respuesta para que main.js pueda leerla
+      window.qwenLastResponse = {
+        text: '',
+        images: [],
+        videos: [],
+        audio: [],
+        timestamp: 0
+      };
+
+      function findResponseContainer() {
+        const selectors = [
+          '[data-testid="message"]',
+          '.message-content',
+          '.response-container',
+          '.chat-message',
+          '.message',
+          '[class*="message"]',
+          '[class*="response"]',
+          'main',
+          'article'
+        ];
+
+        for (const selector of selectors) {
+          const container = document.querySelector(selector);
+          if (container) return container;
+        }
+        return document.body;
+      }
+
+      function extractResponseText(container) {
+        try {
+          const messages = container.querySelectorAll('[class*="message"], [data-role="assistant"]');
+          if (messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
+            return lastMessage.innerText || lastMessage.textContent || '';
+          }
+          return container.innerText || container.textContent || '';
+        } catch (e) {
+          return '';
+        }
+      }
+
+      function extractMedia() {
+        const media = { images: [], videos: [], audio: [] };
+        try {
+          document.querySelectorAll('img[src]').forEach(img => {
+            if (img.src && !img.src.startsWith('data:')) media.images.push(img.src);
+          });
+          document.querySelectorAll('video[src], video source[src]').forEach(video => {
+            const src = video.src || video.getAttribute('src');
+            if (src) media.videos.push(src);
+          });
+          document.querySelectorAll('audio[src], audio source[src]').forEach(audio => {
+            const src = audio.src || audio.getAttribute('src');
+            if (src) media.audio.push(src);
+          });
+        } catch (e) {}
+        return media;
+      }
+
+      const container = findResponseContainer();
+      if (!container) return;
+
+      // Observar cambios en el DOM
+      const observer = new MutationObserver(() => {
+        try {
+          const newText = extractResponseText(container);
+          const media = extractMedia();
+          
+          // Actualizar última respuesta
+          if (newText) {
+            window.qwenLastResponse.text = newText;
+            window.qwenLastResponse.images = media.images;
+            window.qwenLastResponse.videos = media.videos;
+            window.qwenLastResponse.audio = media.audio;
+            window.qwenLastResponse.timestamp = Date.now();
+          }
+        } catch (e) {}
+      });
+
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+
+      console.log('[QWEN Observer] ✅ Observador de respuestas activado');
+    })();
+  `;
+
+  browserView.webContents.executeJavaScript(observerScript).catch(err => {
+    console.error('[QWEN] Error inyectando observador de respuestas:', err);
+  });
+}
+
+// ============ QWEN: LEER RESPUESTAS DESDE BROWSERVIEW ============
+let qwenResponseInterval = null;
+async function startQwenResponseCapture() {
+  if (qwenResponseInterval) return; // Ya está capturando
+  
+  let lastCapturedText = '';
+  
+  qwenResponseInterval = setInterval(async () => {
+    if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
+      if (qwenResponseInterval) {
+        clearInterval(qwenResponseInterval);
+        qwenResponseInterval = null;
+      }
+      return;
+    }
+
+    try {
+      const response = await qwenBrowserView.webContents.executeJavaScript(`
+        window.qwenLastResponse || { text: '', images: [], videos: [], audio: [], timestamp: 0 }
+      `);
+
+      if (response && response.text && response.text !== lastCapturedText && response.text.length > lastCapturedText.length) {
+        const newContent = response.text.slice(lastCapturedText.length);
+        lastCapturedText = response.text;
+
+        // Enviar texto al renderer
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('qwen:response', {
+            type: 'text',
+            content: newContent,
+            stream: true
+          });
+
+          // Enviar media si existe
+          if (response.images && response.images.length > 0) {
+            response.images.forEach(img => {
+              mainWindow.webContents.send('qwen:response', {
+                type: 'image',
+                content: img
+              });
+            });
+          }
+          if (response.videos && response.videos.length > 0) {
+            response.videos.forEach(vid => {
+              mainWindow.webContents.send('qwen:response', {
+                type: 'video',
+                content: vid
+              });
+            });
+          }
+          if (response.audio && response.audio.length > 0) {
+            response.audio.forEach(aud => {
+              mainWindow.webContents.send('qwen:response', {
+                type: 'audio',
+                content: aud
+              });
+            });
+          }
+        }
+      }
+    } catch (error) {
+      // Ignorar errores silenciosamente (puede ser que el DOM no esté listo)
+    }
+  }, 2000); // Leer cada 2 segundos (mucho menos agresivo que los 500ms del anterior)
+}
+
+function stopQwenResponseCapture() {
+  if (qwenResponseInterval) {
+    clearInterval(qwenResponseInterval);
+    qwenResponseInterval = null;
+  }
+}
+
+// ============ QWEN: FUNCIÓN AUXILIAR - ESPERAR QUE BROWSERVIEW ESTÉ LISTO ============
+async function waitForQWENReady(browserView, timeout = 10000) {
+  if (!browserView || browserView.webContents.isDestroyed()) {
+    throw new Error('BrowserView not available');
+  }
+
+  // Si está cargando, esperar a que termine
+  if (browserView.webContents.isLoading()) {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Timeout waiting for page load')), timeout);
+      browserView.webContents.once('did-finish-load', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+
+  // Verificar DOM una sola vez (sin polling)
+  try {
+    const ready = await browserView.webContents.executeJavaScript(`
+      document.readyState === 'complete' && 
+      (document.querySelector('[contenteditable], textarea, input[type="text"]') !== null)
+    `);
+    if (!ready) {
+      throw new Error('QWEN DOM not ready');
+    }
+    return true;
+  } catch (error) {
+    throw new Error(`QWEN not ready: ${error.message}`);
+  }
+}
+
+// ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW (BASADO EN EVENTOS) ============
 ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
   try {
     // Verificar precondiciones
@@ -1672,24 +1893,93 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
     console.log(`[QWEN] Enviando mensaje: "${message.substring(0, 50)}..."`);
 
-    // ✅ USAR NUEVO SISTEMA CON REINTENTOS Y HEALTH CHECK
-    const result = await sendMessageWithRetry(qwenBrowserView, message, 3);
+    // Esperar que el BrowserView esté listo (basado en eventos, sin polling)
+    try {
+      await waitForQWENReady(qwenBrowserView, 10000);
+    } catch (error) {
+      console.warn(`[QWEN] ⚠️ BrowserView no está listo:`, error.message);
+      return { success: false, error: `QWEN no está listo: ${error.message}` };
+    }
 
-    if (result.success) {
-      console.log(`[QWEN] ✅ Mensaje enviado exitosamente`);
-      return { success: true, message: result.message };
-    } else {
-      console.error(`[QWEN] ❌ Error al enviar:`, result.error);
-      return { success: false, error: result.error };
+    // Inyectar y enviar mensaje (una sola vez, sin reintentos agresivos)
+    const injectCode = `
+      (function() {
+        try {
+          // Buscar input de mensaje (múltiples estrategias)
+          let input = null;
+          const strategies = [
+            () => document.querySelector('[placeholder*="Cuéntame"]'),
+            () => document.querySelector('[placeholder*="pregunta"]'),
+            () => document.querySelector('[placeholder*="mensaje"]'),
+            () => document.querySelector('[contenteditable="true"]'),
+            () => document.querySelector('textarea'),
+            () => document.querySelector('input[type="text"]:last-of-type'),
+            () => document.querySelector('input[type="text"]')
+          ];
+
+          for (const strategy of strategies) {
+            const found = strategy();
+            if (found) {
+              input = found;
+              break;
+            }
+          }
+
+          if (!input) {
+            return { success: false, error: 'Input no encontrado' };
+          }
+
+          // Establecer foco y texto
+          input.focus();
+          if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+            input.value = ${JSON.stringify(message)};
+          } else {
+            input.textContent = ${JSON.stringify(message)};
+            input.innerText = ${JSON.stringify(message)};
+          }
+
+          // Disparar eventos
+          input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+
+          // Disparar Enter
+          const enterEvent = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true
+          });
+          input.dispatchEvent(enterEvent);
+
+          return { success: true, message: 'Mensaje inyectado y enviado' };
+        } catch (err) {
+          return { success: false, error: err.message };
+        }
+      })();
+    `;
+
+    try {
+      const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
+      
+      if (result && result.success) {
+        console.log(`[QWEN] ✅ Mensaje enviado exitosamente`);
+        return { success: true, message: result.message };
+      } else {
+        const errorMsg = result?.error || 'Error desconocido al inyectar mensaje';
+        console.error(`[QWEN] ❌ Error al inyectar:`, errorMsg);
+        return { success: false, error: errorMsg };
+      }
+    } catch (error) {
+      // Capturar error específico si el frame fue destruido
+      if (error.message.includes('disposed') || error.message.includes('destroyed')) {
+        return { success: false, error: 'El panel de Qwen se cerró durante el envío. Vuelve a abrirlo.' };
+      }
+      throw error;
     }
   } catch (error) {
     console.error(`[QWEN] ❌ Error en sendMessage:`, error.message);
-
-    // Si el error es porque el frame fue destruido
-    if (error.message.includes('disposed') || error.message.includes('destroyed')) {
-      return { success: false, error: 'El panel de Qwen se cerró durante el envío. Vuelve a abrirlo.' };
-    }
-
     return { success: false, error: error.message };
   }
 });
@@ -1703,8 +1993,12 @@ ipcMain.handle('qwen:changeModel', async (_e, { model, provider }) => {
 
     console.log(`[QWEN] Cambiando modelo a: ${model}`);
 
-    // Verificar disponibilidad
-    await verifyQWENReady(qwenBrowserView, 15000);
+    // Verificar disponibilidad (usar nueva función basada en eventos)
+    try {
+      await waitForQWENReady(qwenBrowserView, 10000);
+    } catch (error) {
+      return { success: false, error: `QWEN not ready: ${error.message}` };
+    }
 
     // Inyectar cambio de modelo
     const changeCode = `
