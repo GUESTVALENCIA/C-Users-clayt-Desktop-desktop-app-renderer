@@ -1551,20 +1551,50 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       });
     }
 
-    // Asignar al mainWindow
+    // Asignar al mainWindow ANTES de configurar bounds
     mainWindow.setBrowserView(qwenBrowserView);
 
-    // Configurar posición y tamaño como PANEL LATERAL (no overlay completo)
-    // Panel lateral derecho ocupando 40% del ancho
-    const { width, height } = mainWindow.getContentBounds();
-    const panelWidth = Math.floor(width * 0.4);  // 40% del ancho para QWEN
+    // Función para actualizar posición y tamaño del BrowserView
+    const updateQwenBounds = () => {
+      if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) return;
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      
+      try {
+        // Obtener tamaño del contenido de la ventana (sin marcos de ventana)
+        const [contentWidth, contentHeight] = mainWindow.getContentSize();
+        
+        // Panel lateral derecho ocupando 40% del ancho
+        const panelWidth = Math.floor(contentWidth * 0.4);
+        const panelX = contentWidth - panelWidth;  // Posición X: desde la derecha del área de contenido
+        const panelY = 0;  // Posición Y: desde arriba del área de contenido (0 = sin offset)
+        const panelHeight = contentHeight;  // Alto completo del área de contenido
 
-    qwenBrowserView.setBounds({
-      x: width - panelWidth,  // Colocar en la derecha
-      y: 44,                  // Alto del menubar
-      width: panelWidth,      // 40% del ancho
-      height: height - 44     // Alto restante
-    });
+        qwenBrowserView.setBounds({
+          x: panelX,
+          y: panelY,
+          width: panelWidth,
+          height: panelHeight
+        });
+        
+        console.log(`[QWEN3] Panel posicionado: x=${panelX}, y=${panelY}, w=${panelWidth}, h=${panelHeight} (content: ${contentWidth}x${contentHeight})`);
+      } catch (e) {
+        console.error('[QWEN3] Error actualizando bounds:', e.message);
+      }
+    };
+
+    // Configurar posición inicial (esperar un frame para que la ventana esté lista)
+    setTimeout(() => {
+      updateQwenBounds();
+    }, 100);
+
+    // Actualizar posición cuando cambie el tamaño de la ventana
+    const resizeHandler = () => updateQwenBounds();
+    mainWindow.on('resize', resizeHandler);
+    
+    // Guardar referencia al handler para poder removerlo después
+    if (!qwenBrowserView._resizeHandler) {
+      qwenBrowserView._resizeHandler = resizeHandler;
+    }
 
     console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
     return { success: true, message: 'QWEN visible (panel lateral)' };
@@ -1580,8 +1610,16 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         console.warn('[QWEN3] ⚠️ Error guardando cookies al ocultar:', e.message);
       });
       
+      // Remover listener de resize si existe
+      if (qwenBrowserView._resizeHandler && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.removeListener('resize', qwenBrowserView._resizeHandler);
+        qwenBrowserView._resizeHandler = null;
+      }
+      
+      // Remover el BrowserView de la ventana (esto lo oculta completamente)
       mainWindow.setBrowserView(null);
-      console.log('[QWEN3] ✅ BrowserView oculto (cookies guardadas)');
+      
+      console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas)');
     }
     return { success: true, message: 'QWEN oculto' };
   }
