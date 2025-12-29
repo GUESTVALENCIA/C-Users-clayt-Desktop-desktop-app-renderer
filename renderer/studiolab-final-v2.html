@@ -3919,23 +3919,27 @@
 
     // INPUT HANDLING
     // ============================================
-    function handleKeyDown(event) {
+    // Funciones globales para atributos HTML inline (onkeydown, oninput)
+    window.handleKeyDown = function(event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         sendMessage();
       }
-    }
+    };
 
-    function autoResize(textarea) {
+    window.autoResize = function(textarea) {
       textarea.style.height = 'auto';
       textarea.style.height = Math.min(textarea.scrollHeight, 130) + 'px';
-    }
+    };
 
-    function updateSendButton() {
+    // Función global para atributos HTML inline
+    window.updateSendButton = function() {
       const input = document.getElementById('messageInput');
       const sendBtn = document.getElementById('sendBtn');
-      sendBtn.disabled = !input.value.trim();
-    }
+      if (input && sendBtn) {
+        sendBtn.disabled = !input.value.trim();
+      }
+    };
 
     // ============================================
     // CHAT HISTORY
@@ -4282,22 +4286,26 @@
     console.log('✅ QWEN Panel embebido disponible - Click en botón azul para abrir');
     
     // Listener: Cuando QWEN se oculta, restaurar UI
+    // Listener para cuando BrowserView se oculta - restaurar UI
     try {
-      const { ipcRenderer } = require('electron');
-      // Listener para cuando BrowserView se oculta - restaurar UI
-      if (typeof ipcRenderer !== 'undefined') {
-        ipcRenderer.on('qwen:view-hidden', () => {
-        console.log('[UI] QWEN BrowserView ocultado - restaurando UI');
-        state.qwen.panelVisible = false;
-        state.qwen.connected = false;
-        const btn = document.getElementById('qwenBtn');
-        if (btn) btn.classList.remove('active');
-        const label = document.getElementById('qwenLabel');
-        if (label) label.textContent = 'QWEN';
-        addTerminalLine('QWEN cerrado - UI restaurada');
-      });
+      if (typeof window !== 'undefined' && window.sandraAPI) {
+        // Usar el sistema de eventos de Electron si está disponible
+        const { ipcRenderer } = require('electron');
+        if (ipcRenderer) {
+          ipcRenderer.on('qwen:view-hidden', () => {
+            console.log('[UI] QWEN BrowserView ocultado - restaurando UI');
+            state.qwen.panelVisible = false;
+            state.qwen.connected = false;
+            const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
+            if (btn) btn.classList.remove('active');
+            const label = document.getElementById('qwenLabel');
+            if (label) label.textContent = 'QWEN';
+            addTerminalLine('QWEN cerrado - UI restaurada');
+          });
+        }
+      }
     } catch (e) {
-      console.warn('[UI] IPC no disponible para qwen:view-hidden');
+      console.warn('[UI] IPC no disponible para qwen:view-hidden:', e.message);
     }
   </script>
 </body>
