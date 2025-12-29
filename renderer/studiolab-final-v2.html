@@ -3888,17 +3888,9 @@
         selector.classList.remove('more-open');
         console.log('[toggleModelDropdown] Dropdown cerrado');
       } else {
-        // SIEMPRE renderizar modelos de Qwen cuando se abre el dropdown (sin necesidad de tener Qwen seleccionado)
+        // Renderizar modelos una sola vez cuando se abre el dropdown
         console.log('[toggleModelDropdown] ✅ Abriendo dropdown - renderizando modelos de Qwen');
-        
-        // Renderizar inmediatamente
         renderModelLists();
-        
-        // Renderizar de nuevo después de un pequeño delay para asegurar que el DOM esté completamente listo
-        setTimeout(() => {
-          renderModelLists();
-          console.log('[toggleModelDropdown] ✅ Modelos renderizados después de delay');
-        }, 100);
       }
     }
 
@@ -3908,7 +3900,7 @@
       if (!res?.success) return;
       state.qwen.models = Array.isArray(res.models) ? res.models : [];
       applyQwenStatus(res.state || {});
-      renderModelLists();
+      // NO renderizar aquí - se renderiza cuando se abre el dropdown
     }
 
     function applyQwenStatus(data = {}) {
@@ -3918,13 +3910,13 @@
       state.qwen.tokensMax = Number(data.tokensMax || state.qwen.tokensMax) || 65536;
       state.currentModel = state.qwen.model;
       updateModelUI();
-      renderModelLists();
+      // NO renderizar aquí - se renderiza cuando se abre el dropdown
     }
 
     async function setAutoMode(enabled) {
       state.qwen.auto = !!enabled;
       updateModelUI();
-      renderModelLists();
+      // NO renderizar aquí - solo actualizar UI
       try {
         await window.sandraAPI?.qwenSetAutoMode?.(state.qwen.auto);
       } catch {}
@@ -3937,7 +3929,7 @@
       state.qwen.model = modelId;
       state.currentModel = modelId;
       updateModelUI(meta);
-      renderModelLists();
+      // NO renderizar aquí - se renderiza cuando se abre el dropdown
 
       try {
         await window.sandraAPI?.qwenSetModel?.(modelId, { manual: false });
@@ -3959,8 +3951,8 @@
       state.currentProvider = 'qwen'; // Asegurar que Qwen está seleccionado como proveedor
       
       updateModelUI(meta);
-      renderModelLists();
       toggleModelDropdown(false); // Cerrar dropdown usando la clase active
+      // NO renderizar aquí - el dropdown se cerró
 
       try {
         await window.sandraAPI?.qwenSetModel?.(modelId);
@@ -4013,76 +4005,94 @@
       // No renderizar aquí - se renderiza cuando se abre el dropdown
     }
 
+    // Flag para evitar renderizado simultáneo
+    let isRenderingModels = false;
+    
     function renderModelLists() {
-      // SIEMPRE renderizar modelos de Qwen cuando se abre el dropdown (no requiere proveedor seleccionado)
-      const provider = PROVIDERS.qwen;
-      if (!provider || !provider.models) {
-        console.error('[renderModelLists] ❌ Provider o models no encontrados');
+      // Evitar renderizado simultáneo
+      if (isRenderingModels) {
+        console.log('[renderModelLists] ⏭️ Ya se está renderizando, omitiendo llamada duplicada');
         return;
       }
-
-      const primaryEl = document.getElementById('modelListPrimary');
-      const moreEl = document.getElementById('modelListMore');
       
-      if (!primaryEl || !moreEl) {
-        console.error('[renderModelLists] ❌ Elementos DOM no encontrados - primaryEl:', !!primaryEl, 'moreEl:', !!moreEl);
-        return;
-      }
+      isRenderingModels = true;
+      
+      try {
+        // SIEMPRE renderizar modelos de Qwen cuando se abre el dropdown (no requiere proveedor seleccionado)
+        const provider = PROVIDERS.qwen;
+        if (!provider || !provider.models) {
+          console.error('[renderModelLists] ❌ Provider o models no encontrados');
+          return;
+        }
 
-      // Convertir modelos de PROVIDERS a formato de lista (lista oficial completa de Qwen)
-      const modelsList = Object.entries(provider.models).map(([id, config]) => ({
-        id,
-        name: config.name,
-        context: config.context
-      }));
-
-      console.log(`[renderModelLists] ✅ Renderizando ${modelsList.length} modelos de Qwen`);
-
-      // Separar en primarios (primeros 6) y más (resto)
-      const primary = modelsList.slice(0, 6);
-      const more = modelsList.slice(6);
-
-      const render = (root, list) => {
-        if (!root) return;
-        root.innerHTML = '';
+        const primaryEl = document.getElementById('modelListPrimary');
+        const moreEl = document.getElementById('modelListMore');
         
-        list.forEach((m) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          const isSelected = (state.currentProvider === 'qwen' && m.id === state.currentModel);
-          btn.className = 'model-option' + (isSelected ? ' selected' : '');
-          btn.dataset.modelId = m.id;
+        if (!primaryEl || !moreEl) {
+          console.error('[renderModelLists] ❌ Elementos DOM no encontrados - primaryEl:', !!primaryEl, 'moreEl:', !!moreEl);
+          return;
+        }
 
-          const ctx = formatCompactNumber(m.context || 0);
-          btn.innerHTML = `
-            <div class="model-option-left">
-              <div class="model-option-name">${m.name || m.id}</div>
-            </div>
-            <div class="model-option-right">
-              <div class="model-option-context">${ctx}</div>
-              ${isSelected ? '<div class="model-option-check">✓</div>' : ''}
-            </div>
-          `;
+        // Convertir modelos de PROVIDERS a formato de lista (lista oficial completa de Qwen)
+        const modelsList = Object.entries(provider.models).map(([id, config]) => ({
+          id,
+          name: config.name,
+          context: config.context
+        }));
 
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Seleccionar Qwen como proveedor y el modelo
-            selectProviderModel('qwen', m.id);
+        console.log(`[renderModelLists] ✅ Renderizando ${modelsList.length} modelos de Qwen`);
+
+        // Separar en primarios (primeros 6) y más (resto)
+        const primary = modelsList.slice(0, 6);
+        const more = modelsList.slice(6);
+
+        const render = (root, list) => {
+          if (!root) return;
+          root.innerHTML = '';
+          
+          list.forEach((m) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const isSelected = (state.currentProvider === 'qwen' && m.id === state.currentModel);
+            btn.className = 'model-option' + (isSelected ? ' selected' : '');
+            btn.dataset.modelId = m.id;
+
+            const ctx = formatCompactNumber(m.context || 0);
+            btn.innerHTML = `
+              <div class="model-option-left">
+                <div class="model-option-name">${m.name || m.id}</div>
+              </div>
+              <div class="model-option-right">
+                <div class="model-option-context">${ctx}</div>
+                ${isSelected ? '<div class="model-option-check">✓</div>' : ''}
+              </div>
+            `;
+
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              // Seleccionar Qwen como proveedor y el modelo
+              selectProviderModel('qwen', m.id);
+            });
+
+            root.appendChild(btn);
           });
+        };
 
-          root.appendChild(btn);
-        });
-      };
+        render(primaryEl, primary);
+        render(moreEl, more);
 
-      render(primaryEl, primary);
-      render(moreEl, more);
-
-      console.log(`[renderModelLists] ✅ Modelos renderizados - Primarios: ${primary.length}, Más: ${more.length}`);
-
-      // Mostrar/ocultar botón "más" según si hay modelos adicionales
-      const moreBtn = document.getElementById('modelMoreBtn');
-      if (moreBtn) {
-        moreBtn.style.display = more.length > 0 ? 'flex' : 'none';
+        // Mostrar/ocultar botón "más" según si hay modelos adicionales
+        const moreBtn = document.getElementById('modelMoreBtn');
+        if (moreBtn) {
+          moreBtn.style.display = more.length > 0 ? 'flex' : 'none';
+        }
+        
+        console.log(`[renderModelLists] ✅ Modelos renderizados - Primarios: ${primary.length}, Más: ${more.length}`);
+      } finally {
+        // Liberar el flag después de un pequeño delay para evitar race conditions
+        setTimeout(() => {
+          isRenderingModels = false;
+        }, 50);
       }
     }
 
@@ -5756,12 +5766,10 @@
       // Actualizar UI del modelo superior
       updateModelUI();
 
-      // Si es Qwen, renderizar modelos en el selector superior (con delay para asegurar DOM)
+      // Si es Qwen, renderizar modelos en el selector superior (solo una vez)
       if (provider === 'qwen') {
         console.log('[selectProviderModel] Qwen seleccionado, renderizando modelos...');
-        // Renderizar inmediatamente y también después de un pequeño delay
         renderModelLists();
-        setTimeout(() => renderModelLists(), 200);
       }
 
       // Añadir a terminal
