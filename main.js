@@ -1142,11 +1142,15 @@ ipcMain.handle('qwen:login', async () => {
   return { success: true, message: 'QWEN se muestra embebido en la interfaz' };
 });
 
-// ============ QWEN3 EMBEDDED - IMPLEMENTACIÓN LIMPIA DESDE CERO ============
-// BrowserView para embeber QWEN3 (evita X-Frame-Options de qwen.ai)
-// Implementación limpia sin código corrupto anterior
+// ============ QWEN3 EMBEDDED - USANDO WEBVIEW TAG (como VS Code) ============
+// Ya no necesitamos BrowserView - el HTML usa <webview> tag directamente
+// Esto es mucho más simple y no bloquea la UI
 
 ipcMain.handle('qwen:toggle', async (_e, { show }) => {
+  // El webview tag se maneja directamente en el HTML, no necesitamos IPC
+  console.log('[QWEN3] Webview tag se maneja en el HTML (como VS Code)');
+  return { success: true, message: 'Webview tag manejado en HTML' };
+});
   if (!mainWindow) {
     return { success: false, error: 'Ventana principal no existe' };
   }
@@ -1219,12 +1223,17 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
       });
 
       // ============ ADJUNTAR A VENTANA PRINCIPAL ============
+      // CRÍTICO: Adjuntar ANTES de cargar para evitar bloqueos
       mainWindow.setBrowserView(qwenBrowserView);
 
       // ============ CARGAR URL DE QWEN3 ============
       const qwenUrl = 'https://chat.qwenlm.ai/';
       console.log('[QWEN3] Cargando URL:', qwenUrl);
-      await qwenBrowserView.webContents.loadURL(qwenUrl);
+      
+      // Cargar URL sin esperar (no bloquear)
+      qwenBrowserView.webContents.loadURL(qwenUrl).catch(err => {
+        console.error('[QWEN3] Error cargando URL:', err.message);
+      });
 
       // ============ ACTUALIZAR BOUNDS AL REDIMENSIONAR ============
       const updateBounds = () => {
@@ -1250,18 +1259,25 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
       // ============ OCULTAR QWEN3 ============
       console.log('[QWEN3] Ocultando BrowserView...');
 
-      // Desadjuntar BrowserView de la ventana principal
+      // PASO 1: Desadjuntar BrowserView INMEDIATAMENTE (crítico para desbloquear UI)
       if (mainWindow) {
         const currentView = mainWindow.getBrowserView();
         if (currentView) {
+          console.log('[QWEN3] Desadjuntando BrowserView de mainWindow...');
           mainWindow.setBrowserView(null);
         }
       }
 
-      // Destruir webContents
+      // PASO 2: Remover listeners de resize ANTES de destruir
+      if (mainWindow) {
+        mainWindow.removeAllListeners('resize');
+      }
+
+      // PASO 3: Destruir webContents
       if (qwenBrowserView) {
         try {
           if (qwenBrowserView.webContents && !qwenBrowserView.webContents.isDestroyed()) {
+            console.log('[QWEN3] Destruyendo webContents...');
             qwenBrowserView.webContents.destroy();
           }
         } catch (e) {
@@ -1270,25 +1286,38 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
         qwenBrowserView = null;
       }
 
-      // Remover listeners de resize
-      if (mainWindow) {
-        mainWindow.removeAllListeners('resize');
-      }
-
-      // Restaurar focus a la ventana principal
+      // PASO 4: Restaurar focus a la ventana principal (con delay para asegurar limpieza)
       if (mainWindow) {
         setTimeout(() => {
           try {
+            // Forzar focus en la ventana principal
             mainWindow.focus();
             if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
               mainWindow.webContents.focus();
-              // Notificar al renderer que QWEN se ocultó
-              mainWindow.webContents.send('qwen:view-hidden');
+              
+              // Notificar al renderer que QWEN3 se ocultó
+              // Método 1: IPC message
+              try {
+                mainWindow.webContents.send('qwen:view-hidden');
+              } catch (e) {
+                console.log('[QWEN3] Error enviando IPC:', e.message);
+              }
+              
+              // Método 2: CustomEvent (fallback)
+              try {
+                mainWindow.webContents.executeJavaScript(`
+                  if (window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('qwen:view-hidden'));
+                  }
+                `).catch(() => {});
+              } catch (e) {
+                console.log('[QWEN3] Error ejecutando script:', e.message);
+              }
             }
           } catch (e) {
             console.log('[QWEN3] Error restaurando focus:', e.message);
           }
-        }, 100);
+        }, 150); // Delay un poco más largo para asegurar limpieza completa
       }
 
       console.log('[QWEN3] ✅ BrowserView ocultado y limpiado correctamente');
