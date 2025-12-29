@@ -1667,6 +1667,30 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     if (!qwenBrowserView.webContents.mainFrame) {
       return { success: false, error: 'Frame no disponible' };
     }
+    
+    // Verificar que la página haya cargado completamente antes de intentar enviar
+    const isLoading = qwenBrowserView.webContents.isLoading();
+    if (isLoading) {
+      console.log('[QWEN] ⏳ Página aún cargando, esperando...');
+      // Esperar hasta que la página termine de cargar (máximo 10 segundos)
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Timeout esperando carga de página')), 10000);
+        const checkLoaded = () => {
+          if (!qwenBrowserView.webContents.isLoading()) {
+            clearTimeout(timeout);
+            qwenBrowserView.webContents.removeListener('did-finish-load', checkLoaded);
+            resolve();
+          }
+        };
+        qwenBrowserView.webContents.once('did-finish-load', checkLoaded);
+        // Si ya está cargado, resolver inmediatamente
+        if (!qwenBrowserView.webContents.isLoading()) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+    }
+    
     // Script para inyectar mensaje en el input de Qwen y enviarlo
     const injectCode = `
       (async function() {
@@ -1764,10 +1788,10 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       })();
     `;
 
-    // Ejecutar JavaScript con timeout para evitar bloqueos
+    // Ejecutar JavaScript con timeout más largo para evitar bloqueos (10 segundos)
     const result = await Promise.race([
       qwenBrowserView.webContents.executeJavaScript(injectCode),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout ejecutando script')), 5000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout ejecutando script')), 10000))
     ]);
     
     if (result && result.success) {
