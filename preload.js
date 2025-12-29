@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('sandraAPI', {
   // ==================== CHAT Y MENSAJES ====================
   sendMessage: (message, role, mode = 'text') => ipcRenderer.invoke('send-message', { message, role, mode }),
-  chatSend: (provider, message, role) => ipcRenderer.invoke('chat:send', { provider, message, role }),
+  chatSend: (provider, message, role, model, options) => ipcRenderer.invoke('chat:send', { provider, message, role, model, options }),
   
   // ==================== ROLES ====================
   getAllRoles: () => ipcRenderer.invoke('get-all-roles'),
