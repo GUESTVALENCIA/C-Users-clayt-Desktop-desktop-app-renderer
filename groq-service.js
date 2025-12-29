@@ -18,31 +18,137 @@ class GroqService {
     this.baseURL = 'https://api.groq.com/openai/v1';
     this.isAvailable = !!this.apiKey;
 
-    // Modelos disponibles en Groq
+    // Modelos disponibles en Groq (actualizado 2025)
     this.models = {
-      'mixtral-8x7b-32768': {
-        name: 'Mixtral 8x7B',
-        description: 'Modelo multimodal rápido, excelente para chat',
-        maxTokens: 32768,
-        costTier: 'free',
-        speed: 'ultra-fast',
-        useCase: 'chat, análisis, resumen'
-      },
-      'llama2-70b-4096': {
-        name: 'Llama 2 70B',
-        description: 'Modelo grande, perfecto para tareas complejas',
-        maxTokens: 4096,
-        costTier: 'free',
-        speed: 'fast',
-        useCase: 'análisis, código, escritura'
-      },
-      'gemma-7b-it': {
-        name: 'Gemma 7B IT',
-        description: 'Modelo instruction-tuned, rápido y eficiente',
+      // Modelos de Texto (Alta Velocidad)
+      'llama-3.3-70b-versatile': {
+        name: 'Llama 3.3 70B',
+        description: 'Modelo más potente, versátil para todas las tareas',
         maxTokens: 8192,
-        costTier: 'free',
-        speed: 'ultra-fast',
-        useCase: 'instrucciones, Q&A, tareas cortas'
+        contextWindow: 8192,
+        costTier: 'paid',
+        speed: 280,
+        speedUnit: 'tokens/sec',
+        useCase: 'chat, análisis profundo, código complejo',
+        modality: 'text',
+        reasoning: false
+      },
+      'llama-3.1-8b-instant': {
+        name: 'Llama 3.1 8B Instant',
+        description: 'Modelo rápido y ligero para respuestas inmediatas',
+        maxTokens: 8192,
+        contextWindow: 8192,
+        costTier: 'paid',
+        speed: 560,
+        speedUnit: 'tokens/sec',
+        useCase: 'chat rápido, Q&A, asistente',
+        modality: 'text',
+        reasoning: false
+      },
+      'openai/gpt-oss-120b': {
+        name: 'GPT-OSS 120B',
+        description: 'Modelo de razonamiento avanzado de OpenAI',
+        maxTokens: 8192,
+        contextWindow: 8192,
+        costTier: 'paid',
+        speed: 500,
+        speedUnit: 'tokens/sec',
+        useCase: 'razonamiento, análisis complejo',
+        modality: 'text',
+        reasoning: true
+      },
+      'openai/gpt-oss-20b': {
+        name: 'GPT-OSS 20B',
+        description: 'Modelo rápido de razonamiento de OpenAI',
+        maxTokens: 8192,
+        contextWindow: 8192,
+        costTier: 'paid',
+        speed: 1000,
+        speedUnit: 'tokens/sec',
+        useCase: 'razonamiento rápido',
+        modality: 'text',
+        reasoning: true
+      },
+      // Modelos de Visión/Multimodal (NUEVOS)
+      'meta-llama/llama-4-scout-17b-16e-instruct': {
+        name: 'Llama 4 Scout (Visión)',
+        description: 'Modelo de visión compacto con 128K contexto',
+        maxTokens: 8192,
+        contextWindow: 131072,
+        costTier: 'preview',
+        speed: 'fast',
+        speedUnit: 'tokens/sec',
+        useCase: 'análisis de imágenes, OCR, descripción visual',
+        modality: 'multimodal',
+        reasoning: false,
+        vision: true,
+        maxImages: 5
+      },
+      'meta-llama/llama-4-maverick-17b-128e-instruct': {
+        name: 'Llama 4 Maverick (Visión)',
+        description: 'Modelo de visión potente con 128K contexto',
+        maxTokens: 8192,
+        contextWindow: 131072,
+        costTier: 'preview',
+        speed: 'fast',
+        speedUnit: 'tokens/sec',
+        useCase: 'análisis visual avanzado, complejas tareas con imágenes',
+        modality: 'multimodal',
+        reasoning: true,
+        vision: true,
+        maxImages: 5
+      },
+      // Modelos de Audio
+      'whisper-large-v3': {
+        name: 'Whisper Large V3',
+        description: 'Transcripción de audio altamente precisa',
+        maxTokens: null,
+        contextWindow: null,
+        costTier: 'paid',
+        speed: 'variable',
+        speedUnit: 'per hour',
+        useCase: 'transcripción de audio, procesamiento de voz',
+        modality: 'audio',
+        reasoning: false
+      },
+      'whisper-large-v3-turbo': {
+        name: 'Whisper Large V3 Turbo',
+        description: 'Transcripción de audio rápida y eficiente',
+        maxTokens: null,
+        contextWindow: null,
+        costTier: 'paid',
+        speed: 'variable',
+        speedUnit: 'per hour',
+        useCase: 'transcripción rápida de audio',
+        modality: 'audio',
+        reasoning: false
+      },
+      // Modelos de Compuesto (Web Search + Code)
+      'groq/compound': {
+        name: 'Groq Compound',
+        description: 'Sistema agentico con búsqueda web y ejecución de código',
+        maxTokens: 8192,
+        contextWindow: 8192,
+        costTier: 'paid',
+        speed: 450,
+        speedUnit: 'tokens/sec',
+        useCase: 'búsqueda web, ejecución de código, tareas agenticas',
+        modality: 'text',
+        reasoning: false,
+        tools: ['web_search', 'code_execution']
+      },
+      'groq/compound-mini': {
+        name: 'Groq Compound Mini',
+        description: 'Sistema agentico ligero',
+        maxTokens: 8192,
+        contextWindow: 8192,
+        costTier: 'paid',
+        speed: 450,
+        speedUnit: 'tokens/sec',
+        useCase: 'búsqueda web rápida, código simple',
+        modality: 'text',
+        reasoning: false,
+        tools: ['web_search', 'code_execution']
       }
     };
 
@@ -281,6 +387,156 @@ class GroqService {
   }
 
   /**
+   * Chat Multimodal - Soporta imágenes y texto
+   */
+  async chatWithVision(textMessage, imageUrls = [], options = {}) {
+    if (!this.isAvailable) {
+      throw new Error('Groq API no configurada');
+    }
+
+    const {
+      model = 'meta-llama/llama-4-scout-17b-16e-instruct',
+      temperature = 0.7,
+      maxTokens = 2048,
+      systemPrompt = 'Eres un asistente IA útil y profesional que analiza imágenes.'
+    } = options;
+
+    // Validar que el modelo soporta visión
+    const modelInfo = this.models[model];
+    if (!modelInfo || !modelInfo.vision) {
+      throw new Error(`El modelo ${model} no soporta visión. Use Llama 4 Scout o Maverick.`);
+    }
+
+    // Validar cantidad de imágenes
+    if (imageUrls.length > modelInfo.maxImages) {
+      throw new Error(`Máximo ${modelInfo.maxImages} imágenes permitidas, se enviaron ${imageUrls.length}`);
+    }
+
+    try {
+      // Construir contenido con imágenes
+      const content = [
+        { type: 'text', text: textMessage }
+      ];
+
+      // Agregar imágenes
+      imageUrls.forEach(url => {
+        content.push({
+          type: 'image_url',
+          image_url: { url }
+        });
+      });
+
+      const response = await this.makeRequest('POST', '/chat/completions', {
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content }
+        ],
+        temperature,
+        max_tokens: maxTokens
+      });
+
+      return {
+        success: true,
+        model,
+        content: response.choices[0].message.content,
+        usage: response.usage,
+        finishReason: response.choices[0].finish_reason,
+        imagesAnalyzed: imageUrls.length,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('[Groq] Error en chat with vision:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        model
+      };
+    }
+  }
+
+  /**
+   * Análisis Visual de Imagen (con descripción detallada)
+   */
+  async analyzeImage(imageUrl, analysisType = 'detailed', options = {}) {
+    const prompts = {
+      detailed: '¿Qué ves en esta imagen? Proporciona una descripción detallada y análisis.',
+      ocr: 'Extrae todo el texto visible en esta imagen. Mantén el formato original si es posible.',
+      objects: '¿Qué objetos principales ves en esta imagen? Enuméralos y describe cada uno.',
+      scene: '¿Qué tipo de escena es esta? Describe la ubicación, contexto y elementos clave.',
+      classification: '¿En qué categoría clasificarías esta imagen? (Ej: paisaje, retrato, documento, etc.)'
+    };
+
+    const prompt = prompts[analysisType] || prompts.detailed;
+
+    return this.chatWithVision(prompt, [imageUrl], {
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      maxTokens: 1024,
+      ...options
+    });
+  }
+
+  /**
+   * Procesamiento Multimodal AUTO - elige el modelo correcto automáticamente
+   */
+  async autoMultimodal(input, options = {}) {
+    // Detectar tipo de input
+    const hasImages = input.images && input.images.length > 0;
+    const hasAudio = input.audio && input.audio.url;
+    const hasText = input.text && input.text.length > 0;
+
+    console.log(`[Groq AUTO] Analizando entrada: texto=${hasText}, imágenes=${hasImages}, audio=${hasAudio}`);
+
+    try {
+      // 1. Solo texto
+      if (hasText && !hasImages && !hasAudio) {
+        // Elegir modelo basado en complejidad del texto
+        let model = 'llama-3.1-8b-instant'; // por defecto rápido
+
+        if (input.text.length > 1000 || input.reasoningRequired) {
+          model = input.complexReasoning
+            ? 'openai/gpt-oss-120b'
+            : 'llama-3.3-70b-versatile';
+        }
+
+        console.log(`[Groq AUTO] Seleccionado: ${model} (texto)`);
+        const result = await this.chat(input.text, { model });
+        return {
+          ...result,
+          selectedModel: model,
+          detectedModality: 'text'
+        };
+      }
+
+      // 2. Visión (imágenes + texto)
+      if (hasImages && hasText) {
+        const useAdvanced = input.images.length > 2 || input.text.length > 500;
+        const model = useAdvanced
+          ? 'meta-llama/llama-4-maverick-17b-128e-instruct'
+          : 'meta-llama/llama-4-scout-17b-16e-instruct';
+
+        console.log(`[Groq AUTO] Seleccionado: ${model} (visión multimodal)`);
+        const result = await this.chatWithVision(input.text, input.images, { model });
+        return {
+          ...result,
+          selectedModel: model,
+          detectedModality: 'multimodal'
+        };
+      }
+
+      throw new Error('Entrada inválida: debe contener texto, imágenes o audio');
+
+    } catch (error) {
+      console.error('[Groq AUTO] Error:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        detectedModality: 'unknown'
+      };
+    }
+  }
+
+  /**
    * Test de conectividad
    */
   async testConnection() {
@@ -294,6 +550,7 @@ class GroqService {
 
     try {
       const result = await this.chat('Responde solo con "OK"', {
+        model: 'llama-3.1-8b-instant',
         maxTokens: 10
       });
 

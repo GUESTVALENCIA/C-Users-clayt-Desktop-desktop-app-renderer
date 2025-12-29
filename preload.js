@@ -387,7 +387,21 @@ contextBridge.exposeInMainWorld('groq', {
   getStats: () => ipcRenderer.invoke('groq:getStats'),
 
   // Test de conexión
-  test: () => ipcRenderer.invoke('groq:test')
+  test: () => ipcRenderer.invoke('groq:test'),
+
+  // ============= MULTIMODAL (VISIÓN/IMAGEN/AUDIO) =============
+
+  // Chat con visión - procesa imágenes + texto
+  chatWithVision: (textMessage, imageUrls, options) =>
+    ipcRenderer.invoke('groq:chatWithVision', { textMessage, imageUrls, ...options }),
+
+  // Análisis visual de imagen
+  analyzeImage: (imageUrl, analysisType, options) =>
+    ipcRenderer.invoke('groq:analyzeImage', { imageUrl, analysisType, ...options }),
+
+  // AUTO Multimodal - elige modelo automáticamente según tipo de entrada
+  autoMultimodal: (input, options) =>
+    ipcRenderer.invoke('groq:autoMultimodal', { input, ...options })
 });
 
 // QWEN - Solo QWEN embebido

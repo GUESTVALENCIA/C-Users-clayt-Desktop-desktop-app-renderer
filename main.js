@@ -2274,6 +2274,58 @@ ipcMain.handle('groq:test', async () => {
   }
 });
 
+// ============ GROQ MULTIMODAL IPC HANDLERS (Visión/Imagen/Audio) ============
+
+ipcMain.handle('groq:chatWithVision', async (_, { textMessage, imageUrls, model, temperature, maxTokens }) => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.chatWithVision(textMessage, imageUrls, {
+      model: model || 'meta-llama/llama-4-scout-17b-16e-instruct',
+      temperature: temperature || 0.7,
+      maxTokens: maxTokens || 2048
+    });
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:analyzeImage', async (_, { imageUrl, analysisType, model, maxTokens }) => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.analyzeImage(imageUrl, analysisType || 'detailed', {
+      model: model || 'meta-llama/llama-4-scout-17b-16e-instruct',
+      maxTokens: maxTokens || 1024
+    });
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:autoMultimodal', async (_, { input, model, temperature, maxTokens }) => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.autoMultimodal(input, {
+      model: model,
+      temperature: temperature,
+      maxTokens: maxTokens
+    });
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // ============ AUDIT SYSTEM IPC HANDLERS ============
 ipcMain.handle('audit:login', async (_, { username, password }) => {
   if (!global.auditSystem) {
