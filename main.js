@@ -326,6 +326,13 @@ function createWindow() {
     });
 
     try { mainWindow.setMenuBarVisibility(false); } catch {}
+    
+    // CRÍTICO: Bloquear ventanas externas desde la ventana principal
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      console.log('[Main] ⚠️  Interceptando intento de abrir ventana desde mainWindow:', url);
+      // SIEMPRE denegar - no permitir ventanas externas
+      return { action: 'deny' };
+    });
 
     // Manejar errores de carga
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
@@ -1115,21 +1122,81 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
     if (show) {
       // Crear BrowserView solo cuando se necesita (como VS Code)
       if (!qwenWebview) {
+        console.log('[QWEN] ========================================');
+        console.log('[QWEN] Creando nuevo BrowserView...');
+        console.log('[QWEN] ========================================');
+        
         qwenWebview = new BrowserView({
           webPreferences: {
             partition: 'persist:qwen-app', // Cookies persistentes
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            webSecurity: true
           }
         });
         
-        // Interceptar popups - navegar en el mismo BrowserView
-        qwenWebview.webContents.setWindowOpenHandler(({ url }) => {
-          if (url && url !== 'about:blank') {
-            qwenWebview.webContents.loadURL(url);
+        // CRÍTICO: Configurar handlers INMEDIATAMENTE después de crear
+        console.log('[QWEN] 🔒 Configurando handlers de interceptación...');
+        
+        // Handler 1: Interceptar TODOS los intentos de abrir ventanas (PRIMERO Y MÁS IMPORTANTE)
+        qwenWebview.webContents.setWindowOpenHandler(({ url, frameName, features, disposition }) => {
+          console.log('[QWEN] 🚫 INTERCEPTADO intento de abrir ventana:', url);
+          console.log('[QWEN] Frame:', frameName, 'Disposition:', disposition, 'Features:', features);
+          
+          // SIEMPRE navegar en el mismo BrowserView (sin delay)
+          if (url && url !== 'about:blank' && url !== 'javascript:void(0)') {
+            console.log('[QWEN] ➡️  Redirigiendo al mismo BrowserView:', url);
+            // Usar loadURL directamente, sin setTimeout
+            qwenWebview.webContents.loadURL(url).catch(err => {
+              console.error('[QWEN] ❌ Error cargando URL:', err);
+            });
           }
-          return { action: 'deny' }; // Nunca abrir ventanas externas
+          
+          // SIEMPRE denegar - NUNCA permitir ventanas externas
+          return { action: 'deny' };
         });
+        
+        // Handler 2: Interceptar navegaciones (ANTES de que se ejecuten)
+        qwenWebview.webContents.on('will-navigate', (event, navigationUrl) => {
+          // Permitir solo navegaciones dentro del mismo dominio o OAuth
+          const allowedDomains = ['qwenlm.ai', 'google.com', 'github.com', 'accounts.google.com', 'oauth'];
+          const isAllowed = allowedDomains.some(domain => navigationUrl.includes(domain));
+          
+          if (isAllowed) {
+            console.log('[QWEN] ✅ Navegación permitida:', navigationUrl);
+            return; // Permitir
+          }
+          
+          // Bloquear otras navegaciones sospechosas
+          console.log('[QWEN] ⚠️  Bloqueando navegación no permitida:', navigationUrl);
+          event.preventDefault();
+        });
+        
+        // Handler 3: Interceptar nuevos windows (legacy, por si acaso)
+        qwenWebview.webContents.on('new-window', (event, navigationUrl, frameName, disposition, options) => {
+          console.log('[QWEN] 🚫 INTERCEPTADO new-window (legacy):', navigationUrl);
+          event.preventDefault();
+          // Navegar en el mismo BrowserView
+          if (navigationUrl && navigationUrl !== 'about:blank') {
+            qwenWebview.webContents.loadURL(navigationUrl);
+          }
+        });
+        
+        // Handler 4: Interceptar did-create-window (nuevo evento de Electron)
+        qwenWebview.webContents.on('did-create-window', (window, details) => {
+          console.log('[QWEN] 🚫 INTERCEPTADO did-create-window:', details.url);
+          // Cerrar inmediatamente cualquier ventana que se haya creado
+          if (window) {
+            window.close();
+          }
+          // Navegar en el mismo BrowserView
+          if (details.url && details.url !== 'about:blank') {
+            qwenWebview.webContents.loadURL(details.url);
+          }
+        });
+        
+        console.log('[QWEN] ✅ Todos los handlers configurados correctamente');
+        console.log('[QWEN] ========================================');
       }
       
       // Calcular bounds (respeta sidebar y top bar)
@@ -1144,9 +1211,14 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
         height: bounds.height - topBarHeight
       });
       
-      // Adjuntar y cargar URL
+      // Adjuntar ANTES de cargar URL
       mainWindow.setBrowserView(qwenWebview);
-      qwenWebview.webContents.loadURL('https://chat.qwenlm.ai/');
+      
+      // Cargar URL DESPUÉS de configurar handlers
+      console.log('[QWEN] Cargando URL: https://chat.qwenlm.ai/');
+      qwenWebview.webContents.loadURL('https://chat.qwenlm.ai/').catch(err => {
+        console.error('[QWEN] Error cargando URL:', err);
+      });
       
       // Actualizar bounds al redimensionar
       const updateBounds = () => {
@@ -1160,23 +1232,27 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
           });
         }
       };
+      mainWindow.removeAllListeners('resize');
       mainWindow.on('resize', updateBounds);
       
+      console.log('[QWEN] ✅ BrowserView mostrado y configurado');
       return { success: true };
     } else {
       // Ocultar: desadjuntar BrowserView
       if (qwenWebview && mainWindow) {
+        console.log('[QWEN] Ocultando BrowserView...');
         mainWindow.setBrowserView(null);
         mainWindow.focus();
         mainWindow.webContents.focus();
         if (mainWindow.webContents) {
           mainWindow.webContents.send('qwen:view-hidden');
         }
+        console.log('[QWEN] ✅ BrowserView ocultado');
       }
       return { success: true };
     }
   } catch (e) {
-    console.error('[QWEN] Error:', e);
+    console.error('[QWEN] ❌ Error:', e);
     return { success: false, error: e.message };
   }
 });
