@@ -50,7 +50,8 @@ pip install psycopg2-binary python-dotenv
 
 ### URL de Conexión
 ```
-postgresql://neondb_owner:npg_G2baKCg4FlyN@ep-fragrant-meadow-ah27lbiy-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+⚠️ IMPORTANTE: Configura DATABASE_URL en tu archivo .env
+No expongas credenciales en el código o documentación.
 ```
 
 ### Tabla Necesaria
