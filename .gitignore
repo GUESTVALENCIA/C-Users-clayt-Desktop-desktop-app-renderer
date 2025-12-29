@@ -27,10 +27,25 @@ Thumbs.db
 .env.local
 .env.pro
 
-# Security - API keys and credentials
+# Security - API keys and credentials (CRITICAL)
 VARIABLESFULL.txt
 *VARIABLES*.txt
 **/VARIABLES*.txt
+.env*
+!.env.example
+*-credentials*
+*-secrets*
+*-keys*
+*.key
+*.pem
+*.p12
+*.pfx
+
+# API Rotation System - Encrypted state
+.studiolab/
+~/.studiolab/
+.api-rotation*
+api-rotation-state.json
 
 # Backups and temp files (but NOT our needed files)
 *.bak
