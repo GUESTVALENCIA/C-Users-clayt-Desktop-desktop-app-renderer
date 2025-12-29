@@ -3494,8 +3494,8 @@
             const isOpen = selector.classList.contains('active');
             modelTrigger.setAttribute('aria-expanded', String(isOpen));
             
-            // Si se abre y es Qwen, renderizar modelos
-            if (isOpen && state.currentProvider === 'qwen') {
+            // SIEMPRE renderizar modelos cuando se abre el dropdown (independiente del proveedor)
+            if (isOpen) {
               renderModelLists();
             }
           }
@@ -3967,8 +3967,9 @@
       if (!next) {
         selector.classList.remove('more-open');
       } else {
-        // SIEMPRE renderizar modelos de Qwen cuando se abre el dropdown
-        renderModelLists();
+        // SIEMPRE renderizar modelos de Qwen cuando se abre el dropdown (sin necesidad de tener Qwen seleccionado)
+        console.log('[toggleModelDropdown] Abriendo dropdown - renderizando modelos de Qwen');
+        setTimeout(() => renderModelLists(), 50); // Pequeño delay para asegurar que el DOM esté listo
       }
     }
 
@@ -4093,16 +4094,18 @@
       const moreEl = document.getElementById('modelListMore');
       
       if (!primaryEl || !moreEl) {
-        console.error('[renderModelLists] ❌ Elementos DOM no encontrados');
+        console.error('[renderModelLists] ❌ Elementos DOM no encontrados - primaryEl:', !!primaryEl, 'moreEl:', !!moreEl);
         return;
       }
 
-      // Convertir modelos de PROVIDERS a formato de lista
+      // Convertir modelos de PROVIDERS a formato de lista (lista oficial completa de Qwen)
       const modelsList = Object.entries(provider.models).map(([id, config]) => ({
         id,
         name: config.name,
         context: config.context
       }));
+
+      console.log(`[renderModelLists] ✅ Renderizando ${modelsList.length} modelos de Qwen`);
 
       // Separar en primarios (primeros 6) y más (resto)
       const primary = modelsList.slice(0, 6);
@@ -4142,6 +4145,8 @@
 
       render(primaryEl, primary);
       render(moreEl, more);
+
+      console.log(`[renderModelLists] ✅ Modelos renderizados - Primarios: ${primary.length}, Más: ${more.length}`);
 
       // Mostrar/ocultar botón "más" según si hay modelos adicionales
       const moreBtn = document.getElementById('modelMoreBtn');
