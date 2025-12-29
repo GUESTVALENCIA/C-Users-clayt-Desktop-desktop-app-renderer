@@ -48,6 +48,18 @@ let aiModelsManager = null;
 const { AutoOrchestrator } = require('./auto-orchestrator');
 let autoOrchestrator = null;
 
+// ============ RESPONSE CACHE - Optimización de respuestas ============
+const { ResponseCache } = require('./response-cache');
+let responseCache = null;
+
+// ============ TIMEOUT MANAGER - Timeouts dinámicos ============
+const { TimeoutManager } = require('./timeout-manager');
+let timeoutManager = null;
+
+// ============ AUDIT SYSTEM - Auditoría con login ============
+const { AuditSystem } = require('./audit-system');
+let auditSystem = null;
+
 // Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
   console.error('[Main] ❌ Uncaught Exception:', error);
@@ -638,6 +650,25 @@ app.whenReady().then(() => {
   autoOrchestrator = new AutoOrchestrator();
   global.autoOrchestrator = autoOrchestrator;
   console.log('[Main] ✅ Auto Orchestrator inicializado');
+
+  // ============ INICIALIZAR CACHE DE RESPUESTAS ============
+  responseCache = new ResponseCache({ ttl: 3600000, maxSize: 100 });
+  global.responseCache = responseCache;
+  console.log('[Main] ✅ Response Cache inicializado');
+
+  // ============ INICIALIZAR TIMEOUT MANAGER ============
+  timeoutManager = new TimeoutManager({ baseTimeout: 30000 });
+  global.timeoutManager = timeoutManager;
+  console.log('[Main] ✅ Timeout Manager inicializado');
+
+  // ============ INICIALIZAR AUDIT SYSTEM ============
+  auditSystem = new AuditSystem({ auditDir: path.join(__dirname, '.audit') });
+  global.auditSystem = auditSystem;
+  // Crear usuario admin por defecto si no existe
+  if (!auditSystem.users.has('admin')) {
+    auditSystem.registerUser('admin', 'admin2024!', 'admin');
+  }
+  console.log('[Main] ✅ Audit System inicializado');
 
   // Sistema QWEN embebido - se inicializa cuando el usuario hace clic (no precargar)
   // Arrancar vigilancia y eventos de API al inicializar
@@ -1992,8 +2023,157 @@ ipcMain.handle('auto:cancelQuery', async (_, { queryId }) => {
   }
 });
 
+// ============ AUDIT SYSTEM IPC HANDLERS ============
+ipcMain.handle('audit:login', async (_, { username, password }) => {
+  if (!global.auditSystem) {
+    return { success: false, error: 'Audit System no inicializado' };
+  }
+
+  try {
+    const result = global.auditSystem.login(username, password);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('audit:logout', async (_, { token }) => {
+  if (!global.auditSystem) {
+    return { success: false, error: 'Audit System no inicializado' };
+  }
+
+  try {
+    const result = global.auditSystem.logout(token);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('audit:registerUser', async (_, { username, password, role }) => {
+  if (!global.auditSystem) {
+    return { success: false, error: 'Audit System no inicializado' };
+  }
+
+  try {
+    const result = global.auditSystem.registerUser(username, password, role);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('audit:getLog', async (_, { token, type, user, limit }) => {
+  if (!global.auditSystem) {
+    return { success: false, error: 'Audit System no inicializado' };
+  }
+
+  try {
+    const result = global.auditSystem.getAuditLog(token, { type, user, limit });
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ CACHE IPC HANDLERS ============
+ipcMain.handle('cache:get', async (_, { query, models }) => {
+  if (!global.responseCache) {
+    return { success: false, cached: false };
+  }
+
+  try {
+    const result = global.responseCache.get(query, models);
+    return { success: true, cached: result !== null, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('cache:set', async (_, { query, models, response }) => {
+  if (!global.responseCache) {
+    return { success: false };
+  }
+
+  try {
+    global.responseCache.set(query, models, response);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('cache:stats', async () => {
+  if (!global.responseCache) {
+    return { success: false };
+  }
+
+  try {
+    const stats = global.responseCache.getStats();
+    return { success: true, stats };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('cache:clear', async () => {
+  if (!global.responseCache) {
+    return { success: false };
+  }
+
+  try {
+    global.responseCache.clear();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ TIMEOUT MANAGER IPC HANDLERS ============
+ipcMain.handle('timeout:recordResponse', async (_, { modelId, responseTime, success }) => {
+  if (!global.timeoutManager) {
+    return { success: false };
+  }
+
+  try {
+    global.timeoutManager.recordResponse(modelId, responseTime, success);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('timeout:getTimeouts', async () => {
+  if (!global.timeoutManager) {
+    return { success: false };
+  }
+
+  try {
+    const timeouts = global.timeoutManager.getAllTimeouts();
+    return { success: true, timeouts };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('timeout:getReport', async () => {
+  if (!global.timeoutManager) {
+    return { success: false };
+  }
+
+  try {
+    const report = global.timeoutManager.getReport();
+    return { success: true, report };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 console.log('✅ IPC Handlers AI Models registrados');
 console.log('✅ IPC Handlers AUTO Orchestrator registrados');
+console.log('✅ IPC Handlers Audit System registrados');
+console.log('✅ IPC Handlers Cache registrados');
+console.log('✅ IPC Handlers Timeout Manager registrados');
 console.log('✅ IPC Handlers MCP Universal registrados');
 console.log('✅ IPC Handlers Sandra IA (Groq) registrados');
 console.log('📱 Arquitectura: Sandra IA (Groq) + iframes independientes para QWEN, Claude, GPT');
