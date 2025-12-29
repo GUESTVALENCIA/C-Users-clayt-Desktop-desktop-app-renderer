@@ -62,6 +62,10 @@ const { AuditSystem } = require('./audit-system');
 // ============ API DISCOVERY SERVICE - Descubrimiento de APIs gratuitas ============
 const { APIDiscoveryService } = require('./api-discovery-service');
 let apiDiscoveryService = null;
+
+// ============ GROQ SERVICE - API ultra rápida y gratuita ============
+const { GroqService } = require('./groq-service');
+let groqService = null;
 let auditSystem = null;
 
 // Manejo de errores no capturados
@@ -705,6 +709,29 @@ app.whenReady().then(() => {
     console.log(`   - ${stats.https} APIs con HTTPS`);
   } catch (e) {
     console.warn('⚠️ API Discovery Service no disponible:', e.message);
+  }
+
+  // ============ GROQ SERVICE INITIALIZATION ============
+  try {
+    groqService = new GroqService();
+    global.groqService = groqService;
+    const groqStats = groqService.getStats();
+    console.log(`✅ Groq Service inicializado`);
+    console.log(`   - API disponible: ${groqStats.isAvailable}`);
+    console.log(`   - Modelos: ${groqStats.modelsAvailable}`);
+
+    // Test de conexión en background
+    groqService.testConnection().then(result => {
+      if (result.available) {
+        console.log(`✅ Groq API conectada y funcionando`);
+      } else {
+        console.warn(`⚠️ Groq API error: ${result.error}`);
+      }
+    }).catch(e => {
+      console.warn('[Groq] Error en test:', e.message);
+    });
+  } catch (e) {
+    console.warn('⚠️ Groq Service no disponible:', e.message);
   }
 
   app.on('activate', function () {
@@ -2128,6 +2155,120 @@ ipcMain.handle('api:systemInstruction', async () => {
   try {
     const instruction = global.apiDiscoveryService.getSystemInstruction();
     return { success: true, instruction };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ GROQ SERVICE IPC HANDLERS ============
+ipcMain.handle('groq:chat', async (_, { message, model, temperature, maxTokens, systemPrompt }) => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.chat(message, {
+      model: model || 'mixtral-8x7b-32768',
+      temperature: temperature || 0.7,
+      maxTokens: maxTokens || 1024,
+      systemPrompt: systemPrompt || 'Eres un asistente IA útil y profesional.'
+    });
+    return { success: result.success, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:chatMultiple', async (_, { messages, model, temperature, maxTokens }) => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.chatMultiple(messages, {
+      model: model || 'mixtral-8x7b-32768',
+      temperature: temperature || 0.7,
+      maxTokens: maxTokens || 1024
+    });
+    return { success: result.success, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:analyze', async (_, { text, type }) => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.analyzeText(text, type);
+    return { success: result.success, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:translate', async (_, { text, language }) => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.translate(text, language);
+    return { success: result.success, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:generateCode', async (_, { description, language }) => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.generateCode(description, language);
+    return { success: result.success, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:getModels', async () => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const models = global.groqService.getAvailableModels();
+    return { success: true, models };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:getStats', async () => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const stats = global.groqService.getStats();
+    return { success: true, stats };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('groq:test', async () => {
+  if (!global.groqService) {
+    return { success: false, error: 'Groq Service no inicializado' };
+  }
+
+  try {
+    const result = await global.groqService.testConnection();
+    return { success: result.available, ...result };
   } catch (error) {
     return { success: false, error: error.message };
   }

@@ -361,6 +361,35 @@ contextBridge.exposeInMainWorld('apiDiscovery', {
   getSystemInstruction: () => ipcRenderer.invoke('api:systemInstruction')
 });
 
+// ============================================================================
+// GROQ SERVICE - API Ultra Rápida y Gratuita
+// ============================================================================
+contextBridge.exposeInMainWorld('groq', {
+  // Chat simple
+  chat: (message, options) => ipcRenderer.invoke('groq:chat', { message, ...options }),
+
+  // Chat múltiple (conversación)
+  chatMultiple: (messages, options) => ipcRenderer.invoke('groq:chatMultiple', { messages, ...options }),
+
+  // Análisis de texto
+  analyze: (text, type) => ipcRenderer.invoke('groq:analyze', { text, type }),
+
+  // Traducción
+  translate: (text, language) => ipcRenderer.invoke('groq:translate', { text, language }),
+
+  // Generación de código
+  generateCode: (description, language) => ipcRenderer.invoke('groq:generateCode', { description, language }),
+
+  // Obtener modelos disponibles
+  getModels: () => ipcRenderer.invoke('groq:getModels'),
+
+  // Obtener estadísticas
+  getStats: () => ipcRenderer.invoke('groq:getStats'),
+
+  // Test de conexión
+  test: () => ipcRenderer.invoke('groq:test')
+});
+
 // QWEN - Solo QWEN embebido
 console.log('✅ MCP Universal API expuesta');
 console.log('✅ AUTO Orchestrator API expuesta');
