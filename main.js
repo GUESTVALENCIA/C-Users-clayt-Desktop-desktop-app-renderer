@@ -1232,8 +1232,8 @@ ipcMain.handle('chat:send', async (_e, { provider, message, role, model, options
 
     const apiKeys = {
       groq: process.env.GROQ_API_KEY,
+      openai: process.env.OPENAI_API_KEY,
       anthropic: process.env.ANTHROPIC_API_KEY
-      // openai removido - usar QWEN3 embebido
     };
 
     if (!apiKeys[provider]) {
