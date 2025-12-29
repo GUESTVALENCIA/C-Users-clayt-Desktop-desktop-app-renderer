@@ -3923,7 +3923,16 @@
     window.handleKeyDown = function(event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
-        sendMessage();
+        event.stopPropagation();
+        // Llamar a sendMessage global
+        if (typeof sendMessage === 'function') {
+          sendMessage();
+        } else if (typeof window.sendMessage === 'function') {
+          window.sendMessage();
+        } else {
+          console.error('[UI] sendMessage no está definida');
+        }
+        return false;
       }
     };
 
