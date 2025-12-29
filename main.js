@@ -553,15 +553,21 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', function () {
   // Limpiar CUALQUIER BrowserView antes de cerrar
-  if (mainWindow) {
-    const currentView = mainWindow.getBrowserView();
-    if (currentView) {
-      mainWindow.setBrowserView(null);
-      try {
-        if (currentView.webContents && !currentView.webContents.isDestroyed()) {
-          currentView.webContents.destroy();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      const currentView = mainWindow.getBrowserView();
+      if (currentView) {
+        mainWindow.setBrowserView(null);
+        try {
+          if (currentView.webContents && !currentView.webContents.isDestroyed()) {
+            currentView.webContents.destroy();
+          }
+        } catch (e) {
+          console.log('[Main] Error destruyendo webContents:', e.message);
         }
-      } catch (e) {
+      }
+    } catch (e) {
+      // mainWindow ya fue destruida, ignorar
         console.log('[Main] Error limpiando BrowserView al cerrar:', e.message);
       }
     }
