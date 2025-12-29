@@ -5227,13 +5227,23 @@
             }, 2000);
             
             const qwenResponseHandler = (data) => {
-              responseReceived = true;
-              if (checkInterval) {
-                clearInterval(checkInterval);
-                checkInterval = null;
+              // Manejar diferentes tipos de eventos
+              if (data.type === 'thinking') {
+                // Qwen está pensando
+                responseReceived = true; // Marcar como recibido para evitar timeout
+                updateMessageDiv(assistantDiv, '💭 Pensando...');
+                scrollChatToBottom();
+                console.log('[QWEN] Estado: Pensando...');
+                return;
               }
               
               if (data.type === 'text' && data.content) {
+                responseReceived = true;
+                if (checkInterval) {
+                  clearInterval(checkInterval);
+                  checkInterval = null;
+                }
+                
                 accumulatedText += data.content;
                 
                 // Actualizar el div en tiempo real
@@ -5250,6 +5260,28 @@
                   maybeApplyCanvasFromResponse(accumulatedText);
                   updateModelUI();
                 }, 3000);
+              } else if (data.type === 'complete') {
+                // Respuesta completa
+                responseReceived = true;
+                if (checkInterval) {
+                  clearInterval(checkInterval);
+                  checkInterval = null;
+                }
+                
+                // Si hay texto completo, usarlo
+                if (data.fullText) {
+                  accumulatedText = data.fullText;
+                  updateMessageDiv(assistantDiv, accumulatedText);
+                }
+                
+                // Limpiar timeout y finalizar
+                if (timeoutId) clearTimeout(timeoutId);
+                if (window.sandraAPI?.off) {
+                  window.sandraAPI.off('qwen:response', qwenResponseHandler);
+                }
+                maybeApplyCanvasFromResponse(accumulatedText);
+                updateModelUI();
+                console.log('[QWEN] ✅ Respuesta completa');
               } else if (data.type === 'image' || data.type === 'video' || data.type === 'audio') {
                 // Añadir referencias de media al texto
                 accumulatedText += `\n[${data.type.toUpperCase()}: ${data.content}]`;
