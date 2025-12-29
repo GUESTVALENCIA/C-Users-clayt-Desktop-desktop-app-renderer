@@ -200,8 +200,8 @@ function getModelMeta(id) {
 }
 
 let qwenState = loadQwenState();
-// Sistema QWEN embebido - Técnica VS Code (iframe embebido en HTML)
-// NO usa BrowserView - el iframe maneja todo automáticamente
+// Sistema QWEN embebido - BrowserView (necesario porque qwen.ai bloquea iframes con X-Frame-Options)
+let qwenBrowserView = null; // BrowserView para QWEN (evita restricciones de X-Frame-Options)
 
 function emitStatus() {
   try {
@@ -1122,15 +1122,103 @@ ipcMain.handle('qwen:login', async () => {
   return { success: true, message: 'QWEN se muestra embebido en la interfaz' };
 });
 
-// ============ QWEN WEBVIEW - Técnica VS Code (iframe embebido) ============
-// Sistema simple: iframe embebido directamente en el HTML (como VS Code extension)
-// NO usa BrowserView - el iframe maneja todo automáticamente
+// ============ QWEN WEBVIEW - BrowserView (necesario por X-Frame-Options) ============
+// qwen.ai bloquea iframes con X-Frame-Options: sameorigin
+// BrowserView de Electron NO está sujeto a estas restricciones
 
 ipcMain.handle('qwen:toggle', async (_e, { show }) => {
-  // QWEN ahora usa iframe embebido en el HTML (técnica VS Code)
-  // No necesita BrowserView - el iframe maneja popups automáticamente
-  console.log('[QWEN] Toggle llamado - iframe embebido (técnica VS Code)');
-  return { success: true };
+  if (!mainWindow) {
+    return { success: false, error: 'Ventana principal no existe' };
+  }
+
+  try {
+    if (show) {
+      // Crear BrowserView solo cuando se necesita
+      if (!qwenBrowserView) {
+        console.log('[QWEN] Creando BrowserView (evita X-Frame-Options)...');
+        
+        qwenBrowserView = new BrowserView({
+          webPreferences: {
+            partition: 'persist:qwen-app', // Cookies persistentes
+            contextIsolation: true,
+            nodeIntegration: false,
+            webSecurity: true
+          }
+        });
+
+        // Interceptar ventanas nuevas (popups) - cargarlas en el mismo BrowserView
+        qwenBrowserView.webContents.setWindowOpenHandler(({ url }) => {
+          console.log('[QWEN] Interceptando popup:', url);
+          if (url && url !== 'about:blank') {
+            qwenBrowserView.webContents.loadURL(url);
+          }
+          return { action: 'deny' }; // Nunca permitir ventanas externas
+        });
+
+        // Interceptar navegaciones no deseadas
+        qwenBrowserView.webContents.on('will-navigate', (event, navigationUrl) => {
+          const allowedDomains = ['qwenlm.ai', 'qwen.ai', 'google.com', 'github.com', 'accounts.google.com'];
+          const isAllowed = allowedDomains.some(domain => navigationUrl.includes(domain));
+          if (!isAllowed) {
+            console.log('[QWEN] Bloqueando navegación:', navigationUrl);
+            event.preventDefault();
+          }
+        });
+      }
+
+      // Calcular bounds (respeta sidebar y top bar)
+      const bounds = mainWindow.getBounds();
+      const sidebarWidth = 52;
+      const topBarHeight = 44;
+
+      qwenBrowserView.setBounds({
+        x: sidebarWidth,
+        y: topBarHeight,
+        width: bounds.width - sidebarWidth,
+        height: bounds.height - topBarHeight
+      });
+
+      // Adjuntar BrowserView a la ventana principal
+      mainWindow.setBrowserView(qwenBrowserView);
+
+      // Cargar URL
+      console.log('[QWEN] Cargando URL en BrowserView: https://chat.qwenlm.ai/');
+      await qwenBrowserView.webContents.loadURL('https://chat.qwenlm.ai/');
+
+      // Actualizar bounds al redimensionar
+      const updateBounds = () => {
+        if (qwenBrowserView && mainWindow) {
+          const newBounds = mainWindow.getBounds();
+          qwenBrowserView.setBounds({
+            x: sidebarWidth,
+            y: topBarHeight,
+            width: newBounds.width - sidebarWidth,
+            height: newBounds.height - topBarHeight
+          });
+        }
+      };
+      mainWindow.on('resize', updateBounds);
+
+      console.log('[QWEN] ✅ BrowserView mostrado');
+      return { success: true };
+    } else {
+      // Ocultar: desadjuntar BrowserView
+      if (qwenBrowserView && mainWindow) {
+        console.log('[QWEN] Ocultando BrowserView...');
+        mainWindow.setBrowserView(null);
+        mainWindow.focus();
+        mainWindow.webContents.focus();
+        if (mainWindow.webContents) {
+          mainWindow.webContents.send('qwen:view-hidden');
+        }
+        console.log('[QWEN] ✅ BrowserView ocultado');
+      }
+      return { success: true };
+    }
+  } catch (e) {
+    console.error('[QWEN] ❌ Error:', e);
+    return { success: false, error: e.message };
+  }
 });
 
 ipcMain.handle('qwen:voiceChat', async (_e, { audioBase64, userId = 'default', text = '' }) => {
