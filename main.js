@@ -200,10 +200,8 @@ function getModelMeta(id) {
 }
 
 let qwenState = loadQwenState();
-let qwenMonitorWindow = null;
-let qwenBrowserView = null; // BrowserView para QWEN embebido
+let qwenBrowserView = null; // BrowserView para QWEN embebido (único sistema - como VS Code)
 let qwenBrowserViewReady = false; // Flag para saber si el BrowserView está completamente cargado
-let qwenAuthWindow = null; // BrowserWindow para login inicial (solo primera vez, como VS Code)
 
 function emitStatus() {
   try {
@@ -274,36 +272,9 @@ function openOpera(url) {
 //   return null;
 // }
 
-// ==================== QWEN - Mantener funcionalidad original ====================
-
-// Mantener la funcionalidad original de Qwen
-function createQwenMonitor(show = false) {
-  if (qwenMonitorWindow) {
-    if (show) qwenMonitorWindow.show();
-    return qwenMonitorWindow;
-  }
-
-  qwenMonitorWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    show: false, // Inicialmente oculto
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'qwen-preload.js'),
-      partition: 'persist:qwen-app',
-      contextIsolation: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      webviewTag: true
-    }
-  });
-
-  try { qwenMonitorWindow.setMenuBarVisibility(false); } catch {}
-  qwenMonitorWindow.on('closed', () => { qwenMonitorWindow = null; });
-  qwenMonitorWindow.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Opera/99.0');
-  qwenMonitorWindow.loadURL('about:blank').catch(() => {});
-  return qwenMonitorWindow;
-}
+// ==================== QWEN - Sistema Embebido (como VS Code) ====================
+// Código muerto eliminado: createQwenMonitor, qwenMonitorWindow, qwenAuthWindow
+// Ahora solo se usa BrowserView embebido (qwenBrowserView)
 
 // ==================== QWEN STREAMING SUPPORT ====================
 
@@ -1179,12 +1150,37 @@ function initializeQwenBrowserView() {
     qwenBrowserView.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
     
     // CRÍTICO: Manejar OAuth popups dentro del mismo BrowserView con misma partition
-    qwenBrowserView.webContents.setWindowOpenHandler(({ url }) => {
-      console.log('[QWEN] ⚠️  Interceptando OAuth popup:', url);
-      console.log('[QWEN] ➡️  Navegando en el mismo BrowserView (misma partition para cookies)');
+    // Este handler DEBE estar configurado ANTES de cargar cualquier URL
+    qwenBrowserView.webContents.setWindowOpenHandler(({ url, frameName, features }) => {
+      console.log('[QWEN] ⚠️  Interceptando intento de abrir ventana:', url);
+      console.log('[QWEN] Frame name:', frameName, 'Features:', features);
+      
+      // SIEMPRE negar la creación de nuevas ventanas
       // Navegar en el mismo BrowserView para mantener la misma partition y cookies
-      qwenBrowserView.webContents.loadURL(url);
-      return { action: 'deny' }; // Rechazar crear nueva ventana (todo en el mismo BrowserView)
+      if (url && url !== 'about:blank') {
+        console.log('[QWEN] ➡️  Navegando en el mismo BrowserView:', url);
+        // Usar setTimeout para evitar conflictos
+        setTimeout(() => {
+          qwenBrowserView.webContents.loadURL(url).catch(err => {
+            console.error('[QWEN] Error cargando URL en BrowserView:', err);
+          });
+        }, 100);
+      }
+      
+      // SIEMPRE denegar - nunca permitir ventanas externas
+      return { action: 'deny' };
+    });
+    
+    // CRÍTICO: También interceptar navegaciones que puedan abrir ventanas
+    qwenBrowserView.webContents.on('will-navigate', (event, navigationUrl) => {
+      // Permitir navegaciones normales dentro del mismo dominio
+      if (navigationUrl.includes('qwenlm.ai') || navigationUrl.includes('google.com') || navigationUrl.includes('github.com')) {
+        console.log('[QWEN] ✅ Navegación permitida:', navigationUrl);
+        return; // Permitir navegación
+      }
+      // Bloquear otras navegaciones sospechosas
+      console.log('[QWEN] ⚠️  Bloqueando navegación sospechosa:', navigationUrl);
+      event.preventDefault();
     });
     
     // Logs de diagnóstico para detectar problemas
@@ -1213,7 +1209,14 @@ function initializeQwenBrowserView() {
 
 // Toggle QWEN BrowserView (solo mostrar/ocultar - el BrowserView ya está cargado en background)
 ipcMain.handle('qwen:toggle', async (_e, { show }) => {
-  if (!mainWindow) return { success: false, error: 'Ventana principal no existe' };
+  console.log('[QWEN] ========================================');
+  console.log('[QWEN] qwen:toggle llamado con show:', show);
+  console.log('[QWEN] ========================================');
+  
+  if (!mainWindow) {
+    console.error('[QWEN] ❌ mainWindow no existe');
+    return { success: false, error: 'Ventana principal no existe' };
+  }
   
   try {
     // Asegurar que el BrowserView esté inicializado (debería estar desde app.whenReady)
@@ -1221,27 +1224,33 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
       console.log('[QWEN] BrowserView no existe, inicializando...');
       qwenBrowserViewReady = false; // Reset flag
       initializeQwenBrowserView();
-      // No esperar aquí - se cargará cuando se muestre con bounds reales
+      // Esperar un momento para que se inicialice
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
     if (show) {
       // CARGAR Y MOSTRAR el BrowserView (NO precargar invisible para evitar background throttling)
       const bounds = mainWindow.getBounds();
       
-      // IMPORTANTE: NO cubrir toda la ventana, dejar espacio para la barra superior
-      // Calcular área de contenido (debajo de la barra de título y menús)
-      const titleBarHeight = 30; // Altura aproximada de la barra de título
-      const menuBarHeight = 30; // Altura aproximada de menús/barras superiores
-      const offsetY = titleBarHeight + menuBarHeight;
+      // IMPORTANTE: NO cubrir sidebar ni header - solo el área de contenido (como VS Code)
+      // Sidebar width: 52px (definido en CSS)
+      // Top bar height: 44px (definido en CSS)
+      const sidebarWidth = 52;
+      const topBarHeight = 44;
       
-      // PRIMERO: Adjuntar y establecer bounds REALES antes de cargar (evita viewport 0)
+      // PRIMERO: Establecer bounds ANTES de adjuntar (evita problemas de renderizado)
+      const browserViewBounds = { 
+        x: sidebarWidth, // Empezar DESPUÉS de la sidebar
+        y: topBarHeight, // Empezar DESPUÉS del top bar
+        width: bounds.width - sidebarWidth, // Ancho reducido (sin sidebar)
+        height: bounds.height - topBarHeight // Altura reducida (sin top bar)
+      };
+      
+      qwenBrowserView.setBounds(browserViewBounds);
+      console.log('[QWEN] BrowserView bounds establecidos:', browserViewBounds);
+      
+      // Adjuntar DESPUÉS de establecer bounds
       mainWindow.setBrowserView(qwenBrowserView);
-      qwenBrowserView.setBounds({ 
-        x: 0, 
-        y: offsetY, // Empezar debajo de las barras superiores
-        width: bounds.width, 
-        height: bounds.height - offsetY // Altura reducida
-      });
       
       // Cargar la URL oficial de la web
       const QWEN_WEB_URL = 'https://chat.qwenlm.ai/';
@@ -1265,14 +1274,13 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
         if (qwenBrowserView && mainWindow) {
           const newBounds = mainWindow.getBounds();
           // Mantener mismo cálculo que al mostrar inicialmente
-          const titleBarHeight = 30;
-          const menuBarHeight = 30;
-          const offsetY = titleBarHeight + menuBarHeight;
+          const sidebarWidth = 52;
+          const topBarHeight = 44;
           qwenBrowserView.setBounds({ 
-            x: 0, 
-            y: offsetY,
-            width: newBounds.width, 
-            height: newBounds.height - offsetY
+            x: sidebarWidth, 
+            y: topBarHeight,
+            width: newBounds.width - sidebarWidth, 
+            height: newBounds.height - topBarHeight
           });
         }
       };
@@ -1281,15 +1289,24 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
       mainWindow.removeAllListeners('resize');
       mainWindow.on('resize', updateBounds);
       
-      qwenBrowserView.webContents.focus();
+      // CRÍTICO: NO hacer focus automático - permite que el usuario interactúe con la UI
+      // El BrowserView recibirá focus cuando el usuario haga clic dentro de él
+      // Si hacemos focus aquí, bloquea la UI principal
       console.log('[QWEN] ✅ BrowserView MOSTRADO con bounds reales, cargando URL...');
+      console.log('[QWEN] Bounds:', browserViewBounds);
+      console.log('[QWEN] ⚠️  IMPORTANTE: BrowserView NO tiene focus automático - usuario puede interactuar con UI');
       
       return { success: true };
     } else {
       // OCULTAR BrowserView (desadjuntar de la ventana, pero mantenerlo cargado en background)
       if (qwenBrowserView && mainWindow) {
+        console.log('[QWEN] Ocultando BrowserView...');
         mainWindow.setBrowserView(null);
-        console.log('[QWEN] BrowserView OCULTADO (sigue cargado en background, mantiene cookies)');
+        console.log('[QWEN] ✅ BrowserView OCULTADO (sigue cargado en background, mantiene cookies)');
+        
+        // CRÍTICO: Restaurar focus a la ventana principal para que la UI responda
+        mainWindow.focus();
+        mainWindow.webContents.focus();
         
         // Notificar al renderer para que muestre su contenido HTML de nuevo
         if (mainWindow && mainWindow.webContents) {
