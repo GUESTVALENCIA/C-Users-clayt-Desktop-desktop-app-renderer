@@ -3603,7 +3603,10 @@
         webview.src = 'https://chat.qwenlm.ai/';
         // IMPORTANTE: Usar partición persistente para guardar cookies y sesión (como VS Code)
         webview.partition = 'persist:qwen3';
+        // Atributos de seguridad para permitir contenido externo
         webview.setAttribute('allowpopups', 'true');
+        webview.setAttribute('allowmodals', 'true');
+        webview.setAttribute('enableRemoteModule', 'false');
         webview.style.cssText = `
           position: fixed;
           top: 44px;
@@ -3613,7 +3616,28 @@
           z-index: 9999;
           display: none;
           border: none;
+          background: white;
         `;
+
+        // Listeners para diagnosticar carga
+        webview.addEventListener('did-start-loading', () => {
+          console.log('[UI] QWEN3 iniciando carga de https://chat.qwenlm.ai/');
+        });
+
+        webview.addEventListener('did-finish-load', () => {
+          console.log('[UI] ✅ QWEN3 cargó exitosamente');
+        });
+
+        webview.addEventListener('did-fail-load', (event) => {
+          console.error('[UI] ❌ QWEN3 falló al cargar:', event.errorCode, event.errorDescription);
+          addTerminalLine(`❌ Error cargando QWEN3: ${event.errorDescription}`);
+        });
+
+        webview.addEventListener('crashed', () => {
+          console.error('[UI] ❌ QWEN3 webview crashed');
+          addTerminalLine('❌ QWEN3 webview crashed');
+        });
+
         document.body.appendChild(webview);
 
         // Agregar botón de cierre en la esquina superior del webview

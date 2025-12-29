@@ -363,6 +363,19 @@ function createWindow() {
       event.preventDefault();
     });
 
+    // CRÍTICO: Permitir que webviews naveguen a URLs externas (QWEN3)
+    // Los webviews NO heredan el will-navigate de mainWindow, necesitan su propio handler
+    mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+      console.log('[Main] 📦 Configurando webview con permisos para QWEN3...');
+      // Permitir que el webview acceda a navegación externa
+      webPreferences.nodeIntegration = false;
+      webPreferences.enableRemoteModule = false;
+      webPreferences.contextIsolation = true;
+      webPreferences.webSecurity = false; // PERMITIR contenido externo
+      webPreferences.allowRunningInsecureContent = true;
+      // NO agregar preload para webviews de contenido externo
+    });
+
     mainWindow.webContents.on('crashed', () => {
       console.error('[Main] Renderer process crashed');
     });
