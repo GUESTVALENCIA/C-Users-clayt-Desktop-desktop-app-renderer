@@ -1672,6 +1672,222 @@
       box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
     }
 
+    /* ============================================
+       CURSOR-STYLE MODE & MODEL SELECTORS
+       ============================================ */
+
+    /* Mode Selector */
+    .cursor-mode-selector {
+      position: relative;
+      display: inline-block;
+    }
+
+    .cursor-mode-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-weight: 500;
+    }
+
+    .cursor-mode-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .cursor-mode-icon {
+      font-size: 16px;
+    }
+
+    .cursor-dropdown-arrow {
+      font-size: 14px;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+
+    .cursor-mode-btn:hover .cursor-dropdown-arrow {
+      opacity: 1;
+    }
+
+    .cursor-mode-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px 0;
+      min-width: 180px;
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .cursor-mode-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .cursor-mode-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .cursor-mode-check {
+      display: inline-block;
+      width: 16px;
+      text-align: center;
+      color: var(--accent-primary);
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .cursor-mode-badge {
+      display: inline-block;
+      margin-left: auto;
+      padding: 2px 8px;
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+      font-size: 11px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* Model Selector */
+    .cursor-model-selector {
+      position: relative;
+      display: inline-block;
+    }
+
+    .cursor-model-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-weight: 500;
+    }
+
+    .cursor-model-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .cursor-model-icon {
+      font-size: 16px;
+    }
+
+    .cursor-model-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px 0;
+      min-width: 220px;
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+      max-height: 500px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cursor-model-search {
+      padding: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .cursor-model-search input {
+      width: 100%;
+      padding: 6px 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 12px;
+    }
+
+    .cursor-model-search input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .cursor-model-search input:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 10px rgba(0, 212, 170, 0.2);
+    }
+
+    .cursor-model-list {
+      overflow-y: auto;
+      max-height: 400px;
+    }
+
+    .cursor-model-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .cursor-model-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .cursor-model-check {
+      display: inline-block;
+      width: 12px;
+      text-align: center;
+      color: var(--accent-primary);
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .cursor-model-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 4px 0;
+    }
+
+    .cursor-model-add {
+      color: var(--accent-primary);
+      font-weight: 500;
+      background: rgba(0, 212, 170, 0.05);
+    }
+
+    .cursor-model-add:hover {
+      background: rgba(0, 212, 170, 0.1);
+      color: var(--accent-primary);
+    }
+
     /* API/Local Toggle Wrapper */
     .api-toggle-wrapper {
       display: flex;
@@ -2558,22 +2774,91 @@
               </button>
 
               <!-- Mode Button - Agente/Plan/Debug -->
-              <div class="toolbar-btn mode-btn" id="modeBtn" onclick="toggleModeMenu(event)">
-                <span class="toolbar-btn-icon" id="modeIcon">∞</span>
-                <span id="currentModeName">Agente</span>
-                <span>▼</span>
-                <div class="mode-dropdown">
-                  <div class="mode-option selected" onclick="selectMode('agente', 'Agente', '∞')">
-                    <span>∞</span>
+              <!-- MODE SELECTOR (Cursor-style) -->
+              <div class="cursor-mode-selector" id="modeSelector">
+                <button class="cursor-mode-btn" id="modeBtnMain" onclick="toggleModeMenu(event)">
+                  <span class="cursor-mode-icon" id="modeIcon">∞</span>
+                  <span id="currentModeName">Agente</span>
+                  <span class="cursor-dropdown-arrow">›</span>
+                </button>
+                <div class="cursor-mode-dropdown" id="modeDropdown" style="display: none;">
+                  <div class="cursor-mode-option" onclick="selectMode('agente', 'Agente', '∞')">
+                    <span class="cursor-mode-check">✓</span>
+                    <span class="cursor-mode-icon">∞</span>
                     <span>Agente</span>
                   </div>
-                  <div class="mode-option" onclick="selectMode('plan', 'Plan', '📋')">
-                    <span>📋</span>
+                  <div class="cursor-mode-option" onclick="selectMode('plan', 'Plan', '📋')">
+                    <span class="cursor-mode-check"></span>
+                    <span class="cursor-mode-icon">📋</span>
                     <span>Plan</span>
+                    <span class="cursor-mode-badge">Bloqueado</span>
                   </div>
-                  <div class="mode-option" onclick="selectMode('debug', 'Debug', '🐛')">
-                    <span>🐛</span>
+                  <div class="cursor-mode-option" onclick="selectMode('debug', 'Debug', '🐛')">
+                    <span class="cursor-mode-check"></span>
+                    <span class="cursor-mode-icon">🐛</span>
                     <span>Debug</span>
+                  </div>
+                  <div class="cursor-mode-option" onclick="selectMode('ask', 'Ask', '❓')">
+                    <span class="cursor-mode-check"></span>
+                    <span class="cursor-mode-icon">❓</span>
+                    <span>Ask</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MODEL SELECTOR (Cursor-style) -->
+              <div class="cursor-model-selector" id="modelSelector">
+                <button class="cursor-model-btn" id="modelBtnMain" onclick="toggleModelMenu(event)">
+                  <span class="cursor-model-icon">🤖</span>
+                  <span id="currentModelName">Gemini 2.5 Flash</span>
+                  <span class="cursor-dropdown-arrow">›</span>
+                </button>
+                <div class="cursor-model-dropdown" id="modelDropdown" style="display: none;">
+                  <div class="cursor-model-search">
+                    <input type="text" placeholder="Search models" id="modelSearchInput" onkeyup="filterModels()" />
+                  </div>
+                  <div class="cursor-model-list" id="modelList">
+                    <div class="cursor-model-option" onclick="selectModel('auto', 'Auto', '🤖')">
+                      <span class="cursor-model-check">•</span>
+                      <span>Auto</span>
+                    </div>
+                    <div class="cursor-model-option" onclick="selectModel('max', 'MAX Mode', '⚡')">
+                      <span class="cursor-model-check"></span>
+                      <span>MAX Mode</span>
+                    </div>
+                    <div class="cursor-model-option" onclick="selectModel('multiple', 'Use Multiple Models', '🔗')">
+                      <span class="cursor-model-check"></span>
+                      <span>Use Multiple Models</span>
+                    </div>
+                    <div class="cursor-model-divider"></div>
+                    <div class="cursor-model-option" onclick="selectModel('composer1', 'Composer 1', '✍️')">
+                      <span class="cursor-model-check"></span>
+                      <span>Composer 1</span>
+                    </div>
+                    <div class="cursor-model-option" onclick="selectModel('opus45', 'Opus 4.5', '🧠')">
+                      <span class="cursor-model-check"></span>
+                      <span>Opus 4.5</span>
+                    </div>
+                    <div class="cursor-model-option" onclick="selectModel('sonnet45', 'Sonnet 4.5', '⚙️')">
+                      <span class="cursor-model-check"></span>
+                      <span>Sonnet 4.5</span>
+                    </div>
+                    <div class="cursor-model-option" onclick="selectModel('gpt51', 'GPT-5.1 Codex Max', '💻')">
+                      <span class="cursor-model-check"></span>
+                      <span>GPT-5.1 Codex Max</span>
+                    </div>
+                    <div class="cursor-model-option" onclick="selectModel('gemini25', 'Gemini 2.5 Flash', '🎯')">
+                      <span class="cursor-model-check">•</span>
+                      <span>Gemini 2.5 Flash</span>
+                    </div>
+                    <div class="cursor-model-option" onclick="selectModel('kikim2', 'Kimi K2', '🌟')">
+                      <span class="cursor-model-check"></span>
+                      <span>Kimi K2</span>
+                    </div>
+                    <div class="cursor-model-divider"></div>
+                    <div class="cursor-model-option cursor-model-add" onclick="openModelSettings()">
+                      <span>+ Ver todos los modelos</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2805,6 +3090,7 @@
       currentModel: 'qwen3-omni-flash',
       qwen: { model: 'qwen3-omni-flash', auto: false, tokens: 0, tokensMax: 65536, models: [], connected: false, panelVisible: false },
       currentMode: 'agente',
+      planModeActive: false,
       thinkingEnabled: false,
       searchEnabled: false,
       currentTheme: 'default',
@@ -3447,7 +3733,7 @@
     }
 
     function closeAllDropdowns(except = null) {
-      const dropdowns = ['attachBtn', 'modeBtn', 'voiceBtn', 'modelSelector', 'autoContainer'];
+      const dropdowns = ['attachBtn', 'modeBtn', 'voiceBtn', 'autoContainer'];
       dropdowns.forEach(id => {
         if (id !== except) {
           document.getElementById(id)?.classList.remove('active');
@@ -3458,6 +3744,18 @@
       const autoDropdown = document.getElementById('autoDropdown');
       if (autoDropdown && except !== 'autoContainer') {
         autoDropdown.style.display = 'none';
+      }
+
+      // Close mode dropdown (Cursor-style)
+      const modeDropdown = document.getElementById('modeDropdown');
+      if (modeDropdown && except !== 'modeSelector') {
+        modeDropdown.style.display = 'none';
+      }
+
+      // Close model dropdown (Cursor-style)
+      const modelDropdown = document.getElementById('modelDropdown');
+      if (modelDropdown && except !== 'modelSelector') {
+        modelDropdown.style.display = 'none';
       }
 
       if (except !== 'modelSelector') {
@@ -3489,19 +3787,104 @@
     // ============================================
     function selectMode(modeId, modeName, modeIcon) {
       state.currentMode = modeId;
+      state.planModeActive = modeId === 'plan';
+
       document.getElementById('currentModeName').textContent = modeName;
       document.getElementById('modeIcon').textContent = modeIcon;
 
-      const options = Array.from(document.querySelectorAll('.mode-option'));
-      options.forEach(opt => opt.classList.remove('selected'));
-      const idxMap = { agente: 0, plan: 1, debug: 2 };
-      const idx = idxMap[modeId];
-      if (typeof idx === 'number' && options[idx]) {
-        options[idx].classList.add('selected');
-      }
+      // Update checkmarks in mode dropdown
+      const modeOptions = Array.from(document.querySelectorAll('.cursor-mode-option'));
+      modeOptions.forEach((opt, idx) => {
+        const check = opt.querySelector('.cursor-mode-check');
+        if (check) {
+          const isSelected =
+            (modeId === 'agente' && idx === 0) ||
+            (modeId === 'plan' && idx === 1) ||
+            (modeId === 'debug' && idx === 2) ||
+            (modeId === 'ask' && idx === 3);
+          check.textContent = isSelected ? '✓' : '';
+        }
+      });
 
-      document.getElementById('modeBtn').classList.remove('active');
-      addTerminalLine(`Modo cambiado a: ${modeName}`);
+      // Close dropdown
+      document.getElementById('modeDropdown').style.display = 'none';
+
+      // Log to terminal
+      if (state.planModeActive) {
+        addTerminalLine(`⛔ MODO PLAN ACTIVADO - Ejecución bloqueada`);
+      } else {
+        addTerminalLine(`Modo cambiado a: ${modeName}`);
+      }
+    }
+
+    function toggleModeMenu(event) {
+      event.stopPropagation();
+      const dropdown = document.getElementById('modeDropdown');
+      if (dropdown) {
+        const isOpen = dropdown.style.display === 'block';
+        closeAllDropdowns('modeSelector');
+        if (!isOpen) {
+          dropdown.style.display = 'block';
+        }
+      }
+    }
+
+    function toggleModelMenu(event) {
+      event.stopPropagation();
+      const dropdown = document.getElementById('modelDropdown');
+      if (dropdown) {
+        const isOpen = dropdown.style.display === 'block';
+        closeAllDropdowns('modelSelector');
+        if (!isOpen) {
+          dropdown.style.display = 'block';
+        }
+      }
+    }
+
+    function selectModel(modelId, modelName, modelIcon) {
+      // Update current model
+      state.currentModel = modelId;
+      document.getElementById('currentModelName').textContent = modelName;
+
+      // Update checkmarks in model list
+      const modelOptions = document.querySelectorAll('.cursor-model-option');
+      modelOptions.forEach(opt => {
+        const check = opt.querySelector('.cursor-model-check');
+        if (check) {
+          const isSelected = opt.textContent.includes(modelName);
+          check.textContent = isSelected ? '•' : '';
+        }
+      });
+
+      // Close dropdown
+      document.getElementById('modelDropdown').style.display = 'none';
+
+      addTerminalLine(`Modelo seleccionado: ${modelName}`);
+    }
+
+    function filterModels() {
+      const searchInput = document.getElementById('modelSearchInput');
+      const filter = searchInput.value.toLowerCase();
+      const modelOptions = document.querySelectorAll('.cursor-model-option:not(.cursor-model-add)');
+
+      let visibleCount = 0;
+      modelOptions.forEach(opt => {
+        const text = opt.textContent.toLowerCase();
+        if (text.includes(filter)) {
+          opt.style.display = 'flex';
+          visibleCount++;
+        } else {
+          opt.style.display = 'none';
+        }
+      });
+
+      addTerminalLine(`Modelos encontrados: ${visibleCount}`);
+    }
+
+    function openModelSettings() {
+      addTerminalLine('Abriendo selector completo de modelos en Settings...');
+      // TODO: Open full model selection settings panel
+      alert('Próximamente: Panel completo de selección de modelos en Configuración');
     }
 
     // ============================================
@@ -4244,6 +4627,18 @@
       const message = (input?.value || '').trim();
       if (!message) {
         console.log('[UI] Mensaje vacío, no se envía');
+        return;
+      }
+
+      // PLAN MODE CHECK: Block execution if in Plan mode
+      if (state.planModeActive) {
+        addTerminalLine('⛔ MODO PLAN: Solo se generan planes, sin ejecución');
+        // Show plan-only mode notification
+        const notif = document.createElement('div');
+        notif.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger); color: var(--danger); padding: 12px 16px; border-radius: 8px; z-index: 1001; max-width: 300px; font-size: 12px;';
+        notif.textContent = '⛔ MODO PLAN ACTIVO: Solo se presentan planes. Para ejecutar, cambia a AGENTE o DEBUG.';
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 5000);
         return;
       }
 
