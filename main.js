@@ -1537,11 +1537,13 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         // Esperar más tiempo para asegurar que la página esté completamente cargada
         setTimeout(() => {
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-          injectQwenResponseObserver(qwenBrowserView);
+            // Configurar comunicación bidireccional primero
+            setupQwenBidirectionalCommunication(qwenBrowserView);
+            injectQwenResponseObserver(qwenBrowserView);
             // Esperar un poco más antes de iniciar la captura
             setTimeout(() => {
               if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-          startQwenResponseCapture(); // Iniciar captura de respuestas
+                startQwenResponseCapture(); // Iniciar captura de respuestas
               }
             }, 3000); // Esperar 3 segundos adicionales
           }
@@ -1688,33 +1690,64 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
   }
 });
 
-// ============ QWEN: INYECTAR OBSERVADOR DE RESPUESTAS ============
-function injectQwenResponseObserver(browserView) {
+// ============ QWEN: COMUNICACIÓN BIDIRECCIONAL ============
+function setupQwenBidirectionalCommunication(browserView) {
   if (!browserView || browserView.webContents.isDestroyed()) return;
 
-  const observerScript = `
+  const communicationScript = `
     (function() {
-      if (window.qwenResponseObserverInjected) return;
-      window.qwenResponseObserverInjected = true;
+      if (window.qwenBidirectionalSetup) return;
+      window.qwenBidirectionalSetup = true;
 
-      // Almacenar última respuesta para que main.js pueda leerla
-      window.qwenLastResponse = {
-        text: '',
+      // Almacenar estado y respuestas
+      window.qwenState = {
+        currentState: 'idle', // 'idle', 'thinking', 'responding', 'complete'
+        lastResponse: '',
+        lastResponseText: '',
+        lastUserMessage: '',
+        responseStartTime: 0,
+        lastChangeTime: 0,
         images: [],
         videos: [],
-        audio: [],
-        timestamp: 0
+        audio: []
       };
 
+      // Función para detectar estado actual
+      function detectCurrentState() {
+        const bodyText = (document.body.innerText || document.body.textContent || '').toLowerCase();
+        
+        // Detectar "Pensando..." o "Thinking..."
+        if (bodyText.includes('pensando') || bodyText.includes('thinking') || 
+            bodyText.includes('escribiendo') || bodyText.includes('typing')) {
+          return 'thinking';
+        }
+        
+        // Detectar si hay respuesta nueva (texto que cambió recientemente)
+        const responseText = extractResponseText();
+        if (responseText && responseText !== window.qwenState.lastResponseText) {
+          const timeSinceLastChange = Date.now() - window.qwenState.lastChangeTime;
+          if (timeSinceLastChange < 3000) { // Cambió en los últimos 3 segundos
+            return 'responding';
+          } else {
+            return 'complete';
+          }
+        }
+        
+        return 'idle';
+      }
+
+      // Función mejorada para encontrar contenedor de respuestas
       function findResponseContainer() {
         const selectors = [
           '[data-testid="message"]',
+          '[data-role="assistant"]',
+          '[class*="assistant" i]',
+          '[class*="response" i]',
           '.message-content',
           '.response-container',
           '.chat-message',
           '.message',
-          '[class*="message"]',
-          '[class*="response"]',
+          '[class*="message" i]',
           'main',
           'article'
         ];
@@ -1726,19 +1759,50 @@ function injectQwenResponseObserver(browserView) {
         return document.body;
       }
 
-      function extractResponseText(container) {
+      // Función mejorada para extraer texto de respuesta
+      function extractResponseText() {
         try {
-          const messages = container.querySelectorAll('[class*="message"], [data-role="assistant"]');
-          if (messages.length > 0) {
-            const lastMessage = messages[messages.length - 1];
-            return lastMessage.innerText || lastMessage.textContent || '';
+          const container = findResponseContainer();
+          if (!container) return '';
+
+          // Buscar mensajes del asistente (último mensaje que no sea del usuario)
+          const allMessages = container.querySelectorAll('[class*="message" i], [data-role="assistant"], [class*="assistant" i]');
+          if (allMessages.length > 0) {
+            // Obtener el último mensaje que no sea del usuario
+            let lastAssistantMessage = null;
+            for (let i = allMessages.length - 1; i >= 0; i--) {
+              const msg = allMessages[i];
+              const role = msg.getAttribute('data-role') || '';
+              const classes = msg.className || '';
+              if (role === 'assistant' || classes.toLowerCase().includes('assistant') || 
+                  !classes.toLowerCase().includes('user')) {
+                lastAssistantMessage = msg;
+                break;
+              }
+            }
+            
+            if (lastAssistantMessage) {
+              return lastAssistantMessage.innerText || lastAssistantMessage.textContent || '';
+            }
           }
-          return container.innerText || container.textContent || '';
+          
+          // Fallback: buscar cualquier texto que no sea del input
+          const input = document.querySelector('textarea, input[type="text"], [contenteditable="true"]');
+          const allText = container.innerText || container.textContent || '';
+          if (input) {
+            const inputText = input.value || input.textContent || '';
+            if (allText.includes(inputText)) {
+              return allText.replace(inputText, '').trim();
+            }
+          }
+          
+          return allText;
         } catch (e) {
           return '';
         }
       }
 
+      // Función para extraer media
       function extractMedia() {
         const media = { images: [], videos: [], audio: [] };
         try {
@@ -1757,24 +1821,53 @@ function injectQwenResponseObserver(browserView) {
         return media;
       }
 
+      // Función para notificar cambios de estado
+      function notifyStateChange(newState, responseText) {
+        window.qwenState.currentState = newState;
+        window.qwenState.lastResponseText = responseText || '';
+        window.qwenState.lastChangeTime = Date.now();
+        
+        if (newState === 'responding' && !window.qwenState.responseStartTime) {
+          window.qwenState.responseStartTime = Date.now();
+        }
+        
+        // Almacenar para que main.js pueda leerlo
+        window.qwenLastResponse = {
+          text: responseText || '',
+          state: newState,
+          images: window.qwenState.images,
+          videos: window.qwenState.videos,
+          audio: window.qwenState.audio,
+          timestamp: Date.now()
+        };
+      }
+
       const container = findResponseContainer();
       if (!container) return;
+
+      let lastDetectedText = '';
+      let stateCheckInterval = null;
 
       // Observar cambios en el DOM
       const observer = new MutationObserver(() => {
         try {
-          const newText = extractResponseText(container);
+          const newText = extractResponseText();
           const media = extractMedia();
+          window.qwenState.images = media.images;
+          window.qwenState.videos = media.videos;
+          window.qwenState.audio = media.audio;
           
-          // Actualizar última respuesta
-          if (newText) {
-            window.qwenLastResponse.text = newText;
-            window.qwenLastResponse.images = media.images;
-            window.qwenLastResponse.videos = media.videos;
-            window.qwenLastResponse.audio = media.audio;
-            window.qwenLastResponse.timestamp = Date.now();
+          if (newText && newText !== lastDetectedText) {
+            lastDetectedText = newText;
+            window.qwenState.lastChangeTime = Date.now();
+            
+            // Detectar estado
+            const currentState = detectCurrentState();
+            notifyStateChange(currentState, newText);
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('[QWEN Observer] Error:', e);
+        }
       });
 
       observer.observe(container, {
@@ -1783,13 +1876,35 @@ function injectQwenResponseObserver(browserView) {
         characterData: true
       });
 
-      console.log('[QWEN Observer] ✅ Observador de respuestas activado');
+      // Verificar estado periódicamente para detectar cuando la respuesta está completa
+      stateCheckInterval = setInterval(() => {
+        try {
+          const currentState = detectCurrentState();
+          if (currentState !== window.qwenState.currentState) {
+            const responseText = extractResponseText();
+            notifyStateChange(currentState, responseText);
+          }
+        } catch (e) {}
+      }, 1000); // Verificar cada segundo
+
+      console.log('[QWEN Bidirectional] ✅ Sistema de comunicación bidireccional activado');
     })();
   `;
 
-  browserView.webContents.executeJavaScript(observerScript).catch(err => {
-    console.error('[QWEN] Error inyectando observador de respuestas:', err);
+  browserView.webContents.executeJavaScript(communicationScript).catch(err => {
+    console.error('[QWEN] Error configurando comunicación bidireccional:', err);
   });
+}
+
+// ============ QWEN: INYECTAR OBSERVADOR DE RESPUESTAS (MEJORADO) ============
+function injectQwenResponseObserver(browserView) {
+  if (!browserView || browserView.webContents.isDestroyed()) return;
+  
+  // Primero configurar comunicación bidireccional
+  setupQwenBidirectionalCommunication(browserView);
+  
+  // El observador ahora usa el sistema bidireccional configurado arriba
+  console.log('[QWEN Observer] ✅ Observador mejorado activado (usa comunicación bidireccional)');
 }
 
 // ============ QWEN: LEER RESPUESTAS DESDE BROWSERVIEW ============
@@ -1842,47 +1957,107 @@ async function startQwenResponseCapture() {
 
       qwenBrowserViewReady = true;
 
-      // Ahora intentar leer las respuestas
+      // Ahora intentar leer las respuestas y estados
       const response = await qwenBrowserView.webContents.executeJavaScript(`
-        window.qwenLastResponse || { text: '', images: [], videos: [], audio: [], timestamp: 0 }
+        (function() {
+          const lastResponse = window.qwenLastResponse || { 
+            text: '', 
+            state: 'idle', 
+            images: [], 
+            videos: [], 
+            audio: [], 
+            timestamp: 0 
+          };
+          
+          // Detectar estado actual si no está en lastResponse
+          if (!lastResponse.state || lastResponse.state === 'idle') {
+            const bodyText = (document.body.innerText || '').toLowerCase();
+            if (bodyText.includes('pensando') || bodyText.includes('thinking')) {
+              lastResponse.state = 'thinking';
+            }
+          }
+          
+          return lastResponse;
+        })();
       `);
 
-      if (response && response.text && response.text !== lastCapturedText && response.text.length > lastCapturedText.length) {
-        const newContent = response.text.slice(lastCapturedText.length);
-        lastCapturedText = response.text;
+      if (response) {
+        // Detectar cambios de estado
+        const currentState = response.state || 'idle';
+        const responseText = response.text || '';
+        
+        // Si hay un cambio de estado, notificarlo
+        if (currentState === 'thinking' && responseText === '') {
+          // Qwen está pensando pero aún no hay respuesta
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('qwen:response', {
+              type: 'thinking',
+              content: 'Pensando...',
+              state: 'thinking'
+            });
+          }
+        } else if (responseText && responseText !== lastCapturedText) {
+          // Hay nueva respuesta
+          if (responseText.length > lastCapturedText.length) {
+            const newContent = responseText.slice(lastCapturedText.length);
+            lastCapturedText = responseText;
 
-        // Enviar texto al renderer
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('qwen:response', {
-            type: 'text',
-            content: newContent,
-            stream: true
-          });
+            // Enviar texto al renderer
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('qwen:response', {
+                type: 'text',
+                content: newContent,
+                state: currentState,
+                stream: true
+              });
+            }
+          }
 
           // Enviar media si existe
           if (response.images && response.images.length > 0) {
             response.images.forEach(img => {
-              mainWindow.webContents.send('qwen:response', {
-                type: 'image',
-                content: img
-              });
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('qwen:response', {
+                  type: 'image',
+                  content: img,
+                  state: currentState
+                });
+              }
             });
           }
           if (response.videos && response.videos.length > 0) {
             response.videos.forEach(vid => {
-              mainWindow.webContents.send('qwen:response', {
-                type: 'video',
-                content: vid
-              });
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('qwen:response', {
+                  type: 'video',
+                  content: vid,
+                  state: currentState
+                });
+              }
             });
           }
           if (response.audio && response.audio.length > 0) {
             response.audio.forEach(aud => {
-              mainWindow.webContents.send('qwen:response', {
-                type: 'audio',
-                content: aud
-              });
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('qwen:response', {
+                  type: 'audio',
+                  content: aud,
+                  state: currentState
+                });
+              }
             });
+          }
+          
+          // Si el estado es 'complete', notificar que la respuesta terminó
+          if (currentState === 'complete') {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('qwen:response', {
+                type: 'complete',
+                content: '',
+                state: 'complete',
+                fullText: responseText
+              });
+            }
           }
         }
       }
@@ -2227,125 +2402,162 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: `QWEN no está listo: ${error.message}` };
     }
 
-    // Diagnóstico del DOM
-    console.log(`[QWEN] 🔍 Analizando DOM de Qwen...`);
-    const diagnosis = await diagnoseQwenDOM(qwenBrowserView);
-    if (!diagnosis.success) {
-      console.error(`[QWEN] ❌ Diagnóstico falló:`, diagnosis.error || 'Error desconocido');
-      return { success: false, error: `Error en diagnóstico: ${diagnosis.error || 'Error desconocido'}` };
-    }
+    // Con la nueva técnica de waitForElement, no necesitamos diagnóstico previo
+    // El código inyectado esperará dinámicamente a que los elementos estén disponibles
+    console.log(`[QWEN] 🔍 Usando técnica de inyección dinámica con waitForElement...`);
 
-    const domInfo = diagnosis.data;
-    if (!domInfo.inputFound) {
-      console.error(`[QWEN] ❌ Input no encontrado en el DOM`);
-      return { success: false, error: 'No se pudo encontrar el input de Qwen. Asegúrate de que la página esté completamente cargada.' };
-    }
-
-    console.log(`[QWEN] 🔍 Diagnóstico completado:`);
-    console.log(`   - Input encontrado: ${domInfo.inputType} (${domInfo.inputSelector || 'sin selector único'})`);
-    console.log(`   - Botón de envío: ${domInfo.sendButtonFound ? 'Sí' : 'No'} (${domInfo.sendButtonSelector || 'N/A'})`);
-    console.log(`   - Funciones globales: ${domInfo.sendFunctions.length > 0 ? domInfo.sendFunctions.join(', ') : 'Ninguna'}`);
-    console.log(`   - Tiene formulario: ${domInfo.hasSubmitForm ? 'Sí' : 'No'}`);
-    
-    // Verificar que al menos el input fue encontrado
-    if (!domInfo.inputFound) {
-      return { success: false, error: 'No se pudo encontrar el input de Qwen. Asegúrate de que la página esté completamente cargada.' };
-    }
-
-    // Código de inyección simplificado según solución de Qwen
+    // Código de inyección dinámica con waitForElement (nueva técnica)
     const messageEscaped = JSON.stringify(message);
     const injectCode = `
       (function() {
         const result = { strategy: null, success: false, error: null };
         const messageText = ${messageEscaped};
         
+        // Función para esperar a que un elemento exista en el DOM
+        function waitForElement(selector, callback, timeout = 5000) {
+          const start = Date.now();
+          const check = () => {
+            const element = document.querySelector(selector);
+            if (element && element.offsetParent !== null) {
+              callback(element);
+            } else if (Date.now() - start < timeout) {
+              setTimeout(check, 100);
+            } else {
+              callback(null);
+            }
+          };
+          check();
+        }
+        
+        // Función para buscar elemento con múltiples selectores
+        function findElementWithSelectors(selectors, callback, timeout = 5000) {
+          const start = Date.now();
+          const check = () => {
+            for (const selector of selectors) {
+              try {
+                const element = document.querySelector(selector);
+                if (element && element.offsetParent !== null) {
+                  callback(element);
+                  return;
+                }
+              } catch (e) {}
+            }
+            if (Date.now() - start < timeout) {
+              setTimeout(check, 100);
+            } else {
+              callback(null);
+            }
+          };
+          check();
+        }
+        
         try {
-          // Encontrar el campo de entrada de texto (solución directa de Qwen)
-          const input = document.querySelector('textarea[placeholder*="ayuda" i]') ||
-                        document.querySelector('textarea[placeholder*="mensaje" i]') ||
-                        document.querySelector('textarea[placeholder*="pregunta" i]') ||
-                        document.querySelector('#chat-input') ||
-                        document.querySelector('textarea') ||
-                        document.querySelector('input[type="text"]') ||
-                        document.querySelector('div[contenteditable="true"]');
+          // Lista de selectores para el input (en orden de prioridad)
+          const inputSelectors = [
+            'textarea[placeholder*="ayuda" i]',
+            'textarea[placeholder*="mensaje" i]',
+            'textarea[placeholder*="pregunta" i]',
+            'textarea[placeholder*="Cuéntame" i]',
+            '#chat-input',
+            'textarea:not([disabled]):not([readonly])',
+            'input[type="text"]:not([disabled]):not([readonly])',
+            'div[contenteditable="true"]',
+            'textarea',
+            'input[type="text"]'
+          ];
           
-          if (!input) {
-            result.error = 'Input no encontrado';
-            return result;
-          }
-
-          // Limpiar input
-          if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-            input.value = '';
-            input.value = messageText;
-          } else {
-            input.textContent = '';
-            input.textContent = messageText;
-          }
-          
-          // Disparar evento de cambio con InputEvent (solución simplificada de Qwen)
-          try {
-            const inputEvent = new InputEvent('input', {
-              inputType: 'insertText',
-              data: messageText,
-              bubbles: true,
-              cancelable: true,
-              composed: true
-            });
-            input.dispatchEvent(inputEvent);
-          } catch (e) {
-            // Fallback si InputEvent no está disponible
-            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-          }
-          
-          // Buscar botón de enviar (por clase, id o texto) - solución directa de Qwen
-          let sendButton = document.querySelector('button[type="submit"]') ||
-                           document.querySelector('button[aria-label*="enviar" i]') ||
-                           document.querySelector('button[aria-label*="send" i]') ||
-                           document.querySelector('button[data-testid="send-button"]') ||
-                           document.querySelector('button[class*="send" i]') ||
-                           document.querySelector('button[class*="submit" i]') ||
-                           document.querySelector('button[title*="enviar" i]') ||
-                           document.querySelector('button[title*="send" i]') ||
-                           document.querySelector('.send-button') ||
-                           document.querySelector('.submit-button');
-          
-          // Si encuentra botón, hacer click
-          if (sendButton && !sendButton.disabled && sendButton.offsetParent !== null) {
-            setTimeout(() => {
-              sendButton.click();
-            }, 100);
-            result.strategy = 'button-click';
-            result.success = true;
-            console.log('[QWEN] ✅ Mensaje enviado usando botón de envío');
-            return result;
-          } else {
-            // Si no encuentra botón, intentar con Enter
+          // Esperar a que el input esté disponible
+          findElementWithSelectors(inputSelectors, (input) => {
+            if (!input) {
+              result.error = 'Input no encontrado después de esperar';
+              return;
+            }
+            
+            // Limpiar input y establecer valor
+            if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+              input.value = '';
+              input.value = messageText;
+            } else {
+              input.textContent = '';
+              input.textContent = messageText;
+            }
+            
+            // Enfocar el input
             input.focus();
-            setTimeout(() => {
-              input.dispatchEvent(new KeyboardEvent('keydown', {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                which: 13,
+            
+            // Disparar evento de cambio con InputEvent
+            try {
+              const inputEvent = new InputEvent('input', {
+                inputType: 'insertText',
+                data: messageText,
                 bubbles: true,
-                cancelable: true
-              }));
-              input.dispatchEvent(new KeyboardEvent('keyup', {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-                cancelable: true
-              }));
-            }, 100);
-            result.strategy = 'enter-key';
-            result.success = true;
-            console.log('[QWEN] ✅ Mensaje enviado usando Enter');
-            return result;
-          }
-
+                cancelable: true,
+                composed: true
+              });
+              input.dispatchEvent(inputEvent);
+            } catch (e) {
+              // Fallback si InputEvent no está disponible
+              input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+            }
+            
+            // Lista de selectores para el botón de envío (en orden de prioridad)
+            const sendButtonSelectors = [
+              'button[type="submit"]:not([disabled])',
+              'button[aria-label*="enviar" i]:not([disabled])',
+              'button[aria-label*="send" i]:not([disabled])',
+              'button[data-testid="send-button"]:not([disabled])',
+              'button[class*="send" i]:not([disabled])',
+              'button[class*="submit" i]:not([disabled])',
+              'button[title*="enviar" i]:not([disabled])',
+              'button[title*="send" i]:not([disabled])',
+              '.send-button:not([disabled])',
+              '.submit-button:not([disabled])',
+              'button:not([disabled]):has(svg)',
+              'button:not([disabled])'
+            ];
+            
+            // Esperar a que el botón de envío esté disponible (con timeout más corto)
+            findElementWithSelectors(sendButtonSelectors, (sendButton) => {
+              if (sendButton && !sendButton.disabled && sendButton.offsetParent !== null) {
+                // Hacer click en el botón de enviar
+                setTimeout(() => {
+                  sendButton.click();
+                  result.strategy = 'button-click';
+                  result.success = true;
+                  console.log('[QWEN] ✅ Mensaje enviado usando botón de envío');
+                }, 200);
+              } else {
+                // Si no encuentra botón, intentar con Enter
+                setTimeout(() => {
+                  input.focus();
+                  input.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Enter',
+                    code: 'Enter',
+                    keyCode: 13,
+                    which: 13,
+                    bubbles: true,
+                    cancelable: true
+                  }));
+                  input.dispatchEvent(new KeyboardEvent('keyup', {
+                    key: 'Enter',
+                    code: 'Enter',
+                    keyCode: 13,
+                    which: 13,
+                    bubbles: true,
+                    cancelable: true
+                  }));
+                  result.strategy = 'enter-key';
+                  result.success = true;
+                  console.log('[QWEN] ✅ Mensaje enviado usando Enter');
+                }, 200);
+              }
+            }, 3000); // Timeout de 3 segundos para el botón
+          }, 5000); // Timeout de 5 segundos para el input
+          
+          // Retornar resultado inmediatamente (las callbacks se ejecutarán de forma asíncrona)
+          // El resultado se actualizará en las callbacks, pero retornamos inmediatamente para no bloquear
+          return result;
         } catch (err) {
           result.error = err.message;
           return result;
@@ -2354,21 +2566,39 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     `;
 
     try {
+      // Ejecutar el código de inyección dinámica
+      // Nota: El código usa waitForElement con callbacks asíncronos
       const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
+      
+      // Esperar tiempo suficiente para que waitForElement complete (5s input + 3s button + buffer)
+      await new Promise(resolve => setTimeout(resolve, 4000));
       
       if (result && result.success) {
         console.log(`[QWEN] ✅ Mensaje enviado usando estrategia: ${result.strategy}`);
         
-        // Verificación post-envío (esperar 1.5 segundos para dar tiempo al envío)
+        // Verificación post-envío adicional (esperar 1.5 segundos más para dar tiempo al envío)
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         const verification = await qwenBrowserView.webContents.executeJavaScript(`
           (function() {
             try {
+              // Buscar input con múltiples selectores (compatible con técnica dinámica)
+              const inputSelectors = [
+                'textarea[placeholder*="ayuda" i]',
+                'textarea[placeholder*="mensaje" i]',
+                'textarea[placeholder*="pregunta" i]',
+                '#chat-input',
+                'textarea:not([disabled])',
+                'input[type="text"]:not([disabled])',
+                'div[contenteditable="true"]',
+                'textarea',
+                'input[type="text"]'
+              ];
+              
               let input = null;
-              ${domInfo.inputSelector ? 
-                `input = document.querySelector('${domInfo.inputSelector}');` :
-                `input = document.querySelector('[contenteditable="true"], textarea, input[type="text"]');`
+              for (const selector of inputSelectors) {
+                input = document.querySelector(selector);
+                if (input && input.offsetParent !== null) break;
               }
               
               if (!input) return { verified: false, reason: 'Input no encontrado' };
