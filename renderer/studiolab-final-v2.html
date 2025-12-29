@@ -3968,7 +3968,15 @@
       const next = typeof forceOpen === 'boolean' ? forceOpen : !selector.classList.contains('active');
       selector.classList.toggle('active', next);
       document.getElementById('modelTrigger')?.setAttribute('aria-expanded', String(next));
-      if (!next) selector.classList.remove('more-open');
+      if (!next) {
+        selector.classList.remove('more-open');
+      } else {
+        // Cuando se abre el dropdown, renderizar modelos si es Qwen
+        if (state.currentProvider === 'qwen') {
+          console.log('[toggleModelDropdown] Dropdown abierto para Qwen, renderizando modelos...');
+          renderModelLists();
+        }
+      }
     }
 
     async function refreshQwenState() {
@@ -4079,19 +4087,35 @@
 
       // Si es Qwen, renderizar la lista de modelos también
       if (state.currentProvider === 'qwen') {
+        console.log('[updateModelUI] Proveedor es Qwen, llamando renderModelLists()...');
         renderModelLists();
       }
     }
 
     function renderModelLists() {
+      console.log('[renderModelLists] Iniciando renderizado...', { currentProvider: state.currentProvider });
+      
       // Si el proveedor actual es Qwen, renderizar sus modelos en el selector superior
       if (state.currentProvider === 'qwen') {
         const provider = PROVIDERS.qwen;
-        if (!provider || !provider.models) return;
+        if (!provider || !provider.models) {
+          console.error('[renderModelLists] ❌ Provider o models no encontrados');
+          return;
+        }
 
         const primaryEl = document.getElementById('modelListPrimary');
         const moreEl = document.getElementById('modelListMore');
-        if (!primaryEl || !moreEl) return;
+        
+        console.log('[renderModelLists] Elementos DOM:', { 
+          primaryEl: !!primaryEl, 
+          moreEl: !!moreEl,
+          modelsCount: Object.keys(provider.models).length 
+        });
+        
+        if (!primaryEl || !moreEl) {
+          console.error('[renderModelLists] ❌ Elementos DOM no encontrados (modelListPrimary o modelListMore)');
+          return;
+        }
 
         // Convertir modelos de PROVIDERS a formato de lista
         const modelsList = Object.entries(provider.models).map(([id, config]) => ({
@@ -4100,13 +4124,22 @@
           context: config.context
         }));
 
+        console.log('[renderModelLists] Modelos procesados:', modelsList.length);
+
         // Separar en primarios (primeros 6) y más (resto)
         const primary = modelsList.slice(0, 6);
         const more = modelsList.slice(6);
 
+        console.log('[renderModelLists] Separación:', { primary: primary.length, more: more.length });
+
         const render = (root, list) => {
-          if (!root) return;
+          if (!root) {
+            console.error('[renderModelLists] Root element no existe');
+            return;
+          }
+          
           root.innerHTML = '';
+          console.log(`[renderModelLists] Renderizando ${list.length} modelos en`, root.id);
           
           list.forEach((m) => {
             const btn = document.createElement('button');
@@ -4143,6 +4176,10 @@
         if (moreBtn) {
           moreBtn.style.display = more.length > 0 ? 'flex' : 'none';
         }
+
+        console.log('[renderModelLists] ✅ Renderizado completado');
+      } else {
+        console.log('[renderModelLists] Proveedor no es Qwen, no se renderiza nada');
       }
     }
 
