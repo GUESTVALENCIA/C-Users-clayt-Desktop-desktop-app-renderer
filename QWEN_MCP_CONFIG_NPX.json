@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "sandra-full-access": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "node",
+        "C:\\Users\\clayt\\Desktop\\desktop-app\\qwen-mcp-stdio-server.js"
+      ]
+    }
+  }
+}
+
