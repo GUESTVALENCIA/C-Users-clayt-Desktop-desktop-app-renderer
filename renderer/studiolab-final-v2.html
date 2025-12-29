@@ -1750,18 +1750,27 @@
       bottom: 0;
       background: var(--bg-primary);
       z-index: 10000; /* Muy alto para estar encima de todo */
-      display: none;
+      display: none !important; /* SIEMPRE oculto por defecto */
       flex-direction: column;
       border: none;
       overflow: hidden;
+      visibility: hidden !important; /* Oculto por defecto */
+      opacity: 0 !important; /* Transparente por defecto */
+      pointer-events: none !important; /* No interceptar eventos cuando está oculto */
     }
 
     .qwen-panel:not(.hidden) {
-      display: flex !important; /* Forzar display */
+      display: flex !important; /* Forzar display cuando NO tiene clase hidden */
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important; /* Permitir eventos cuando está visible */
     }
 
     .qwen-panel.hidden {
       display: none !important; /* Forzar oculto */
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important; /* No interceptar eventos */
     }
 
     .qwen-panel iframe {
@@ -1771,6 +1780,8 @@
       border: none;
       background: white;
       display: block;
+      visibility: visible;
+      opacity: 1;
     }
 
     /* ============================================
@@ -2294,7 +2305,8 @@
       <div class="chat-content-wrapper">
         <!-- QWEN Panel - Técnica VS Code (iframe embebido) -->
         <!-- QWEN Panel - Técnica VS Code (iframe embebido) -->
-        <div class="qwen-panel hidden" id="qwenPanel">
+        <!-- IMPORTANTE: Panel oculto por defecto con clase 'hidden' y display:none -->
+        <div class="qwen-panel hidden" id="qwenPanel" style="display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important;">
           <iframe 
             id="qwenIframe" 
             src="about:blank"
@@ -3570,65 +3582,65 @@
     // ============================================
     // QWEN PANEL TOGGLE (Embedded)
     // ============================================
-    // QWEN Toggle - Técnica VS Code (iframe embebido, sin BrowserView)
-    async function toggleQwen() {
-      // Buscar botón en sidebar o toolbar
+    // QWEN Toggle - Técnica VS Code (iframe embebido, sin BrowserView, sin IPC)
+    function toggleQwen() {
+      console.log('[UI] toggleQwen llamado - SIN IPC, solo DOM');
+      
+      // Buscar elementos
       const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
       const label = document.getElementById('qwenLabel');
       const panel = document.getElementById('qwenPanel');
       const iframe = document.getElementById('qwenIframe');
       
+      // Validar que el panel existe
+      if (!panel) {
+        console.error('[UI] ❌ qwenPanel no encontrado en el DOM');
+        addTerminalLine('❌ Error: Panel QWEN no encontrado');
+        return;
+      }
+      
       // Invertir estado actual
-      const isCurrentlyVisible = state.qwen.panelVisible;
+      const isCurrentlyVisible = !panel.classList.contains('hidden');
       const newState = !isCurrentlyVisible;
       
-      console.log('[UI] toggleQwen - Técnica VS Code (iframe) - Estado:', isCurrentlyVisible, '→', newState);
-      
-      // Actualizar estado
-      state.qwen.panelVisible = newState;
+      console.log('[UI] toggleQwen - Estado:', isCurrentlyVisible, '→', newState);
       
       if (newState) {
-        // Mostrar panel (como VS Code)
-        if (!panel) {
-          console.error('[UI] ❌ qwenPanel no encontrado en el DOM');
-          addTerminalLine('❌ Error: Panel QWEN no encontrado');
-          state.qwen.panelVisible = false;
-          return;
-        }
-        
-        // Forzar mostrar panel
+        // MOSTRAR: Quitar clase hidden y forzar display
         panel.classList.remove('hidden');
         panel.style.display = 'flex';
         panel.style.visibility = 'visible';
         panel.style.opacity = '1';
-        console.log('[UI] ✅ QWEN Panel mostrado (iframe embebido)');
+        panel.style.zIndex = '10000';
+        console.log('[UI] ✅ QWEN Panel mostrado');
         
-        // Cargar URL en el iframe (solo cuando se muestra)
+        // Cargar URL en iframe si es necesario
         if (iframe) {
           const targetUrl = 'https://chat.qwenlm.ai/';
-          if (iframe.src === 'about:blank' || !iframe.src || iframe.src !== targetUrl) {
+          if (!iframe.src || iframe.src === 'about:blank' || iframe.src !== targetUrl) {
             console.log('[UI] Cargando URL en iframe:', targetUrl);
             iframe.src = targetUrl;
           }
-        } else {
-          console.error('[UI] ❌ qwenIframe no encontrado en el DOM');
         }
         
+        // Actualizar UI
         if (btn) btn.classList.add('active');
         if (label) label.textContent = 'QWEN ON';
-        addTerminalLine('✅ QWEN abierto - iframe embebido (técnica VS Code)');
+        addTerminalLine('✅ QWEN abierto');
+        state.qwen.panelVisible = true;
         state.qwen.connected = true;
       } else {
-        // Ocultar panel
-        if (panel) {
-          panel.classList.add('hidden');
-          panel.style.display = 'none';
-          panel.style.visibility = 'hidden';
-          console.log('[UI] QWEN Panel ocultado');
-        }
+        // OCULTAR: Agregar clase hidden y forzar display none
+        panel.classList.add('hidden');
+        panel.style.display = 'none';
+        panel.style.visibility = 'hidden';
+        console.log('[UI] QWEN Panel ocultado');
+        
+        // Actualizar UI
         if (btn) btn.classList.remove('active');
         if (label) label.textContent = 'QWEN';
         addTerminalLine('QWEN cerrado');
+        state.qwen.panelVisible = false;
         state.qwen.connected = false;
       }
     }
