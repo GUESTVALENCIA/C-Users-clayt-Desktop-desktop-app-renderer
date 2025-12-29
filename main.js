@@ -370,7 +370,15 @@ function createWindow() {
         mainWindow.setBrowserView(null);
         // Destruir el BrowserView si existe
         if (existingView.webContents) {
-          existingView.webContents.destroy();
+          try {
+            existingView.webContents.destroy();
+          } catch (e) {
+            console.log('[Main] Error destruyendo webContents:', e.message);
+          }
+        }
+        // Limpiar referencia
+        if (existingView === qwenBrowserView) {
+          qwenBrowserView = null;
         }
       }
       mainWindow.show();
@@ -541,6 +549,18 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', function () {
+  // Limpiar BrowserView antes de cerrar
+  if (qwenBrowserView) {
+    try {
+      if (qwenBrowserView.webContents && !qwenBrowserView.webContents.isDestroyed()) {
+        qwenBrowserView.webContents.destroy();
+      }
+    } catch (e) {
+      console.log('[Main] Error limpiando BrowserView al cerrar:', e.message);
+    }
+    qwenBrowserView = null;
+  }
+  
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -1185,9 +1205,9 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
       console.log('[QWEN] Cargando URL en BrowserView: https://chat.qwenlm.ai/');
       await qwenBrowserView.webContents.loadURL('https://chat.qwenlm.ai/');
 
-      // Actualizar bounds al redimensionar
+      // Actualizar bounds al redimensionar (solo si BrowserView está activo)
       const updateBounds = () => {
-        if (qwenBrowserView && mainWindow) {
+        if (qwenBrowserView && mainWindow && mainWindow.getBrowserView() === qwenBrowserView) {
           const newBounds = mainWindow.getBounds();
           qwenBrowserView.setBounds({
             x: sidebarWidth,
@@ -1197,22 +1217,63 @@ ipcMain.handle('qwen:toggle', async (_e, { show }) => {
           });
         }
       };
+      
+      // Remover listeners anteriores para evitar duplicados
+      mainWindow.removeAllListeners('resize');
       mainWindow.on('resize', updateBounds);
 
       console.log('[QWEN] ✅ BrowserView mostrado');
       return { success: true };
     } else {
-      // Ocultar: desadjuntar BrowserView
-      if (qwenBrowserView && mainWindow) {
-        console.log('[QWEN] Ocultando BrowserView...');
+      // OCULTAR: desadjuntar y destruir BrowserView completamente
+      console.log('[QWEN] Ocultando BrowserView...');
+      
+      // 1. Verificar y desadjuntar cualquier BrowserView (incluyendo fantasmas)
+      const currentView = mainWindow ? mainWindow.getBrowserView() : null;
+      if (currentView) {
+        console.log('[QWEN] Desadjuntando BrowserView de mainWindow...');
         mainWindow.setBrowserView(null);
-        mainWindow.focus();
-        mainWindow.webContents.focus();
-        if (mainWindow.webContents) {
-          mainWindow.webContents.send('qwen:view-hidden');
+        
+        // 2. Destruir webContents
+        try {
+          if (currentView.webContents && !currentView.webContents.isDestroyed()) {
+            console.log('[QWEN] Destruyendo webContents...');
+            currentView.webContents.destroy();
+          }
+        } catch (e) {
+          console.log('[QWEN] Error destruyendo webContents:', e.message);
         }
-        console.log('[QWEN] ✅ BrowserView ocultado');
       }
+      
+      // 3. Limpiar referencia
+      qwenBrowserView = null;
+      
+      // 4. Remover listeners de resize
+      if (mainWindow) {
+        mainWindow.removeAllListeners('resize');
+      }
+      
+      // 5. Restaurar focus a la ventana principal (CRÍTICO - con delay)
+      if (mainWindow) {
+        // Forzar focus en la ventana principal después de un pequeño delay
+        setTimeout(() => {
+          try {
+            mainWindow.focus();
+            if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+              mainWindow.webContents.focus();
+              try {
+                mainWindow.webContents.send('qwen:view-hidden');
+              } catch (e) {
+                console.log('[QWEN] Error enviando qwen:view-hidden:', e.message);
+              }
+            }
+          } catch (e) {
+            console.log('[QWEN] Error restaurando focus:', e.message);
+          }
+        }, 150); // Delay para asegurar que el BrowserView se desadjuntó completamente
+      }
+      
+      console.log('[QWEN] ✅ BrowserView completamente destruido y eliminado');
       return { success: true };
     }
   } catch (e) {
