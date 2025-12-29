@@ -2648,40 +2648,6 @@
       }
     }
 
-    // ============================================
-    // VERIFICACIÓN DE SERVIDORES
-    // ============================================
-    async function checkServersHealth() {
-      // Verificar QWEN Gateway (puerto 8085)
-      try {
-        const response = await fetch(CONFIG.healthUrl, { method: 'GET' });
-        if (response.ok) {
-          addTerminalLine(`✅ QWEN Gateway: ${CONFIG.chatUrl} conectado`);
-          console.log('[StudioLab] QWEN Gateway conectado');
-        } else {
-          addTerminalLine(`⚠️ QWEN Gateway: ${CONFIG.chatUrl} no responde (${response.status})`);
-          console.warn('[StudioLab] QWEN Gateway no responde correctamente');
-        }
-      } catch (error) {
-        addTerminalLine(`❌ QWEN Gateway: ${CONFIG.chatUrl} no disponible`);
-        console.error('[StudioLab] QWEN Gateway no disponible:', error.message);
-      }
-
-      // Verificar MCP Server (puerto 19875)
-      try {
-        const response = await fetch(CONFIG.mcpToolsUrl, { method: 'GET' });
-        if (response.ok) {
-          addTerminalLine(`✅ MCP Server: ${CONFIG.mcpServerUrl} conectado`);
-          console.log('[StudioLab] MCP Server conectado');
-        } else {
-          addTerminalLine(`⚠️ MCP Server: ${CONFIG.mcpServerUrl} no responde (${response.status})`);
-          console.warn('[StudioLab] MCP Server no responde correctamente');
-        }
-      } catch (error) {
-        addTerminalLine(`❌ MCP Server: ${CONFIG.mcpServerUrl} no disponible`);
-        console.error('[StudioLab] MCP Server no disponible:', error.message);
-      }
-    }
 
     // ============================================
     // QWEN WEBVIEW SETUP
@@ -4063,7 +4029,6 @@
     // ============================================
     function openProject() { addTerminalLine('Abriendo selector de proyecto...'); }
     function saveChat() { addTerminalLine('Chat guardado ✓'); }
-    function executeCode() { addTerminalLine('Ejecutando código...'); }
 
     // ============================================
     // KEYBOARD SHORTCUTS
