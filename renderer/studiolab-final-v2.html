@@ -1414,8 +1414,9 @@
       background: var(--bg-input);
       border: 1px solid var(--border-color);
       border-radius: 16px;
-      overflow: hidden;
+      overflow: visible;
       transition: all 0.2s ease;
+      position: relative;
     }
 
     .input-container:focus-within {
@@ -2551,19 +2552,19 @@
       }
     }
 
-    /* Provider Dropdown */
+    /* Provider Dropdown - FLOTANTE HACIA ARRIBA */
     .provider-dropdown {
       position: absolute;
-      top: 100%;
+      bottom: 100%;
       left: 0;
-      margin-top: 4px;
+      margin-bottom: 8px;
       background-color: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       box-shadow: var(--shadow-lg);
-      z-index: 1000;
+      z-index: 2000;
       min-width: 180px;
-      animation: slideDownFast 0.15s ease;
+      animation: slideUpFast 0.15s ease;
     }
 
     .provider-models {
