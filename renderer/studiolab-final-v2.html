@@ -3948,10 +3948,11 @@
       }
 
       const meta = (state.qwen.models || []).find(m => m.id === modelId);
+      const oldModel = state.currentModel;
       state.qwen.model = modelId;
       state.currentModel = modelId;
       state.currentProvider = 'qwen'; // Asegurar que Qwen está seleccionado como proveedor
-      
+
       updateModelUI(meta);
       toggleModelDropdown(false); // Cerrar dropdown usando la clase active
       // NO renderizar aquí - el dropdown se cerró
@@ -3959,6 +3960,20 @@
       try {
         await window.sandraAPI?.qwenSetModel?.(modelId);
       } catch {}
+
+      // ✅ NUEVO: Notificar a main.js si es QWEN
+      if (state.currentProvider === 'qwen' && window.sandraAPI?.qwenChangeModel) {
+        console.log(`[setModel] Notificando cambio de modelo: ${oldModel} → ${modelId}`);
+        window.sandraAPI.qwenChangeModel(modelId)
+          .then(result => {
+            if (result.success) {
+              console.log(`[setModel] ✅ Modelo cambiado en BrowserView`);
+            } else {
+              console.warn(`[setModel] ⚠️ Error al cambiar modelo en BrowserView:`, result.error);
+            }
+          })
+          .catch(err => console.error('[setModel] Error:', err));
+      }
 
       addTerminalLine(`Modelo cambiado a: ${meta?.name || modelId}`);
     }
@@ -4917,45 +4932,79 @@
 
       console.log(`[callAssistant] Llamando a ${provider}/${model}`);
 
-      // QWEN EMBEDDED: Enviar mensaje al BrowserView embebido
+      // QWEN EMBEDDED: Enviar mensaje al BrowserView embebido (CON FALLBACK)
       if (provider === 'qwen') {
         if (!window.sandraAPI?.qwenSendMessage) {
-          throw new Error('QWEN embebido no disponible. Abre QWEN primero con el botón verde en la sidebar.');
+          throw new Error('QWEN embebido no disponible. Abre QWEN primero con el botón verde.');
         }
 
         try {
-          console.log(`[callAssistant] Enviando mensaje a QWEN BrowserView: "${(payload.message || '').substring(0, 50)}..."`);
-          
-          // Primero asegurar que QWEN está visible
+          console.log(`[callAssistant] Enviando a QWEN BrowserView: "${(payload.message || '').substring(0, 50)}..."`);
+
+          // 1. Asegurar que QWEN está visible
           if (!state.qwen.panelVisible) {
             console.log('[callAssistant] Abriendo panel QWEN automáticamente...');
             await window.sandraAPI.qwenToggle(true);
-            // Actualizar estado local
             state.qwen.panelVisible = true;
-            // Esperar más tiempo para que la página cargue completamente (SPA necesita tiempo)
-            console.log('[callAssistant] Esperando a que QWEN cargue completamente...');
-            await new Promise(resolve => setTimeout(resolve, 4000)); // 4 segundos para carga completa
+            console.log('[callAssistant] Esperando carga completa de QWEN...');
+            await new Promise(resolve => setTimeout(resolve, 5000)); // 5 segundos
           }
 
-          console.log('[callAssistant] Enviando mensaje a QWEN BrowserView...');
+          console.log('[callAssistant] Inyectando mensaje en QWEN BrowserView...');
+
+          // 2. ✅ NUEVO: Con manejo de errores mejorado
           const result = await window.sandraAPI.qwenSendMessage(payload.message || '');
-          
+
           if (result.success) {
             console.log(`[callAssistant] ✅ Mensaje enviado a QWEN BrowserView`);
-            // Nota: La respuesta se verá directamente en el BrowserView embebido
-            // No podemos interceptarla fácilmente, así que devolvemos un mensaje informativo
             return {
               text: '✅ Mensaje enviado a QWEN. Ve la respuesta en el panel lateral derecho.',
               provider: 'qwen',
               model: 'qwen-embedded',
-              embedded: true // Indicador de que la respuesta está en el panel embebido
+              embedded: true
             };
           } else {
-            throw new Error(result.error || 'Error enviando mensaje a QWEN');
+            throw new Error(result.error || 'Error desconocido al enviar');
           }
-        } catch (e) {
-          console.error(`[callAssistant] ❌ Error con QWEN:`, e);
-          throw new Error(`Error en QWEN: ${e.message}`);
+        } catch (qwenError) {
+          console.error(`[callAssistant] ❌ QWEN falló:`, qwenError.message);
+
+          // ✅ NUEVO: Fallback a Ollama
+          try {
+            console.log('[callAssistant] Fallback: Intentando Ollama...');
+            const ollamaResult = await window.sandraAPI.chatSend('ollama', payload.message || '', 'user');
+
+            if (ollamaResult.success) {
+              console.log('[callAssistant] ✅ Ollama respondió exitosamente');
+              return {
+                text: ollamaResult.response || ollamaResult.message || '',
+                provider: 'ollama',
+                model: 'qwen2.5:7b',
+                fallback: true
+              };
+            }
+          } catch (ollamaError) {
+            console.error('[callAssistant] Ollama también falló:', ollamaError.message);
+
+            // ✅ NUEVO: Fallback final a Groq
+            try {
+              console.log('[callAssistant] Fallback final: Intentando Groq...');
+              const groqResult = await window.sandraAPI.chatSend('groq', payload.message || '', 'user', 'llama-3.3-70b-versatile');
+
+              if (groqResult.success) {
+                console.log('[callAssistant] ✅ Groq respondió exitosamente');
+                return {
+                  text: groqResult.response || groqResult.message || '',
+                  provider: 'groq',
+                  model: 'llama-3.3-70b-versatile',
+                  fallback: true
+                };
+              }
+            } catch (groqError) {
+              console.error('[callAssistant] Todos los proveedores fallaron');
+              throw new Error(`QWEN, Ollama y Groq fallaron. Error: ${groqError.message}`);
+            }
+          }
         }
       }
 
