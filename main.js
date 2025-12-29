@@ -2402,23 +2402,8 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
     // Esperar que el BrowserView esté listo
     try {
-      // #region agent log
-      try {
-        fs.appendFileSync(logPath, JSON.stringify({timestamp:Date.now(),location:'main.js:2415',message:'Waiting for QWEN ready',data:{isLoading:qwenBrowserView.webContents.isLoading()},sessionId:'debug-session',runId:'run1',hypothesisId:'H6'}) + '\n');
-      } catch (e) {}
-      // #endregion
       await waitForQWENReady(qwenBrowserView, 10000);
-      // #region agent log
-      try {
-        fs.appendFileSync(logPath, JSON.stringify({timestamp:Date.now(),location:'main.js:2418',message:'QWEN ready confirmed',data:{},sessionId:'debug-session',runId:'run1',hypothesisId:'H6'}) + '\n');
-      } catch (e) {}
-      // #endregion
     } catch (error) {
-      // #region agent log
-      try {
-        fs.appendFileSync(logPath, JSON.stringify({timestamp:Date.now(),location:'main.js:2422',message:'QWEN not ready error',data:{error:error.message},sessionId:'debug-session',runId:'run1',hypothesisId:'H6'}) + '\n');
-      } catch (e) {}
-      // #endregion
       console.warn(`[QWEN] ⚠️ BrowserView no está listo:`, error.message);
       return { success: false, error: `QWEN no está listo: ${error.message}` };
     }
