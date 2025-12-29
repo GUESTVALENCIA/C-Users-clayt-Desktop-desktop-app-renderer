@@ -3158,13 +3158,71 @@
     };
 
     // ============================================
+    // PROVIDERS & MODELS CONFIGURATION
+    // ============================================
+    const PROVIDERS = {
+      groq: {
+        name: 'Groq',
+        icon: '⚡',
+        type: 'api',
+        models: {
+          'llama-3.3-70b-versatile': { name: 'Llama 3.3 70B', context: 8192 },
+          'llama-3.1-8b-instant': { name: 'Llama 3.1 8B Instant', context: 8192 },
+          'openai/gpt-oss-120b': { name: 'GPT-OSS 120B', context: 8192 },
+          'openai/gpt-oss-20b': { name: 'GPT-OSS 20B', context: 8192 },
+          'meta-llama/llama-4-scout-17b-16e-instruct': { name: 'Llama 4 Scout (Visión)', context: 131072 },
+          'meta-llama/llama-4-maverick-17b-128e-instruct': { name: 'Llama 4 Maverick (Visión)', context: 131072 },
+          'groq/compound': { name: 'Groq Compound', context: 8192 },
+          'groq/compound-mini': { name: 'Groq Compound Mini', context: 8192 }
+        },
+        defaultModel: 'llama-3.3-70b-versatile'
+      },
+      qwen: {
+        name: 'QWEN3',
+        icon: '🟡',
+        type: 'local', // Solo modo local (Ollama)
+        models: {
+          'qwen3-omni-flash': { name: 'Qwen3-Omni-Flash', context: 65536 },
+          'qwen3-max': { name: 'Qwen3-Max', context: 262144 },
+          'qwen3-vl-235b-a22b': { name: 'Qwen3-VL-235B', context: 262144 },
+          'qwen3-coder': { name: 'Qwen3-Coder', context: 1048576 },
+          'qwen3-vl-32b': { name: 'Qwen3-VL-32B', context: 131072 }
+        },
+        defaultModel: 'qwen3-omni-flash'
+      },
+      anthropic: {
+        name: 'Claude',
+        icon: '🧠',
+        type: 'api',
+        models: {
+          'claude-opus-4-5': { name: 'Claude Opus 4.5', context: 200000 },
+          'claude-sonnet-4': { name: 'Claude Sonnet 4', context: 200000 },
+          'claude-haiku-4': { name: 'Claude Haiku 4', context: 200000 }
+        },
+        defaultModel: 'claude-sonnet-4'
+      },
+      openai: {
+        name: 'ChatGPT',
+        icon: '🟢',
+        type: 'api',
+        models: {
+          'gpt-4o': { name: 'GPT-4o', context: 128000 },
+          'gpt-4o-mini': { name: 'GPT-4o Mini', context: 128000 },
+          'gpt-4-turbo': { name: 'GPT-4 Turbo', context: 128000 }
+        },
+        defaultModel: 'gpt-4o'
+      }
+    };
+
+    // ============================================
     // STATE
     // ============================================
     const state = {
       historyPanelOpen: false,
       canvasPanelOpen: false,
       terminalOpen: false,
-      currentModel: 'qwen3-omni-flash',
+      currentProvider: 'groq', // Proveedor actual
+      currentModel: 'llama-3.3-70b-versatile', // Modelo actual del proveedor
       qwen: { model: 'qwen3-omni-flash', auto: false, tokens: 0, tokensMax: 65536, models: [], connected: false, panelVisible: false },
       currentMode: 'agente',
       planModeActive: false,
@@ -3175,7 +3233,7 @@
       primaryFeature: null,
       attachments: [],
       messages: [],
-      useAPI: false, // false = Local (QWEN embebido), true = API (Groq)
+      useAPI: true, // true = API (Groq, Anthropic, etc), false = Local (QWEN embebido)
       chatHistory: [
         { id: 1, icon: '🌐', title: 'Desarrollo Web App', preview: 'Creando componentes...', time: 'Ahora', active: true },
         { id: 2, icon: '🎬', title: 'Video Marketing', preview: 'Guión para campaña...', time: '2h' },
@@ -4636,29 +4694,36 @@
     }
 
     async function callAssistant(payload) {
-      // Si está en modo API, usar Groq API con modelo QWEN real
-      if (state.useAPI) {
+      // Si está en modo API, usar el proveedor seleccionado (Groq, Anthropic, etc.)
+      if (state.useAPI && state.currentProvider !== 'qwen') {
+        const provider = state.currentProvider;
+        const model = state.currentModel;
+        
         if (window.sandraAPI?.chatSend) {
           try {
-            const result = await window.sandraAPI.chatSend('groq', payload.message || '', payload.mode || 'user');
+            const result = await window.sandraAPI.chatSend(provider, payload.message || '', payload.mode || 'user', model);
             if (result.success) {
-              return { text: result.response || result.message || '', provider: 'groq', model: 'llama-3.3-70b-versatile' };
+              return { text: result.response || result.message || '', provider: provider, model: model };
             } else {
-              throw new Error(result.error || 'Error en Groq API');
+              throw new Error(result.error || `Error en ${PROVIDERS[provider]?.name || provider} API`);
             }
           } catch (e) {
-            throw new Error(`Error conectando con Groq API: ${e.message}`);
+            throw new Error(`Error conectando con ${PROVIDERS[provider]?.name || provider} API: ${e.message}`);
           }
         }
-        throw new Error('Groq API no está disponible. Configura GROQ_API_KEY o cambia a modo Local.');
+        throw new Error(`${PROVIDERS[provider]?.name || provider} API no está disponible. Configura la API key correspondiente o cambia a modo Local.`);
       }
       
-      // Modo Local: Conectar con el servidor QWEN Gateway (puerto 8085)
+      // Modo Local: Solo QWEN (Ollama) - Conectar con el servidor QWEN Gateway (puerto 8085)
+      if (state.currentProvider !== 'qwen') {
+        throw new Error('QWEN solo funciona en modo local. Selecciona el proveedor QWEN3 para usar modelos locales.');
+      }
+      
       try {
         const requestBody = {
           message: payload.message || '',
           userId: payload.userId || 'default',
-          modelId: payload.modelId || state.qwen.model || 'qwen3-omni-flash',
+          modelId: payload.modelId || state.currentModel || state.qwen.model || 'qwen3-omni-flash',
           meta: {
             mode: payload.mode || state.currentMode,
             features: payload.features || Array.from(state.activeFeatures),
