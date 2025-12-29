@@ -1,0 +1,83 @@
+════════════════════════════════════════════════════════════════════════════════
+  🧪 TESTING RÁPIDO - StudioLab API Connection
+════════════════════════════════════════════════════════════════════════════════
+
+✅ SISTEMA VALIDADO: 16/16 tests de estructura pasados
+✅ API KEYS CONFIGURADAS: Groq, OpenAI, Anthropic
+✅ MODELOS VERIFICADOS: 11 modelos (3 OpenAI + 8 Groq)
+
+════════════════════════════════════════════════════════════════════════════════
+
+1️⃣  RESTART APPLICATION
+───────────────────────────────────────────────────────────────────────────────
+   - Cierra StudioLab por completo
+   - Reabre la aplicación
+   - Espera a que cargue completamente
+
+2️⃣  OPEN DEVELOPER CONSOLE
+───────────────────────────────────────────────────────────────────────────────
+   - Presiona: F12
+   - Selecciona pestaña: Console
+   - Deja la consola visible mientras escribes
+
+3️⃣  TEST GROQ (RECOMENDADO PRIMERO - GRATIS)
+───────────────────────────────────────────────────────────────────────────────
+   a) Selecciona proveedor:
+      - Click en botón "⚡ Groq"
+
+   b) Escribe mensaje:
+      "Hola, ¿estás funcionando? Responde: Sí, funcionando correctamente."
+
+   c) Presiona SEND
+
+   d) En console, busca:
+      ✅ [callAssistant] Llamando a groq/llama-3.3-70b-versatile
+      ✅ [callAssistant] Enviando a sandraAPI: groq/llama-3.3-70b-versatile
+      ✅ [Chat] groq: ✅ Respuesta enviada
+      ✅ [callAssistant] ✅ Respuesta recibida de groq
+
+   e) En chat, deberías ver respuesta
+
+4️⃣  TEST OPENAI (OPCIONAL - CUESTA DINERO)
+───────────────────────────────────────────────────────────────────────────────
+   a) Selecciona proveedor:
+      - Click en botón "💬 Openai"
+
+   b) Selecciona modelo:
+      - Click en dropdown de modelos
+      - Selecciona "gpt-4o"
+
+   c) Escribe mensaje:
+      "¿Cuál es tu proveedor? Responde una palabra: OpenAI."
+
+   d) Presiona SEND
+
+   e) En console, busca:
+      ✅ [callAssistant] Llamando a openai/gpt-4o
+      ✅ [Chat] openai: ✅ Respuesta enviada
+      ✅ [callAssistant] ✅ Respuesta recibida de openai
+
+════════════════════════════════════════════════════════════════════════════════
+
+✅ RESPUESTA EXITOSA → Ver respuesta en chat + logs en console
+
+❌ SI VES ERROR → Copiar logs completos y reportar
+
+════════════════════════════════════════════════════════════════════════════════
+
+ERROR COMÚN                          SOLUCIÓN
+─────────────────────────────────────────────────────────────────────────────
+API Key no configurada              Verificar .env file tiene GROQ_API_KEY
+Model inválido: groq/...            Reiniciar app (F5 browser)
+Cannot read properties...           Todavía hay referencias a state.qwen
+window.sandraAPI is undefined       preload.js no se carga correctamente
+
+════════════════════════════════════════════════════════════════════════════════
+
+COMMITS REALIZADOS:
+  843c27a - fix: State management bugs (sendMessage, callAssistant, selectProviderModel)
+  79555b5 - fix: Agregar OpenAI API key al handler chat:send
+
+════════════════════════════════════════════════════════════════════════════════
+
+¡LISTO PARA TESTING! 🚀
