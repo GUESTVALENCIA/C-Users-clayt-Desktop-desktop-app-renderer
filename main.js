@@ -1534,9 +1534,17 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         });
 
         // Inyectar script de captura de respuestas después de que el DOM esté listo
+        // Esperar más tiempo para asegurar que la página esté completamente cargada
         setTimeout(() => {
-          injectQwenResponseObserver(qwenBrowserView);
-          startQwenResponseCapture(); // Iniciar captura de respuestas
+          if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+            injectQwenResponseObserver(qwenBrowserView);
+            // Esperar un poco más antes de iniciar la captura
+            setTimeout(() => {
+              if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+                startQwenResponseCapture(); // Iniciar captura de respuestas
+              }
+            }, 3000); // Esperar 3 segundos adicionales
+          }
         }, 2000);
       });
 
@@ -1621,6 +1629,12 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
     }
 
     console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
+    
+    // Emitir evento para actualizar UI en el renderer
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('qwen:view-shown');
+    }
+    
     return { success: true, message: 'QWEN visible (panel lateral)' };
 
   } else {
@@ -1654,11 +1668,21 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       stopQwenResponseCapture();
       
       console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado, captura detenida)');
+      
+      // Emitir evento para actualizar UI en el renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('qwen:view-hidden');
+      }
     } else if (qwenCookieInterval) {
       // Si el BrowserView ya fue destruido pero el intervalo aún existe, limpiarlo
       clearInterval(qwenCookieInterval);
       qwenCookieInterval = null;
       console.log('[QWEN3] Intervalo de cookies limpiado (BrowserView ya destruido)');
+      
+      // Emitir evento incluso si el BrowserView ya fue destruido
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('qwen:view-hidden');
+      }
     }
     return { success: true, message: 'QWEN oculto' };
   }
@@ -1770,21 +1794,55 @@ function injectQwenResponseObserver(browserView) {
 
 // ============ QWEN: LEER RESPUESTAS DESDE BROWSERVIEW ============
 let qwenResponseInterval = null;
+let qwenBrowserViewReady = false;
+
 async function startQwenResponseCapture() {
   if (qwenResponseInterval) return; // Ya está capturando
   
   let lastCapturedText = '';
   
+  // Esperar a que el BrowserView esté completamente listo
+  qwenBrowserViewReady = false;
+  
   qwenResponseInterval = setInterval(async () => {
-    if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
+    // Verificar que el BrowserView existe y no está destruido
+    if (!qwenBrowserView) {
       if (qwenResponseInterval) {
         clearInterval(qwenResponseInterval);
         qwenResponseInterval = null;
       }
+      qwenBrowserViewReady = false;
       return;
     }
 
+    // Verificar que webContents existe y no está destruido
+    if (!qwenBrowserView.webContents || qwenBrowserView.webContents.isDestroyed()) {
+      if (qwenResponseInterval) {
+        clearInterval(qwenResponseInterval);
+        qwenResponseInterval = null;
+      }
+      qwenBrowserViewReady = false;
+      return;
+    }
+
+    // Verificar que el frame esté listo antes de intentar ejecutar JavaScript
     try {
+      // Verificar que el documento esté cargado
+      const isReady = await qwenBrowserView.webContents.executeJavaScript(`
+        (function() {
+          return document.readyState === 'complete' && 
+                 typeof window.qwenLastResponse !== 'undefined';
+        })();
+      `).catch(() => false);
+
+      if (!isReady) {
+        // Si no está listo, esperar sin intentar leer respuestas
+        return;
+      }
+
+      qwenBrowserViewReady = true;
+
+      // Ahora intentar leer las respuestas
       const response = await qwenBrowserView.webContents.executeJavaScript(`
         window.qwenLastResponse || { text: '', images: [], videos: [], audio: [], timestamp: 0 }
       `);
@@ -1829,9 +1887,13 @@ async function startQwenResponseCapture() {
         }
       }
     } catch (error) {
-      // Ignorar errores silenciosamente (puede ser que el DOM no esté listo)
+      // Solo loggear errores que no sean de frame disposed
+      if (!error.message || !error.message.includes('Render frame was disposed')) {
+        // Ignorar errores silenciosamente (puede ser que el DOM no esté listo aún)
+      }
+      qwenBrowserViewReady = false;
     }
-  }, 2000); // Leer cada 2 segundos (mucho menos agresivo que los 500ms del anterior)
+  }, 2000); // Leer cada 2 segundos
 }
 
 function stopQwenResponseCapture() {
@@ -1873,7 +1935,146 @@ async function waitForQWENReady(browserView, timeout = 10000) {
   }
 }
 
-// ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW (BASADO EN EVENTOS) ============
+// ============ QWEN: DIAGNÓSTICO DEL DOM ============
+async function diagnoseQwenDOM(browserView) {
+  if (!browserView || browserView.webContents.isDestroyed()) {
+    return { success: false, error: 'BrowserView no disponible' };
+  }
+
+  const diagnoseCode = `
+    (function() {
+      const result = {
+        input: null,
+        inputType: null,
+        inputSelector: null,
+        sendButton: null,
+        sendButtonSelector: null,
+        sendFunctions: [],
+        hasSubmitForm: false,
+        inputContainer: null
+      };
+
+      // Buscar input con múltiples estrategias mejoradas
+      const inputStrategies = [
+        () => document.querySelector('[placeholder*="Cuéntame" i]'),
+        () => document.querySelector('[placeholder*="pregunta" i]'),
+        () => document.querySelector('[placeholder*="mensaje" i]'),
+        () => document.querySelector('[placeholder*="ayuda" i]'),
+        () => document.querySelector('[contenteditable="true"]'),
+        () => document.querySelector('[contenteditable="true"][role="textbox"]'),
+        () => document.querySelector('textarea:not([disabled]):not([readonly])'),
+        () => document.querySelector('input[type="text"]:not([disabled]):not([readonly])'),
+        () => Array.from(document.querySelectorAll('textarea, input[type="text"], [contenteditable="true"]'))
+          .filter(el => {
+            const rect = el.getBoundingClientRect();
+            return rect.width > 100 && rect.height > 20 && window.getComputedStyle(el).display !== 'none';
+          })
+          .sort((a, b) => {
+            const rectA = a.getBoundingClientRect();
+            const rectB = b.getBoundingClientRect();
+            return (rectB.width * rectB.height) - (rectA.width * rectA.height);
+          })[0]
+      ];
+
+      for (const strategy of inputStrategies) {
+        try {
+          const found = strategy();
+          if (found && found.offsetParent !== null) { // Verificar que está visible
+            result.input = found;
+            result.inputType = found.tagName.toLowerCase();
+            if (found.hasAttribute('contenteditable')) {
+              result.inputType = 'contenteditable';
+            }
+            // Intentar generar selector único
+            if (found.id) {
+              result.inputSelector = '#' + found.id;
+            } else if (found.className) {
+              result.inputSelector = '.' + found.className.split(' ')[0];
+            }
+            break;
+          }
+        } catch (e) {}
+      }
+
+      if (result.input) {
+        // Buscar contenedor del input
+        result.inputContainer = result.input.closest('form') || 
+                                result.input.closest('[class*="input"]') ||
+                                result.input.closest('[class*="composer"]') ||
+                                result.input.closest('[class*="chat"]') ||
+                                result.input.parentElement;
+
+        // Buscar botón de envío con múltiples estrategias
+        const buttonStrategies = [
+          () => result.inputContainer?.querySelector('button[type="submit"]'),
+          () => result.inputContainer?.querySelector('button[aria-label*="enviar" i]'),
+          () => result.inputContainer?.querySelector('button[aria-label*="send" i]'),
+          () => result.inputContainer?.querySelector('button[title*="enviar" i]'),
+          () => result.inputContainer?.querySelector('button[title*="send" i]'),
+          () => result.inputContainer?.querySelector('button:has(svg)'), // Botón con icono
+          () => Array.from(result.inputContainer?.querySelectorAll('button') || [])
+            .filter(btn => {
+              const text = (btn.textContent || btn.innerText || '').toLowerCase();
+              const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+              return text.includes('enviar') || text.includes('send') || 
+                     aria.includes('enviar') || aria.includes('send') ||
+                     btn.querySelector('svg[viewBox*="24"]'); // Iconos comunes
+            })[0],
+          () => {
+            // Buscar botón cerca del input (mismo contenedor o siguiente hermano)
+            const siblings = Array.from(result.input.parentElement?.children || []);
+            const inputIndex = siblings.indexOf(result.input);
+            return siblings[inputIndex + 1]?.tagName === 'BUTTON' ? siblings[inputIndex + 1] : null;
+          },
+          () => document.querySelector('button:not([disabled])[class*="send"]'),
+          () => document.querySelector('button:not([disabled])[class*="submit"]')
+        ];
+
+        for (const strategy of buttonStrategies) {
+          try {
+            const found = strategy();
+            if (found && found.offsetParent !== null && !found.disabled) {
+              result.sendButton = found;
+              if (found.id) {
+                result.sendButtonSelector = '#' + found.id;
+              } else if (found.className) {
+                result.sendButtonSelector = '.' + found.className.split(' ')[0];
+              }
+              break;
+            }
+          } catch (e) {}
+        }
+
+        // Buscar formulario
+        const form = result.input.closest('form');
+        if (form) {
+          result.hasSubmitForm = true;
+        }
+
+        // Buscar funciones globales de envío
+        const functionNames = ['sendMessage', 'submitChat', 'sendChat', 'submitMessage', 'handleSend'];
+        for (const funcName of functionNames) {
+          if (typeof window[funcName] === 'function') {
+            result.sendFunctions.push(funcName);
+          }
+        }
+      }
+
+      return result;
+    })();
+  `;
+
+  try {
+    const diagnosis = await browserView.webContents.executeJavaScript(diagnoseCode);
+    console.log('[QWEN Diagnóstico]', JSON.stringify(diagnosis, null, 2));
+    return { success: true, data: diagnosis };
+  } catch (error) {
+    console.error('[QWEN Diagnóstico] Error:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW (MÚLTIPLES ESTRATEGIAS) ============
 ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
   try {
     // Verificar precondiciones
@@ -1891,9 +2092,9 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: 'Mensaje inválido' };
     }
 
-    console.log(`[QWEN] Enviando mensaje: "${message.substring(0, 50)}..."`);
+    console.log(`[QWEN] 📤 Enviando mensaje: "${message.substring(0, 50)}..."`);
 
-    // Esperar que el BrowserView esté listo (basado en eventos, sin polling)
+    // Esperar que el BrowserView esté listo
     try {
       await waitForQWENReady(qwenBrowserView, 10000);
     } catch (error) {
@@ -1901,61 +2102,230 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: `QWEN no está listo: ${error.message}` };
     }
 
-    // Inyectar y enviar mensaje (una sola vez, sin reintentos agresivos)
+    // Diagnóstico del DOM
+    const diagnosis = await diagnoseQwenDOM(qwenBrowserView);
+    if (!diagnosis.success || !diagnosis.data.input) {
+      return { success: false, error: 'No se pudo encontrar el input de Qwen. Asegúrate de que la página esté completamente cargada.' };
+    }
+
+    const domInfo = diagnosis.data;
+    console.log(`[QWEN] 🔍 Diagnóstico completado:`);
+    console.log(`   - Input encontrado: ${domInfo.inputType} (${domInfo.inputSelector || 'sin selector único'})`);
+    console.log(`   - Botón de envío: ${domInfo.sendButton ? 'Sí' : 'No'} (${domInfo.sendButtonSelector || 'N/A'})`);
+    console.log(`   - Funciones globales: ${domInfo.sendFunctions.length > 0 ? domInfo.sendFunctions.join(', ') : 'Ninguna'}`);
+    console.log(`   - Tiene formulario: ${domInfo.hasSubmitForm ? 'Sí' : 'No'}`);
+
+    // Código de inyección con múltiples estrategias (sin await, usando setTimeout para delays)
+    const messageEscaped = JSON.stringify(message);
     const injectCode = `
       (function() {
+        const result = { strategy: null, success: false, error: null };
+        const messageText = ${messageEscaped};
+        
         try {
-          // Buscar input de mensaje (múltiples estrategias)
+          // Re-encontrar elementos (por si el DOM cambió)
           let input = null;
-          const strategies = [
-            () => document.querySelector('[placeholder*="Cuéntame"]'),
-            () => document.querySelector('[placeholder*="pregunta"]'),
-            () => document.querySelector('[placeholder*="mensaje"]'),
-            () => document.querySelector('[contenteditable="true"]'),
-            () => document.querySelector('textarea'),
-            () => document.querySelector('input[type="text"]:last-of-type'),
-            () => document.querySelector('input[type="text"]')
-          ];
-
-          for (const strategy of strategies) {
-            const found = strategy();
-            if (found) {
-              input = found;
-              break;
-            }
+          ${domInfo.inputSelector ? 
+            `input = document.querySelector('${domInfo.inputSelector}');` :
+            `// Buscar input nuevamente
+            const inputStrategies = [
+              () => document.querySelector('[contenteditable="true"]'),
+              () => document.querySelector('textarea:not([disabled])'),
+              () => document.querySelector('input[type="text"]:not([disabled])')
+            ];
+            for (const strategy of inputStrategies) {
+              const found = strategy();
+              if (found && found.offsetParent !== null) {
+                input = found;
+                break;
+              }
+            }`
           }
 
           if (!input) {
-            return { success: false, error: 'Input no encontrado' };
+            result.error = 'Input no encontrado después del diagnóstico';
+            return result;
           }
 
-          // Establecer foco y texto
+          // Escribir mensaje en el input
           input.focus();
+          
           if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-            input.value = ${JSON.stringify(message)};
-          } else {
-            input.textContent = ${JSON.stringify(message)};
-            input.innerText = ${JSON.stringify(message)};
+            input.value = messageText;
+            // Disparar eventos de input
+            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+          } else if (input.hasAttribute('contenteditable')) {
+            // Para contenteditable, usar manipulación directa
+            input.textContent = messageText;
+            input.innerText = messageText;
+            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
           }
 
-          // Disparar eventos
-          input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+          // ESTRATEGIA 1: Botón de envío (con delay usando setTimeout)
+          if (${domInfo.sendButton ? 'true' : 'false'}) {
+            try {
+              let sendButton = null;
+              ${domInfo.sendButtonSelector ? 
+                `sendButton = document.querySelector('${domInfo.sendButtonSelector}');` :
+                `// Buscar botón nuevamente
+                const buttonStrategies = [
+                  () => input.closest('form')?.querySelector('button[type="submit"]'),
+                  () => input.parentElement?.querySelector('button:not([disabled])'),
+                  () => {
+                    const siblings = Array.from(input.parentElement?.children || []);
+                    const inputIndex = siblings.indexOf(input);
+                    return siblings[inputIndex + 1]?.tagName === 'BUTTON' ? siblings[inputIndex + 1] : null;
+                  },
+                  () => {
+                    // Buscar botón con icono de envío (SVG común)
+                    const buttons = Array.from(document.querySelectorAll('button:not([disabled])'));
+                    return buttons.find(btn => {
+                      const svg = btn.querySelector('svg');
+                      return svg && (btn.getBoundingClientRect().width < 100); // Botones pequeños suelen ser de envío
+                    });
+                  }
+                ];
+                for (const strategy of buttonStrategies) {
+                  const found = strategy();
+                  if (found && !found.disabled && found.offsetParent !== null) {
+                    sendButton = found;
+                    break;
+                  }
+                }`
+              }
 
-          // Disparar Enter
-          const enterEvent = new KeyboardEvent('keydown', {
-            key: 'Enter',
-            code: 'Enter',
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true
-          });
-          input.dispatchEvent(enterEvent);
+              if (sendButton && !sendButton.disabled) {
+                // Usar setTimeout para delay antes de hacer clic
+                setTimeout(() => {
+                  sendButton.click();
+                }, 200);
+                result.strategy = 'button-click';
+                result.success = true;
+                console.log('[QWEN] ✅ Estrategia 1 (Botón) ejecutada');
+                return result;
+              }
+            } catch (e) {
+              console.warn('[QWEN] Estrategia 1 falló:', e.message);
+            }
+          }
 
-          return { success: true, message: 'Mensaje inyectado y enviado' };
+          // ESTRATEGIA 2: Enter mejorado (múltiples eventos con delays)
+          try {
+            const enterEvents = [
+              new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+              new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
+              new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true })
+            ];
+
+            enterEvents.forEach((event, index) => {
+              setTimeout(() => {
+                input.dispatchEvent(event);
+              }, index * 50);
+            });
+
+            result.strategy = 'enter-events';
+            result.success = true;
+            console.log('[QWEN] ✅ Estrategia 2 (Enter) ejecutada');
+            return result;
+          } catch (e) {
+            console.warn('[QWEN] Estrategia 2 falló:', e.message);
+          }
+
+          // ESTRATEGIA 3: Funciones globales
+          ${domInfo.sendFunctions.length > 0 ? `
+          try {
+            ${domInfo.sendFunctions.map(funcName => `
+              if (typeof window.${funcName} === 'function') {
+                try {
+                  window.${funcName}(messageText);
+                  result.strategy = 'function-${funcName}';
+                  result.success = true;
+                  console.log('[QWEN] ✅ Estrategia 3 (Función ${funcName}) ejecutada');
+                  return result;
+                } catch (e) {
+                  console.warn('[QWEN] Función ${funcName} falló:', e.message);
+                }
+              }
+            `).join('')}
+          } catch (e) {
+            console.warn('[QWEN] Estrategia 3 falló:', e.message);
+          }
+          ` : ''}
+
+          // ESTRATEGIA 4: Submit de formulario
+          ${domInfo.hasSubmitForm ? `
+          try {
+            const form = input.closest('form');
+            if (form) {
+              form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+              if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+              } else {
+                form.submit();
+              }
+              result.strategy = 'form-submit';
+              result.success = true;
+              console.log('[QWEN] ✅ Estrategia 4 (Form Submit) ejecutada');
+              return result;
+            }
+          } catch (e) {
+            console.warn('[QWEN] Estrategia 4 falló:', e.message);
+          }
+          ` : ''}
+
+          // ESTRATEGIA 5: Simulación completa de usuario (sin await)
+          try {
+            // Focus → escribir → eventos → blur → click botón (todo con delays)
+            input.focus();
+            
+            setTimeout(() => {
+              if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+                input.value = messageText;
+              } else {
+                input.textContent = messageText;
+                input.innerText = messageText;
+              }
+              
+              input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+              
+              setTimeout(() => {
+                input.blur();
+                
+                setTimeout(() => {
+                  // Buscar y hacer clic en cualquier botón cerca del input
+                  const container = input.closest('form') || input.parentElement;
+                  const buttons = container ? Array.from(container.querySelectorAll('button:not([disabled])')) : [];
+                  if (buttons.length > 0) {
+                    buttons[0].click();
+                  } else {
+                    // Si no hay botón, intentar Enter de nuevo
+                    input.dispatchEvent(new KeyboardEvent('keydown', { 
+                      key: 'Enter', code: 'Enter', keyCode: 13, which: 13, 
+                      bubbles: true, cancelable: true 
+                    }));
+                  }
+                }, 100);
+              }, 100);
+            }, 100);
+            
+            result.strategy = 'user-simulation';
+            result.success = true;
+            console.log('[QWEN] ✅ Estrategia 5 (Simulación Usuario) ejecutada');
+            return result;
+          } catch (e) {
+            console.warn('[QWEN] Estrategia 5 falló:', e.message);
+          }
+
+          // Si ninguna estrategia funcionó, retornar error
+          result.error = 'Todas las estrategias fallaron';
+          return result;
+
         } catch (err) {
-          return { success: false, error: err.message };
+          result.error = err.message;
+          return result;
         }
       })();
     `;
@@ -1964,8 +2334,97 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
       
       if (result && result.success) {
-        console.log(`[QWEN] ✅ Mensaje enviado exitosamente`);
-        return { success: true, message: result.message };
+        console.log(`[QWEN] ✅ Mensaje enviado usando estrategia: ${result.strategy}`);
+        
+        // Verificación post-envío (esperar 1.5 segundos para dar tiempo al envío)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const verification = await qwenBrowserView.webContents.executeJavaScript(`
+          (function() {
+            try {
+              let input = null;
+              ${domInfo.inputSelector ? 
+                `input = document.querySelector('${domInfo.inputSelector}');` :
+                `input = document.querySelector('[contenteditable="true"], textarea, input[type="text"]');`
+              }
+              
+              if (!input) return { verified: false, reason: 'Input no encontrado' };
+              
+              const currentValue = input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' 
+                ? input.value 
+                : (input.textContent || input.innerText || '');
+              
+              // Verificar que el input se limpió (indica envío exitoso)
+              const inputCleared = !currentValue || currentValue.trim() === '';
+              
+              // Verificar indicadores de "pensando" o "escribiendo" (múltiples métodos)
+              const bodyText = document.body.innerText || document.body.textContent || '';
+              const isThinking = 
+                bodyText.toLowerCase().includes('pensando') ||
+                bodyText.toLowerCase().includes('escribiendo') ||
+                bodyText.toLowerCase().includes('typing') ||
+                bodyText.toLowerCase().includes('thinking') ||
+                document.querySelector('[class*="thinking" i]') !== null ||
+                document.querySelector('[class*="typing" i]') !== null ||
+                document.querySelector('[class*="loading" i]') !== null ||
+                document.querySelector('[aria-label*="pensando" i]') !== null ||
+                document.querySelector('[aria-label*="escribiendo" i]') !== null ||
+                document.querySelector('[class*="spinner" i]') !== null ||
+                document.querySelector('[class*="pulse" i]') !== null;
+              
+              // Verificar que el mensaje apareció en el historial (buscar en diferentes lugares)
+              const messagePreview = ${messageEscaped}.substring(0, 20).toLowerCase();
+              const messageInHistory = bodyText.toLowerCase().includes(messagePreview);
+              
+              // Verificar cambios en el DOM (nuevos mensajes añadidos)
+              const messageContainers = document.querySelectorAll('[class*="message" i], [class*="chat" i], [data-role="user"]');
+              const hasNewMessages = messageContainers.length > 0;
+              
+              // Verificar estado de botón (si estaba deshabilitado y ahora está habilitado, indica envío)
+              const sendButtons = document.querySelectorAll('button:not([disabled])');
+              const buttonStateChanged = sendButtons.length > 0;
+              
+              const verified = inputCleared || isThinking || messageInHistory;
+              
+              return {
+                verified,
+                inputCleared,
+                isThinking,
+                messageInHistory,
+                hasNewMessages,
+                buttonStateChanged,
+                currentValue: currentValue.substring(0, 50),
+                bodyTextLength: bodyText.length,
+                messageContainersCount: messageContainers.length
+              };
+            } catch (e) {
+              return { verified: false, reason: e.message };
+            }
+          })();
+        `).catch(() => ({ verified: false, reason: 'Error en verificación' }));
+        
+        if (verification.verified) {
+          console.log(`[QWEN] ✅ Verificación exitosa:`);
+          console.log(`   - Input limpiado: ${verification.inputCleared}`);
+          console.log(`   - Qwen pensando: ${verification.isThinking}`);
+          console.log(`   - Mensaje en historial: ${verification.messageInHistory}`);
+          console.log(`   - Estrategia usada: ${result.strategy}`);
+          return { success: true, message: `Mensaje enviado usando ${result.strategy}`, strategy: result.strategy, verification };
+        } else {
+          console.warn(`[QWEN] ⚠️ Envío ejecutado pero verificación falló:`);
+          console.warn(`   - Input limpiado: ${verification.inputCleared}`);
+          console.warn(`   - Qwen pensando: ${verification.isThinking}`);
+          console.warn(`   - Mensaje en historial: ${verification.messageInHistory}`);
+          console.warn(`   - Valor actual del input: "${verification.currentValue}"`);
+          console.warn(`   - Estrategia usada: ${result.strategy}`);
+          return { 
+            success: true, 
+            message: `Mensaje enviado usando ${result.strategy} (verificación pendiente)`, 
+            strategy: result.strategy, 
+            warning: 'Verificación no confirmada - verifica manualmente en el panel de Qwen',
+            verification 
+          };
+        }
       } else {
         const errorMsg = result?.error || 'Error desconocido al inyectar mensaje';
         console.error(`[QWEN] ❌ Error al inyectar:`, errorMsg);
