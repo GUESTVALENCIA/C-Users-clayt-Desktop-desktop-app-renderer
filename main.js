@@ -1215,27 +1215,21 @@ ipcMain.handle('qwen:toggle', async (_e, show) => {
     // MOSTRAR QWEN3 BrowserView
     if (!qwenBrowserView) {
       console.log('[QWEN3] Creando BrowserView para QWEN3...');
+
+      // Obtener sesión persistente ANTES de crear BrowserView
+      const { session } = require('electron');
+      const qwenSession = session.fromPartition('persist:qwen3');
+
       qwenBrowserView = new BrowserView({
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: false,
           webSecurity: false,  // Permite cargar QWEN3
           allowRunningInsecureContent: true,
-          enableRemoteModule: false
+          enableRemoteModule: false,
+          session: qwenSession  // Asignar partición persistente
         }
       });
-
-      // Cargar QWEN3 con partición persistente
-      qwenBrowserView.webContents.session.defaultSession.webRequest.onBeforeSendHeaders(
-        (details, callback) => {
-          details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124';
-          callback({ requestHeaders: details.requestHeaders });
-        }
-      );
-
-      // Usar partición persistente para guardar cookies/sesión
-      const session = require('electron').session.fromPartition('persist:qwen3');
-      qwenBrowserView.webContents.session = session;
 
       qwenBrowserView.webContents.loadURL('https://chat.qwenlm.ai/');
 
