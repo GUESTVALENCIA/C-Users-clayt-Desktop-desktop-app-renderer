@@ -1,0 +1,77 @@
+{
+  "openai": {
+    "working": [],
+    "failed": [
+      {
+        "model": "gpt-5.2-2025-12-11",
+        "name": "GPT-5.2 (2025-12-11)",
+        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+        "error_code": "invalid_api_key",
+        "full_error": {
+          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "type": "invalid_request_error",
+          "code": "invalid_api_key",
+          "param": null
+        },
+        "timestamp": "2025-12-29T12:36:05.690Z"
+      },
+      {
+        "model": "gpt-5.2-pro",
+        "name": "GPT-5.2 Pro",
+        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+        "error_code": "invalid_api_key",
+        "full_error": {
+          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "type": "invalid_request_error",
+          "code": "invalid_api_key",
+          "param": null
+        },
+        "timestamp": "2025-12-29T12:36:06.962Z"
+      },
+      {
+        "model": "gpt-5.1-codex-max",
+        "name": "GPT-5.1 Codex Max",
+        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+        "error_code": "invalid_api_key",
+        "full_error": {
+          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "type": "invalid_request_error",
+          "code": "invalid_api_key",
+          "param": null
+        },
+        "timestamp": "2025-12-29T12:36:08.231Z"
+      },
+      {
+        "model": "o3-2025-04-16",
+        "name": "O3 (2025-04-16)",
+        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+        "error_code": "invalid_api_key",
+        "full_error": {
+          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "type": "invalid_request_error",
+          "code": "invalid_api_key",
+          "param": null
+        },
+        "timestamp": "2025-12-29T12:36:09.424Z"
+      },
+      {
+        "model": "gpt-4o",
+        "name": "GPT-4o",
+        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+        "error_code": "invalid_api_key",
+        "full_error": {
+          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "type": "invalid_request_error",
+          "code": "invalid_api_key",
+          "param": null
+        },
+        "timestamp": "2025-12-29T12:36:10.673Z"
+      }
+    ],
+    "metadata": {
+      "api_endpoint": "https://api.openai.com/v1/chat/completions",
+      "tested_at": "2025-12-29T12:36:04.731Z",
+      "api_key_preview": "sk-proj-yWnJs9xOVemE..."
+    }
+  }
+}
