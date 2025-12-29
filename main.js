@@ -1181,7 +1181,7 @@ ipcMain.handle('code:execute', async (_e, { code, language }) => {
 
 
 // ============ CHAT SERVICE - HANDLER PARA TODOS LOS PROVEEDORES ============
-ipcMain.handle('chat:send', async (_e, { provider, message, role }) => {
+ipcMain.handle('chat:send', async (_e, { provider, message, role, model, options = {} }) => {
   // QWEN funciona a través del webview embebido en el HTML
   // El usuario chatea directamente en el panel QWEN, no desde aquí
   if (provider === 'qwen') {
@@ -1203,7 +1203,13 @@ ipcMain.handle('chat:send', async (_e, { provider, message, role }) => {
       return { success: false, error: `API Key no configurada para proveedor: ${provider}` };
     }
 
-    const result = await chatService.sendMessage(provider, message, role, apiKeys);
+    // Preparar opciones con el modelo si se proporciona
+    const chatOptions = { ...options };
+    if (model) {
+      chatOptions.model = model;
+    }
+
+    const result = await chatService.sendMessage(provider, message, role, apiKeys, chatOptions);
 
     console.log(`[Chat] ${provider}: ✅ Respuesta enviada (${(result.response || '').substring(0, 50)}...)`);
 
