@@ -362,49 +362,20 @@ function createWindow() {
     // Mostrar ventana cuando esté lista
     mainWindow.once('ready-to-show', () => {
       console.log('[Main] Ventana lista, mostrando...');
-      // CRÍTICO: Asegurar que NO hay BrowserView adjuntado (el HTML principal debe ser visible)
-      // Esto previene que cualquier BrowserView bloque la vista principal
+      // Asegurar que NO hay BrowserView residual al iniciar (solo si no es QWEN3 activo)
+      // Si QWEN3 está activo, mantenerlo; si no, limpiar cualquier BrowserView residual
       const existingView = mainWindow.getBrowserView();
-      if (existingView) {
-        console.log('[Main] ⚠️  Eliminando BrowserView existente que estaba bloqueando la vista');
+      if (existingView && existingView !== qwenBrowserView) {
+        console.log('[Main] Eliminando BrowserView residual que no es QWEN3');
         mainWindow.setBrowserView(null);
-        // Destruir el BrowserView si existe
-        if (existingView.webContents) {
-          try {
-            if (!existingView.webContents.isDestroyed()) {
-              existingView.webContents.destroy();
-            }
-          } catch (e) {
-            console.log('[Main] Error destruyendo webContents:', e.message);
+        try {
+          if (existingView.webContents && !existingView.webContents.isDestroyed()) {
+            existingView.webContents.destroy();
           }
+        } catch (e) {
+          console.log('[Main] Error destruyendo BrowserView residual:', e.message);
         }
-        // Limpiar referencia SIEMPRE
-        qwenBrowserView = null;
       }
-      
-      // FORZAR: Verificar y eliminar BrowserView después de un delay también
-      setTimeout(() => {
-        if (mainWindow) {
-          const checkView = mainWindow.getBrowserView();
-          if (checkView) {
-            console.log('[Main] ⚠️  BrowserView detectado después de delay, eliminando...');
-            mainWindow.setBrowserView(null);
-            try {
-              if (checkView.webContents && !checkView.webContents.isDestroyed()) {
-                checkView.webContents.destroy();
-              }
-            } catch (e) {
-              console.log('[Main] Error destruyendo BrowserView en delay:', e.message);
-            }
-            qwenBrowserView = null;
-            // Restaurar focus
-            mainWindow.focus();
-            if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
-              mainWindow.webContents.focus();
-            }
-          }
-        }
-      }, 500);
       mainWindow.show();
       mainWindow.focus();
       try { emitStatus(); } catch {}
@@ -573,17 +544,22 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', function () {
-  // Limpiar BrowserView antes de cerrar
-  if (qwenBrowserView) {
-    try {
-      if (qwenBrowserView.webContents && !qwenBrowserView.webContents.isDestroyed()) {
-        qwenBrowserView.webContents.destroy();
+  // Limpiar CUALQUIER BrowserView antes de cerrar
+  if (mainWindow) {
+    const currentView = mainWindow.getBrowserView();
+    if (currentView) {
+      mainWindow.setBrowserView(null);
+      try {
+        if (currentView.webContents && !currentView.webContents.isDestroyed()) {
+          currentView.webContents.destroy();
+        }
+      } catch (e) {
+        console.log('[Main] Error limpiando BrowserView al cerrar:', e.message);
       }
-    } catch (e) {
-      console.log('[Main] Error limpiando BrowserView al cerrar:', e.message);
     }
-    qwenBrowserView = null;
   }
+  // Limpiar referencia
+  qwenBrowserView = null;
   
   if (process.platform !== 'darwin') app.quit();
 });
