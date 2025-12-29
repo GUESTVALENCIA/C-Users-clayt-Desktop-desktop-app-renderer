@@ -400,11 +400,10 @@ function createWindow() {
     });
 
     // ========================================
-    // CARGAR INDEX OFICIAL: studiolab-final-v2.html
-    // Ruta oficial proporcionada por el usuario
+    // CARGAR INDEX OFICIAL: index.html
     // ========================================
-    const INDEX_OFFICIAL_PATH = 'C:\\Users\\clayt\\Desktop\\desktop-app\\renderer\\studiolab-final-v2.html';
-    const indexPathFromDirname = path.resolve(__dirname, 'renderer', 'studiolab-final-v2.html');
+    const INDEX_OFFICIAL_PATH = 'C:\\Users\\clayt\\Desktop\\desktop-app\\renderer\\index.html';
+    const indexPathFromDirname = path.resolve(__dirname, 'renderer', 'index.html');
     
     // Intentar primero la ruta oficial, luego la relativa
     let indexPath = null;
@@ -417,7 +416,7 @@ function createWindow() {
     }
     
     console.log('[Main] ========================================');
-    console.log('[Main] INDEX OFICIAL: studiolab-final-v2.html');
+    console.log('[Main] INDEX OFICIAL: index.html');
     console.log('[Main] __dirname:', __dirname);
     console.log('[Main] Ruta oficial:', INDEX_OFFICIAL_PATH, '-> Existe:', existsSync(INDEX_OFFICIAL_PATH));
     console.log('[Main] Ruta relativa:', indexPathFromDirname, '-> Existe:', existsSync(indexPathFromDirname));
@@ -425,7 +424,7 @@ function createWindow() {
     console.log('[Main] ========================================');
     
     if (!indexPath || !existsSync(indexPath)) {
-      const errorMsg = `ERROR CRÍTICO: studiolab-final-v2.html NO ENCONTRADO\n\nRuta oficial: ${INDEX_OFFICIAL_PATH}\nRuta relativa: ${indexPathFromDirname}`;
+      const errorMsg = `ERROR CRÍTICO: index.html NO ENCONTRADO\n\nRuta oficial: ${INDEX_OFFICIAL_PATH}\nRuta relativa: ${indexPathFromDirname}`;
       console.error('[Main] ❌', errorMsg);
       mainWindow.loadURL(`data:text/html;charset=utf-8,<html><head><meta charset="utf-8"></head><body style="background:#000;color:#fff;font-family:monospace;padding:40px;white-space:pre-wrap;"><h1 style="color:#f00">ERROR: Index no encontrado</h1><pre>${errorMsg.replace(/\n/g, '<br>')}</pre></body></html>`);
       return;
@@ -434,7 +433,7 @@ function createWindow() {
     console.log('[Main] ✅ CARGANDO INDEX OFICIAL desde:', indexPath);
     mainWindow.loadFile(indexPath).then(() => {
       console.log('[Main] ✅✅✅ INDEX OFICIAL CARGADO EXITOSAMENTE ✅✅✅');
-      console.log('[Main] Archivo: studiolab-final-v2.html');
+      console.log('[Main] Archivo: index.html');
       console.log('[Main] Ruta:', indexPath);
     }).catch(err => {
       const errorMsg = `Error al cargar: ${err.message}\n\nRuta: ${indexPath}`;
