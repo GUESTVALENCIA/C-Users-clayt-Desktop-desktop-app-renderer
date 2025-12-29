@@ -1944,14 +1944,14 @@ async function diagnoseQwenDOM(browserView) {
   const diagnoseCode = `
     (function() {
       const result = {
-        input: null,
+        inputFound: false,
         inputType: null,
         inputSelector: null,
-        sendButton: null,
+        sendButtonFound: false,
         sendButtonSelector: null,
         sendFunctions: [],
         hasSubmitForm: false,
-        inputContainer: null
+        inputContainerSelector: null
       };
 
       // Buscar input con múltiples estrategias mejoradas
@@ -1976,43 +1976,59 @@ async function diagnoseQwenDOM(browserView) {
           })[0]
       ];
 
+      let inputElement = null;
       for (const strategy of inputStrategies) {
         try {
           const found = strategy();
           if (found && found.offsetParent !== null) { // Verificar que está visible
-            result.input = found;
+            inputElement = found;
+            result.inputFound = true;
             result.inputType = found.tagName.toLowerCase();
             if (found.hasAttribute('contenteditable')) {
               result.inputType = 'contenteditable';
             }
-            // Intentar generar selector único
+            // Generar selector único (solo strings, no objetos)
             if (found.id) {
               result.inputSelector = '#' + found.id;
             } else if (found.className) {
-              result.inputSelector = '.' + found.className.split(' ')[0];
+              const firstClass = found.className.split(' ')[0];
+              if (firstClass) {
+                result.inputSelector = '.' + firstClass;
+              }
             }
             break;
           }
         } catch (e) {}
       }
 
-      if (result.input) {
-        // Buscar contenedor del input
-        result.inputContainer = result.input.closest('form') || 
-                                result.input.closest('[class*="input"]') ||
-                                result.input.closest('[class*="composer"]') ||
-                                result.input.closest('[class*="chat"]') ||
-                                result.input.parentElement;
+      if (inputElement) {
+        // Buscar contenedor del input (solo guardar selector, no el objeto)
+        const container = inputElement.closest('form') || 
+                         inputElement.closest('[class*="input"]') ||
+                         inputElement.closest('[class*="composer"]') ||
+                         inputElement.closest('[class*="chat"]') ||
+                         inputElement.parentElement;
+        
+        if (container) {
+          if (container.id) {
+            result.inputContainerSelector = '#' + container.id;
+          } else if (container.className) {
+            const firstClass = container.className.split(' ')[0];
+            if (firstClass) {
+              result.inputContainerSelector = '.' + firstClass;
+            }
+          }
+        }
 
         // Buscar botón de envío con múltiples estrategias
         const buttonStrategies = [
-          () => result.inputContainer?.querySelector('button[type="submit"]'),
-          () => result.inputContainer?.querySelector('button[aria-label*="enviar" i]'),
-          () => result.inputContainer?.querySelector('button[aria-label*="send" i]'),
-          () => result.inputContainer?.querySelector('button[title*="enviar" i]'),
-          () => result.inputContainer?.querySelector('button[title*="send" i]'),
-          () => result.inputContainer?.querySelector('button:has(svg)'), // Botón con icono
-          () => Array.from(result.inputContainer?.querySelectorAll('button') || [])
+          () => container?.querySelector('button[type="submit"]'),
+          () => container?.querySelector('button[aria-label*="enviar" i]'),
+          () => container?.querySelector('button[aria-label*="send" i]'),
+          () => container?.querySelector('button[title*="enviar" i]'),
+          () => container?.querySelector('button[title*="send" i]'),
+          () => container?.querySelector('button:has(svg)'), // Botón con icono
+          () => Array.from(container?.querySelectorAll('button') || [])
             .filter(btn => {
               const text = (btn.textContent || btn.innerText || '').toLowerCase();
               const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
@@ -2022,8 +2038,8 @@ async function diagnoseQwenDOM(browserView) {
             })[0],
           () => {
             // Buscar botón cerca del input (mismo contenedor o siguiente hermano)
-            const siblings = Array.from(result.input.parentElement?.children || []);
-            const inputIndex = siblings.indexOf(result.input);
+            const siblings = Array.from(inputElement.parentElement?.children || []);
+            const inputIndex = siblings.indexOf(inputElement);
             return siblings[inputIndex + 1]?.tagName === 'BUTTON' ? siblings[inputIndex + 1] : null;
           },
           () => document.querySelector('button:not([disabled])[class*="send"]'),
@@ -2034,11 +2050,14 @@ async function diagnoseQwenDOM(browserView) {
           try {
             const found = strategy();
             if (found && found.offsetParent !== null && !found.disabled) {
-              result.sendButton = found;
+              result.sendButtonFound = true;
               if (found.id) {
                 result.sendButtonSelector = '#' + found.id;
               } else if (found.className) {
-                result.sendButtonSelector = '.' + found.className.split(' ')[0];
+                const firstClass = found.className.split(' ')[0];
+                if (firstClass) {
+                  result.sendButtonSelector = '.' + firstClass;
+                }
               }
               break;
             }
@@ -2046,7 +2065,7 @@ async function diagnoseQwenDOM(browserView) {
         }
 
         // Buscar formulario
-        const form = result.input.closest('form');
+        const form = inputElement.closest('form');
         if (form) {
           result.hasSubmitForm = true;
         }
@@ -2103,17 +2122,29 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     }
 
     // Diagnóstico del DOM
+    console.log(`[QWEN] 🔍 Analizando DOM de Qwen...`);
     const diagnosis = await diagnoseQwenDOM(qwenBrowserView);
-    if (!diagnosis.success || !diagnosis.data.input) {
-      return { success: false, error: 'No se pudo encontrar el input de Qwen. Asegúrate de que la página esté completamente cargada.' };
+    if (!diagnosis.success) {
+      console.error(`[QWEN] ❌ Diagnóstico falló:`, diagnosis.error || 'Error desconocido');
+      return { success: false, error: `Error en diagnóstico: ${diagnosis.error || 'Error desconocido'}` };
     }
 
     const domInfo = diagnosis.data;
+    if (!domInfo.inputFound) {
+      console.error(`[QWEN] ❌ Input no encontrado en el DOM`);
+      return { success: false, error: 'No se pudo encontrar el input de Qwen. Asegúrate de que la página esté completamente cargada.' };
+    }
+
     console.log(`[QWEN] 🔍 Diagnóstico completado:`);
     console.log(`   - Input encontrado: ${domInfo.inputType} (${domInfo.inputSelector || 'sin selector único'})`);
-    console.log(`   - Botón de envío: ${domInfo.sendButton ? 'Sí' : 'No'} (${domInfo.sendButtonSelector || 'N/A'})`);
+    console.log(`   - Botón de envío: ${domInfo.sendButtonFound ? 'Sí' : 'No'} (${domInfo.sendButtonSelector || 'N/A'})`);
     console.log(`   - Funciones globales: ${domInfo.sendFunctions.length > 0 ? domInfo.sendFunctions.join(', ') : 'Ninguna'}`);
     console.log(`   - Tiene formulario: ${domInfo.hasSubmitForm ? 'Sí' : 'No'}`);
+    
+    // Verificar que al menos el input fue encontrado
+    if (!domInfo.inputFound) {
+      return { success: false, error: 'No se pudo encontrar el input de Qwen. Asegúrate de que la página esté completamente cargada.' };
+    }
 
     // Código de inyección con múltiples estrategias (sin await, usando setTimeout para delays)
     const messageEscaped = JSON.stringify(message);
@@ -2164,7 +2195,7 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
           }
 
           // ESTRATEGIA 1: Botón de envío (con delay usando setTimeout)
-          if (${domInfo.sendButton ? 'true' : 'false'}) {
+          if (${domInfo.sendButtonFound ? 'true' : 'false'}) {
             try {
               let sendButton = null;
               ${domInfo.sendButtonSelector ? 
