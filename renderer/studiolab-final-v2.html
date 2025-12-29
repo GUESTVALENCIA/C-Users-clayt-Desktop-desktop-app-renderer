@@ -2524,6 +2524,19 @@
        ============================================ -->
   <script>
     // ============================================
+    // CONFIGURACIÓN DE SERVIDORES
+    // ============================================
+    const CONFIG = {
+      chatUrl: 'http://localhost:8085/api/chat',
+      historyUrl: 'http://localhost:8085/api/conversation-history',
+      healthUrl: 'http://localhost:8085/health',
+      voiceChatUrl: 'http://localhost:8085/api/voice-chat',
+      mcpServerUrl: 'http://localhost:19875',
+      mcpToolsUrl: 'http://localhost:19875/tools',
+      mcpCallUrl: 'http://localhost:19875/call'
+    };
+
+    // ============================================
     // STATE
     // ============================================
     const state = {
@@ -2581,7 +2594,94 @@
       document.getElementById('messageInput')?.focus();
       console.log('✅ StudioLab 8.0 Pro cargado correctamente');
       console.log(`[StudioLab] Modo inicial: ${state.useAPI ? 'API (Groq)' : 'Local (QWEN)'}`);
+      
+      // Verificar conexión con servidores
+      checkServersHealth();
     });
+
+    // ============================================
+    // VERIFICACIÓN DE SERVIDORES
+    // ============================================
+    async function checkServersHealth() {
+      // Verificar QWEN Gateway (puerto 8085)
+      try {
+        const response = await fetch(CONFIG.healthUrl, { method: 'GET' });
+        if (response.ok) {
+          addTerminalLine(`✅ QWEN Gateway: ${CONFIG.chatUrl} conectado`);
+          console.log('[StudioLab] QWEN Gateway conectado');
+        } else {
+          addTerminalLine(`⚠️ QWEN Gateway: ${CONFIG.chatUrl} no responde (${response.status})`);
+          console.warn('[StudioLab] QWEN Gateway no responde correctamente');
+        }
+      } catch (error) {
+        addTerminalLine(`❌ QWEN Gateway: ${CONFIG.chatUrl} no disponible`);
+        console.error('[StudioLab] QWEN Gateway no disponible:', error.message);
+      }
+
+      // Verificar MCP Server Universal (a través de IPC)
+      try {
+        if (window.sandraAPI?.mcpListTools) {
+          const result = await window.sandraAPI.mcpListTools();
+          if (result.success && result.tools) {
+            addTerminalLine(`✅ MCP Server Universal: ${result.tools.length} herramientas disponibles`);
+            console.log('[StudioLab] MCP Server Universal conectado:', result.tools);
+          } else {
+            addTerminalLine(`⚠️ MCP Server Universal: no disponible`);
+            console.warn('[StudioLab] MCP Server Universal no disponible');
+          }
+        } else if (window.sandraAPI?.mcpGetPort) {
+          const result = await window.sandraAPI.mcpGetPort();
+          if (result.success) {
+            addTerminalLine(`✅ MCP Server Universal: puerto ${result.port} conectado`);
+            console.log('[StudioLab] MCP Server Universal conectado en puerto', result.port);
+          } else {
+            addTerminalLine(`⚠️ MCP Server Universal: no disponible`);
+            console.warn('[StudioLab] MCP Server Universal no disponible');
+          }
+        } else {
+          addTerminalLine(`⚠️ MCP Server Universal: API no disponible`);
+          console.warn('[StudioLab] MCP API no disponible en window.sandraAPI');
+        }
+      } catch (error) {
+        addTerminalLine(`❌ MCP Server Universal: error de conexión - ${error.message}`);
+        console.error('[StudioLab] MCP Server Universal error:', error.message);
+      }
+    }
+
+    // ============================================
+    // VERIFICACIÓN DE SERVIDORES
+    // ============================================
+    async function checkServersHealth() {
+      // Verificar QWEN Gateway (puerto 8085)
+      try {
+        const response = await fetch(CONFIG.healthUrl, { method: 'GET' });
+        if (response.ok) {
+          addTerminalLine(`✅ QWEN Gateway: ${CONFIG.chatUrl} conectado`);
+          console.log('[StudioLab] QWEN Gateway conectado');
+        } else {
+          addTerminalLine(`⚠️ QWEN Gateway: ${CONFIG.chatUrl} no responde (${response.status})`);
+          console.warn('[StudioLab] QWEN Gateway no responde correctamente');
+        }
+      } catch (error) {
+        addTerminalLine(`❌ QWEN Gateway: ${CONFIG.chatUrl} no disponible`);
+        console.error('[StudioLab] QWEN Gateway no disponible:', error.message);
+      }
+
+      // Verificar MCP Server (puerto 19875)
+      try {
+        const response = await fetch(CONFIG.mcpToolsUrl, { method: 'GET' });
+        if (response.ok) {
+          addTerminalLine(`✅ MCP Server: ${CONFIG.mcpServerUrl} conectado`);
+          console.log('[StudioLab] MCP Server conectado');
+        } else {
+          addTerminalLine(`⚠️ MCP Server: ${CONFIG.mcpServerUrl} no responde (${response.status})`);
+          console.warn('[StudioLab] MCP Server no responde correctamente');
+        }
+      } catch (error) {
+        addTerminalLine(`❌ MCP Server: ${CONFIG.mcpServerUrl} no disponible`);
+        console.error('[StudioLab] MCP Server no disponible:', error.message);
+      }
+    }
 
     // ============================================
     // QWEN WEBVIEW SETUP
@@ -3596,12 +3696,49 @@
         throw new Error('Groq API no está disponible. Configura GROQ_API_KEY o cambia a modo Local.');
       }
       
-      // Modo Local: QWEN funciona en BrowserView - el usuario chatea directamente ahí
-      if (state.qwen.connected) {
-        return { text: '', provider: 'qwen', model: payload?.modelId || '' };
+      // Modo Local: Conectar con el servidor QWEN Gateway (puerto 8085)
+      try {
+        const requestBody = {
+          message: payload.message || '',
+          userId: payload.userId || 'default',
+          modelId: payload.modelId || state.qwen.model || 'qwen3-omni-flash',
+          meta: {
+            mode: payload.mode || state.currentMode,
+            features: payload.features || Array.from(state.activeFeatures),
+            thinking: payload.thinking || state.thinkingEnabled,
+            search: payload.search || state.searchEnabled
+          },
+          attachments: payload.attachments || []
+        };
+
+        const response = await fetch(CONFIG.chatUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const responseText = data.response || data.text || data.message || '';
+        
+        return { 
+          text: responseText, 
+          provider: 'qwen-gateway', 
+          model: requestBody.modelId 
+        };
+      } catch (error) {
+        console.error('[callAssistant] Error conectando con QWEN Gateway:', error);
+        
+        // Fallback: Si QWEN está conectado en BrowserView
+        if (state.qwen.connected) {
+          return { text: '', provider: 'qwen', model: payload?.modelId || '' };
+        }
+        
+        throw new Error(`Error conectando con QWEN Gateway (${CONFIG.chatUrl}): ${error.message}`);
       }
-      
-      throw new Error('QWEN local no está abierto. Haz clic en el botón QWEN o cambia a modo API.');
     }
 
     function getChatScrollContainer() {
@@ -3873,6 +4010,28 @@
       input.value = '';
 
       try {
+        // Usar servidor MCP Universal a través de IPC (prioridad)
+        if (window.sandraAPI?.mcpCall) {
+          const res = await window.sandraAPI.mcpCall('execute_command', { command: cmd });
+          if (res.success) {
+            const out = (res.stdout ?? res.output ?? '').toString();
+            const err = (res.stderr ?? res.error ?? '').toString();
+            if (out.trim()) {
+              out.split(/\r?\n/).filter(Boolean).forEach(line => addTerminalLine(line));
+            }
+            if (err.trim()) {
+              err.split(/\r?\n/).filter(Boolean).forEach(line => addTerminalLine(`⚠️ ${line}`));
+            }
+            if (!out.trim() && !err.trim()) {
+              addTerminalLine('OK');
+            }
+          } else {
+            addTerminalLine(`❌ Error: ${res.error || 'Comando falló'}`);
+          }
+          return;
+        }
+
+        // Fallback: usar executeCommand directo (también usa MCP)
         if (window.sandraAPI?.executeCommand) {
           const res = await window.sandraAPI.executeCommand(cmd);
           const out = (res?.output ?? res?.error ?? '').toString();
@@ -3884,16 +4043,9 @@
           return;
         }
 
-        if (window.sandraAPI?.mcpCall) {
-          const res = await window.sandraAPI.mcpCall('execute_command', { command: cmd });
-          const out = (res?.output ?? res?.error ?? '').toString();
-          if (out.trim()) out.split(/\r?\n/).filter(Boolean).forEach(line => addTerminalLine(line));
-          return;
-        }
-
-        addTerminalLine('IPC no disponible para ejecutar comandos');
+        addTerminalLine('❌ Servidor MCP Universal no disponible');
       } catch (e) {
-        addTerminalLine(`Error: ${e.message}`);
+        addTerminalLine(`❌ Error: ${e.message}`);
       }
     }
 
@@ -4057,6 +4209,20 @@
           return;
         }
 
+        // Usar servidor MCP Universal para ejecutar código
+        if (window.sandraAPI?.mcpCall) {
+          const res = await window.sandraAPI.mcpCall('execute_code', { code, language: 'javascript' });
+          if (res.success) {
+            if (res.output) addTerminalLine(String(res.output).trim());
+            else if (res.error) addTerminalLine(`Error: ${res.error}`);
+            else addTerminalLine('Código ejecutado');
+          } else {
+            addTerminalLine(`Error: ${res.error || 'Error ejecutando código'}`);
+          }
+          return;
+        }
+
+        // Fallback: usar executeCode directo (también usa MCP)
         if (window.sandraAPI?.executeCode) {
           const res = await window.sandraAPI.executeCode(code, 'javascript');
           if (res?.output) addTerminalLine(String(res.output).trim());
