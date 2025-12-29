@@ -74,23 +74,9 @@ try {
 }
 
 // ============ QWEN EMBEDDING (vs Code Style) ============
-const { QwenWindow } = require('./src/main/qwen-window');
-let qwenEmbeddedWindow;
-
-function createQwenEmbeddedPanel() {
-  if (qwenEmbeddedWindow && qwenEmbeddedWindow.isOpen()) {
-    qwenEmbeddedWindow.focus();
-    return;
-  }
-
-  qwenEmbeddedWindow = new QwenWindow(mainWindow);
-  qwenEmbeddedWindow.create();
-  console.log('[Main] ✅ Panel QWEN embebido creado (estilo VS Code)');
-}
-
-ipcMain.on('open-qwen-embedded', () => {
-  createQwenEmbeddedPanel();
-});
+// Sistema eliminado - ahora usa BrowserView embebido del MCP Universal
+// El sistema anterior abría ventanas externas y bloqueaba el sistema
+// Ahora se usa directamente el BrowserView con cookies persistentes
 
 // ==== QWEN Model Catalog ====
 const QWEN_MODELS = [
@@ -1127,9 +1113,9 @@ ipcMain.on('qwen-message', async (event, { message, context = {} }) => {
       console.log('[QWEN→MCP] ✅ Propuesta enviada exitosamente');
       console.log('[QWEN→MCP] Respuesta:', result);
 
-      // Enviar confirmación de vuelta a la ventana QWEN
-      if (qwenEmbeddedWindow && qwenEmbeddedWindow.isOpen()) {
-        qwenEmbeddedWindow.qwenWindow?.webContents.send('mcp-response', {
+      // Enviar confirmación de vuelta al BrowserView QWEN (si está visible)
+      if (qwenBrowserView && qwenBrowserViewReady) {
+        qwenBrowserView.webContents.send('mcp-response', {
           success: true,
           message: 'Propuesta enviada al servidor MCP',
           result
@@ -1141,9 +1127,9 @@ ipcMain.on('qwen-message', async (event, { message, context = {} }) => {
   } catch (error) {
     console.error('[QWEN→MCP] ❌ Error enviando propuesta:', error.message);
 
-    // Enviar error de vuelta a la ventana QWEN
-    if (qwenEmbeddedWindow && qwenEmbeddedWindow.isOpen()) {
-      qwenEmbeddedWindow.qwenWindow?.webContents.send('mcp-response', {
+    // Enviar error de vuelta al BrowserView QWEN (si está visible)
+    if (qwenBrowserView && qwenBrowserViewReady) {
+      qwenBrowserView.webContents.send('mcp-response', {
         success: false,
         error: error.message
       });
