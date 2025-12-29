@@ -272,6 +272,7 @@ function getModelMeta(id) {
 let qwenState = loadQwenState();
 // Sistema QWEN embebido - BrowserView (necesario porque qwen.ai bloquea iframes con X-Frame-Options)
 let qwenBrowserView = null; // BrowserView para QWEN (evita restricciones de X-Frame-Options)
+let qwenCookieInterval = null; // Interval ID para limpiar cuando se oculte el BrowserView
 
 function emitStatus() {
   try {
@@ -677,19 +678,16 @@ app.whenReady().then(() => {
   global.mcpUniversalClient = mcpUniversalClient;
 
   // ============ INICIALIZAR AI MODELS MANAGER ============
-  // Esto carga los BrowserViews para ChatGPT, QWEN, Gemini, DeepSeek
-  aiModelsManager = new AIModelsManager(mainWindow);
+  // DESHABILITADO: ai-models-manager causa conflictos con qwenBrowserView
+  // Qwen se maneja con qwenBrowserView directamente en el handler qwen:toggle
+  // aiModelsManager = new AIModelsManager(mainWindow);
+  // aiModelsManager.createModelView('chatgpt', 'https://chatgpt.com/', 'chatgpt-plus');
+  // aiModelsManager.createModelView('qwen', 'https://chat.qwenlm.ai/', 'qwen3');
+  // aiModelsManager.createModelView('gemini', 'https://gemini.google.com/', 'gemini');
+  // aiModelsManager.createModelView('deepseek', 'https://chat.deepseek.com/', 'deepseek');
+  // global.aiModelsManager = aiModelsManager;
 
-  // Crear vistas para cada modelo (NO mostrar aún, solo cargar en background)
-  aiModelsManager.createModelView('chatgpt', 'https://chatgpt.com/', 'chatgpt-plus');
-  aiModelsManager.createModelView('qwen', 'https://chat.qwenlm.ai/', 'qwen3');
-  aiModelsManager.createModelView('gemini', 'https://gemini.google.com/', 'gemini');
-  aiModelsManager.createModelView('deepseek', 'https://chat.deepseek.com/', 'deepseek');
-
-  // Exponer globalmente para IPC handlers
-  global.aiModelsManager = aiModelsManager;
-
-  console.log('[Main] ✅ Modelos AI embebidos cargados en background');
+  // console.log('[Main] ✅ Modelos AI embebidos cargados en background'); // DESHABILITADO
 
   // ============ INICIALIZAR AUTO ORCHESTRATOR ============
   // Sistema de orquestación multi-agente que coordina consultas paralelas
@@ -800,6 +798,13 @@ async function saveQwenCookies(qwenSession, cookiesPath) {
 }
 
 app.on('window-all-closed', async function () {
+  // LIMPIAR intervalo de cookies antes de cerrar
+  if (qwenCookieInterval) {
+    clearInterval(qwenCookieInterval);
+    qwenCookieInterval = null;
+    console.log('[QWEN3] Intervalo de cookies limpiado al cerrar');
+  }
+  
   // Guardar cookies de Qwen antes de cerrar
   if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
     try {
@@ -1509,7 +1514,7 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         console.warn('[QWEN3] ⚠️ Error cargando cookies:', e.message);
       }
 
-      // URL CORRECTA según pipeline: https://qwenlm.ai
+      // URL CORRECTA: https://qwenlm.ai (redirige automáticamente a chat.qwenlm.ai)
       const qwenUrl = 'https://qwenlm.ai';
       qwenBrowserView.webContents.loadURL(qwenUrl);
       console.log(`[QWEN3] 🔄 Cargando ${qwenUrl}...`);
@@ -1528,12 +1533,19 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         console.error('[QWEN3] URL intentada:', validatedURL);
       });
 
-      // Guardar cookies periódicamente (cada 30 segundos)
-      setInterval(() => {
+      // Guardar cookies periódicamente (cada 30 segundos) - LIMPIAR cuando se oculte
+      if (qwenCookieInterval) clearInterval(qwenCookieInterval);
+      qwenCookieInterval = setInterval(() => {
         if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
           saveQwenCookies(qwenSession, cookiesPath).catch(e => {
             // Silenciar errores en guardado automático
           });
+        } else {
+          // Si el BrowserView fue destruido, limpiar el intervalo
+          if (qwenCookieInterval) {
+            clearInterval(qwenCookieInterval);
+            qwenCookieInterval = null;
+          }
         }
       }, 30000);
 
@@ -1605,6 +1617,13 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       const qwenSession = qwenBrowserView.webContents.session;
       const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
       
+      // LIMPIAR el intervalo de guardado de cookies
+      if (qwenCookieInterval) {
+        clearInterval(qwenCookieInterval);
+        qwenCookieInterval = null;
+        console.log('[QWEN3] Intervalo de cookies limpiado');
+      }
+      
       // Guardar cookies antes de ocultar
       await saveQwenCookies(qwenSession, cookiesPath).catch(e => {
         console.warn('[QWEN3] ⚠️ Error guardando cookies al ocultar:', e.message);
@@ -1619,7 +1638,12 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       // Remover el BrowserView de la ventana (esto lo oculta completamente)
       mainWindow.setBrowserView(null);
       
-      console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas)');
+      console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado)');
+    } else if (qwenCookieInterval) {
+      // Si el BrowserView ya fue destruido pero el intervalo aún existe, limpiarlo
+      clearInterval(qwenCookieInterval);
+      qwenCookieInterval = null;
+      console.log('[QWEN3] Intervalo de cookies limpiado (BrowserView ya destruido)');
     }
     return { success: true, message: 'QWEN oculto' };
   }
@@ -1627,18 +1651,22 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
 
 // ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW ============
 ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
-  if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
-    // Si no hay BrowserView, no podemos enviar mensajes
-    // El usuario debe abrir QWEN primero con el botón verde
+  // Verificar que el BrowserView existe y no está destruido
+  if (!qwenBrowserView) {
     console.log('[QWEN] BrowserView no existe, debe abrirse primero');
     return { success: false, error: 'QWEN BrowserView no disponible. Abre QWEN primero con el botón verde en la sidebar izquierda.' };
   }
 
-  if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
-    return { success: false, error: 'QWEN BrowserView no disponible. Abre QWEN primero con el botón verde.' };
+  if (qwenBrowserView.webContents.isDestroyed()) {
+    console.log('[QWEN] BrowserView fue destruido');
+    return { success: false, error: 'QWEN BrowserView fue destruido. Abre QWEN nuevamente.' };
   }
 
   try {
+    // Verificar que el frame aún existe antes de ejecutar JavaScript
+    if (!qwenBrowserView.webContents.mainFrame) {
+      return { success: false, error: 'Frame no disponible' };
+    }
     // Script para inyectar mensaje en el input de Qwen y enviarlo
     const injectCode = `
       (async function() {
@@ -1736,7 +1764,11 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       })();
     `;
 
-    const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
+    // Ejecutar JavaScript con timeout para evitar bloqueos
+    const result = await Promise.race([
+      qwenBrowserView.webContents.executeJavaScript(injectCode),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout ejecutando script')), 5000))
+    ]);
     
     if (result && result.success) {
       console.log('[QWEN] ✅ Mensaje enviado al BrowserView:', message.substring(0, 50));
@@ -1746,7 +1778,13 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: result?.error || 'Error desconocido al enviar mensaje' };
     }
   } catch (error) {
-    console.error('[QWEN] ❌ Error en sendMessage:', error);
+    console.error('[QWEN] ❌ Error en sendMessage:', error.message);
+    
+    // Si el error es porque el frame fue destruido, no es crítico
+    if (error.message.includes('disposed') || error.message.includes('destroyed')) {
+      return { success: false, error: 'El panel de Qwen se cerró durante el envío. Vuelve a abrirlo.' };
+    }
+    
     return { success: false, error: error.message };
   }
 });
@@ -2293,59 +2331,21 @@ ipcMain.handle('mcp:status', async () => {
 // AI MODELS HANDLERS - Controlar BrowserViews embebidos
 // ============================================================================
 
+// DESHABILITADO: ai-models-manager está deshabilitado para evitar conflictos con qwenBrowserView
 ipcMain.handle('ai-models:show', async (_, { modelId, width }) => {
-  if (!global.aiModelsManager) {
-    return { success: false, error: 'AI Models Manager no inicializado' };
-  }
-
-  try {
-    const result = global.aiModelsManager.showModel(modelId, width || 0.35);
-    return result;
-  } catch (error) {
-    console.error('[AI Models] Error mostrando modelo:', error);
-    return { success: false, error: error.message };
-  }
+  return { success: false, error: 'AI Models Manager deshabilitado - usar qwen:toggle para Qwen' };
 });
 
 ipcMain.handle('ai-models:hide', async () => {
-  if (!global.aiModelsManager) {
-    return { success: false, error: 'AI Models Manager no inicializado' };
-  }
-
-  try {
-    const result = global.aiModelsManager.hideAll();
-    return result;
-  } catch (error) {
-    console.error('[AI Models] Error ocultando:', error);
-    return { success: false, error: error.message };
-  }
+  return { success: false, error: 'AI Models Manager deshabilitado' };
 });
 
 ipcMain.handle('ai-models:send', async (_, { modelId, message }) => {
-  if (!global.aiModelsManager) {
-    return { success: false, error: 'AI Models Manager no inicializado' };
-  }
-
-  try {
-    await global.aiModelsManager.sendMessage(modelId, message);
-    return { success: true };
-  } catch (error) {
-    console.error('[AI Models] Error enviando mensaje:', error);
-    return { success: false, error: error.message };
-  }
+  return { success: false, error: 'AI Models Manager deshabilitado - usar qwen:sendMessage para Qwen' };
 });
 
 ipcMain.handle('ai-models:list', async () => {
-  if (!global.aiModelsManager) {
-    return { models: [], error: 'AI Models Manager no inicializado' };
-  }
-
-  try {
-    const models = global.aiModelsManager.listModels();
-    return { success: true, models };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
+  return { success: false, models: [], error: 'AI Models Manager deshabilitado' };
 });
 
 // ============ AUTO ORCHESTRATOR IPC HANDLERS ============
