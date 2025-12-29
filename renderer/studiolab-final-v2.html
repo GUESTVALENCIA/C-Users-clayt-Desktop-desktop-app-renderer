@@ -3433,6 +3433,14 @@
       attachments: [],
       messages: [],
       useAPI: true, // true = API (Groq, Anthropic, etc)
+      qwen: {
+        panelVisible: false,
+        auto: false,
+        model: 'qwen-embedded',
+        tokens: 0,
+        tokensMax: 65536,
+        models: []
+      },
       chatHistory: [
         { id: 1, icon: '🌐', title: 'Desarrollo Web App', preview: 'Creando componentes...', time: 'Ahora', active: true },
         { id: 2, icon: '🎬', title: 'Video Marketing', preview: 'Guión para campaña...', time: '2h' },
@@ -3492,13 +3500,20 @@
             d.style.display = 'none';
           });
 
-          // Remover .active de buttons que no son el proveedor seleccionado
+          // IMPORTANTE: Restaurar estado correcto de botones activos
+          // Limpiar todos primero
           document.querySelectorAll('.provider-btn').forEach(btn => {
-            const btnProvider = btn.id.replace('provider', '').toLowerCase();
-            if (state.currentProvider !== btnProvider) {
-              btn.classList.remove('active');
-            }
+            btn.classList.remove('active');
           });
+          
+          // Luego marcar solo el proveedor actual como activo
+          if (state.currentProvider) {
+            const currentBtnId = `provider${state.currentProvider.charAt(0).toUpperCase() + state.currentProvider.slice(1)}`;
+            const currentBtn = document.getElementById(currentBtnId);
+            if (currentBtn) {
+              currentBtn.classList.add('active');
+            }
+          }
         }
       });
 
@@ -5626,25 +5641,20 @@
         state.currentModel = 'llama-3.3-70b-versatile';
       }
 
-      // Iluminar botón del proveedor actual
-      const providerNameMap = {
-        'openai': 'Openai',
-        'groq': 'Groq',
-        'anthropic': 'Anthropic',
-        'gemini': 'Gemini',
-        'qwen': 'Qwen'
-      };
-
+      // PASO 1: Limpiar TODOS los botones primero
       document.querySelectorAll('.provider-btn').forEach(btn => {
-        const btnProvider = btn.id.replace('provider', '').toLowerCase();
-        if (btnProvider === state.currentProvider) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
-        }
+        btn.classList.remove('active');
       });
 
-      console.log(`[Provider Init] ${state.currentProvider.toUpperCase()} seleccionado por defecto (${state.currentModel})`);
+      // PASO 2: Marcar SOLO el proveedor actual como activo
+      const currentBtnId = `provider${state.currentProvider.charAt(0).toUpperCase() + state.currentProvider.slice(1)}`;
+      const currentBtn = document.getElementById(currentBtnId);
+      if (currentBtn) {
+        currentBtn.classList.add('active');
+        console.log(`[Provider Init] ${state.currentProvider.toUpperCase()} está activo (${state.currentModel})`);
+      } else {
+        console.log(`[Provider Init] Proveedor ${state.currentProvider} no tiene botón correspondiente`);
+      }
     }
 
     /**
@@ -5666,20 +5676,14 @@
         d.style.display = 'none';
       });
 
-      // Remover clase .active de todos los botones (excepto si es el proveedor actual)
-      document.querySelectorAll('.provider-btn').forEach(b => {
-        const btnProvider = b.id.replace('provider', '').toLowerCase();
-        if (btnProvider === state.currentProvider) {
-          b.classList.add('active');
-        } else {
-          b.classList.remove('active');
-        }
-      });
+      // IMPORTANTE: NO tocar los estados .active de los botones aquí
+      // Solo se actualizan cuando se selecciona un modelo con selectProviderModel()
+      // Esto evita que el botón quede "pegado" al abrir el dropdown
 
       // Si el dropdown no estaba abierto, abrirlo
       if (!isOpen && dropdown) {
         dropdown.style.display = 'block';
-        btn.classList.add('active');
+        // NO agregar .active aquí - solo se agrega cuando se selecciona un modelo
         console.log(`[Provider] Dropdown abierto: ${provider}`);
       } else {
         console.log(`[Provider] Dropdown cerrado: ${provider}`);
@@ -5690,6 +5694,7 @@
      * Select Provider Model
      * Selecciona un modelo de un proveedor y cierra el dropdown
      * Extrae automáticamente el nombre del modelo desde PROVIDERS config
+     * CORREGIDO: Ahora limpia correctamente todos los botones antes de marcar el nuevo
      */
     function selectProviderModel(provider, modelId) {
       // Obtener nombre del modelo desde configuración
@@ -5713,27 +5718,22 @@
       console.log(`   DESPUÉS: ${provider}/${modelId}`);
       console.log(`   NOMBRE: ${modelName}`);
 
-      // Actualizar UI de TODOS los botones
-      const providerNameMap = {
-        'openai': 'Openai',
-        'groq': 'Groq',
-        'anthropic': 'Anthropic',
-        'gemini': 'Gemini',
-        'qwen': 'Qwen'
-      };
-
+      // PASO 1: Limpiar TODOS los botones (remover .active de todos)
       document.querySelectorAll('.provider-btn').forEach(btn => {
-        const btnProvider = btn.id.replace('provider', '').toLowerCase();
-        if (btnProvider === state.currentProvider) {
-          btn.classList.add('active');
-          const label = btn.querySelector('.provider-name-small');
-          if (label) label.textContent = modelName;
-          console.log(`   ✅ Botón iluminado: ${btnProvider}`);
-        } else {
-          btn.classList.remove('active');
-          console.log(`   ⭕ Botón apagado: ${btnProvider}`);
-        }
+        btn.classList.remove('active');
       });
+
+      // PASO 2: Marcar SOLO el botón del proveedor actual como activo
+      const currentBtnId = `provider${provider.charAt(0).toUpperCase() + provider.slice(1)}`;
+      const currentBtn = document.getElementById(currentBtnId);
+      if (currentBtn) {
+        currentBtn.classList.add('active');
+        const label = currentBtn.querySelector('.provider-name-small');
+        if (label) label.textContent = modelName;
+        console.log(`   ✅ Botón iluminado: ${provider}`);
+      } else {
+        console.warn(`   ⚠️ Botón no encontrado: ${currentBtnId}`);
+      }
 
       // Cerrar dropdown
       const dropdown = document.getElementById(`dropdown-${provider}`);
