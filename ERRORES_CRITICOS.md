@@ -50,16 +50,16 @@
 ## PRIORIDADES INMEDIATAS
 
 ### FASE A: Fix Críticos (Hoy)
-1. [ ] Instalar @anthropic-ai/sdk
+1. [x] Instalar @anthropic-ai/sdk ✅
 2. [ ] Arreglar Groq API connection
-3. [ ] Conectar Ollama/JOYAMA
+3. [x] Conectar Ollama/JOYAMA (YA CORRIENDO) ✅
 4. [ ] Hacer UI funcional (no rota)
 
-### FASE B: Optimizaciones (Mañana)
-1. [ ] Sistema de Cache de respuestas
-2. [ ] Mejorar timeouts dinámicos
-3. [ ] Sistema de Auditoría + Login
-4. [ ] Tracking de confianza por modelo
+### FASE B: Optimizaciones (EN PROGRESO)
+1. [x] Sistema de Cache de respuestas ✅
+2. [x] Mejorar timeouts dinámicos ✅
+3. [x] Sistema de Auditoría + Login ✅
+4. [ ] Tracking de confianza por modelo (PENDIENTE)
 
 ### FASE C: Enhancements (Después)
 1. [ ] Widget voz Galaxy inyectable
