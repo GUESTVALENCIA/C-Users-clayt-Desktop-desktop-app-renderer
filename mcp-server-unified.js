@@ -519,7 +519,7 @@ function startMCPServer() {
       res.end(JSON.stringify({
         success: true,
         status: 'healthy',
-        providers: ['groq', 'qwen', 'anthropic', 'openai'],
+        providers: ['groq', 'qwen', 'anthropic'],
         timestamp: new Date().toISOString()
       }));
       return;
