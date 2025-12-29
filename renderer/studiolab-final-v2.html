@@ -3601,6 +3601,9 @@
         webview = document.createElement('webview');
         webview.id = 'qwenWebview';
         webview.src = 'https://chat.qwenlm.ai/';
+        // IMPORTANTE: Usar partición persistente para guardar cookies y sesión (como VS Code)
+        webview.partition = 'persist:qwen3';
+        webview.setAttribute('allowpopups', 'true');
         webview.style.cssText = `
           position: fixed;
           top: 44px;
