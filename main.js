@@ -1969,7 +1969,7 @@ ipcMain.handle('ai-models:list', async () => {
 });
 
 // ============ AUTO ORCHESTRATOR IPC HANDLERS ============
-ipcMain.handle('auto:query', async (_, { message }) => {
+ipcMain.handle('auto:query', async (_, { message, selectedModels = [] }) => {
   if (!global.autoOrchestrator) {
     return { success: false, error: 'Auto Orchestrator no inicializado' };
   }
@@ -1983,12 +1983,13 @@ ipcMain.handle('auto:query', async (_, { message }) => {
   }
 
   try {
-    console.log('[AUTO IPC] Iniciando consulta multi-modelo...');
+    console.log('[AUTO IPC] Iniciando consulta multi-modelo con modelos:', selectedModels);
     const result = await global.autoOrchestrator.query(
       message,
       global.mcpUniversalClient,
       global.aiModelsManager,
-      mainWindow
+      mainWindow,
+      selectedModels
     );
     return { success: true, ...result };
   } catch (error) {
