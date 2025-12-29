@@ -1,5 +1,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// ============ PUENTE PARA QWEN EMBEBIDO ============
+contextBridge.exposeInMainWorld('electronAPI', {
+  loadModel: (model) => ipcRenderer.send('load-model', model),
+  resizeSidebar: (width) => ipcRenderer.send('resize-sidebar', width),
+  onModelLoaded: (callback) => ipcRenderer.on('model-loaded', (event, model) => callback(model))
+});
+
 contextBridge.exposeInMainWorld('sandraAPI', {
   // ==================== CHAT Y MENSAJES ====================
   sendMessage: (message, role, mode = 'text') => ipcRenderer.invoke('send-message', { message, role, mode }),
