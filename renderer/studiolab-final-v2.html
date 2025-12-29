@@ -1741,29 +1741,36 @@
     /* ============================================
        QWEN PANEL (Embedded)
        ============================================ */
+    /* QWEN Panel - Técnica VS Code (iframe embebido) */
     .qwen-panel {
-      position: absolute;
-      top: 0;
-      left: 0;
+      position: fixed;
+      top: 44px; /* Debajo del top bar */
+      left: 52px; /* Después de la sidebar */
       right: 0;
       bottom: 0;
       background: var(--bg-primary);
-      z-index: 100;
+      z-index: 10000; /* Muy alto para estar encima de todo */
       display: none;
       flex-direction: column;
+      border: none;
+      overflow: hidden;
     }
 
     .qwen-panel:not(.hidden) {
-      display: flex;
+      display: flex !important; /* Forzar display */
+    }
+
+    .qwen-panel.hidden {
+      display: none !important; /* Forzar oculto */
     }
 
     .qwen-panel iframe {
       width: 100%;
       height: 100%;
       flex: 1;
-      min-height: 500px;
       border: none;
       background: white;
+      display: block;
     }
 
     /* ============================================
@@ -2285,8 +2292,17 @@
 
       <!-- Chat Content Wrapper -->
       <div class="chat-content-wrapper">
-        <!-- QWEN usa BrowserView de Electron, no iframe -->
-        <!-- El panel se maneja desde main.js -->
+        <!-- QWEN Panel - Técnica VS Code (iframe embebido) -->
+        <!-- QWEN Panel - Técnica VS Code (iframe embebido) -->
+        <div class="qwen-panel hidden" id="qwenPanel">
+          <iframe 
+            id="qwenIframe" 
+            src="about:blank"
+            allow="camera; microphone; geolocation; encrypted-media; autoplay"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-top-navigation"
+            style="width: 100%; height: 100%; border: none; display: block;">
+          </iframe>
+        </div>
 
         <!-- Messages Area -->
         <div class="chat-messages" id="chatMessages">
@@ -3554,67 +3570,66 @@
     // ============================================
     // QWEN PANEL TOGGLE (Embedded)
     // ============================================
+    // QWEN Toggle - Técnica VS Code (iframe embebido, sin BrowserView)
     async function toggleQwen() {
-      // Buscar botón en sidebar o toolbar (hay dos botones con diferentes IDs)
+      // Buscar botón en sidebar o toolbar
       const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
       const label = document.getElementById('qwenLabel');
+      const panel = document.getElementById('qwenPanel');
+      const iframe = document.getElementById('qwenIframe');
       
       // Invertir estado actual
       const isCurrentlyVisible = state.qwen.panelVisible;
       const newState = !isCurrentlyVisible;
       
-      console.log('[UI] toggleQwen llamado - Estado actual:', isCurrentlyVisible, '→ Nuevo estado:', newState);
+      console.log('[UI] toggleQwen - Técnica VS Code (iframe) - Estado:', isCurrentlyVisible, '→', newState);
       
-      // Actualizar estado ANTES de llamar a la API
+      // Actualizar estado
       state.qwen.panelVisible = newState;
       
-      try {
-        // QWEN usa BrowserView - manejado completamente desde main.js
-        if (window.sandraAPI?.qwenToggle) {
-          console.log('[UI] Llamando a window.sandraAPI.qwenToggle(', newState, ')');
-          const result = await window.sandraAPI.qwenToggle(newState);
-          console.log('[UI] Resultado de qwenToggle:', result);
-          
-          if (result && result.success) {
-            if (newState) {
-              // QWEN se está mostrando
-              if (btn) {
-                btn.classList.add('active');
-                console.log('[UI] Botón QWEN activado');
-              }
-              if (label) label.textContent = 'QWEN ON';
-              addTerminalLine('✅ QWEN abierto - cargando URL embebida...');
-              state.qwen.connected = true;
-              state.qwen.panelVisible = true;
-            } else {
-              // QWEN se está ocultando
-              if (btn) {
-                btn.classList.remove('active');
-                console.log('[UI] Botón QWEN desactivado');
-              }
-              if (label) label.textContent = 'QWEN';
-              addTerminalLine('QWEN cerrado - UI restaurada');
-              state.qwen.connected = false;
-              state.qwen.panelVisible = false;
-            }
-          } else {
-            const errorMsg = result?.error || 'Error desconocido';
-            console.error('[UI] Error toggle QWEN:', errorMsg);
-            addTerminalLine(`❌ Error: ${errorMsg}`);
-            // Restaurar estado anterior
-            state.qwen.panelVisible = isCurrentlyVisible;
-            if (btn) btn.classList.toggle('active', isCurrentlyVisible);
+      if (newState) {
+        // Mostrar panel (como VS Code)
+        if (!panel) {
+          console.error('[UI] ❌ qwenPanel no encontrado en el DOM');
+          addTerminalLine('❌ Error: Panel QWEN no encontrado');
+          state.qwen.panelVisible = false;
+          return;
+        }
+        
+        // Forzar mostrar panel
+        panel.classList.remove('hidden');
+        panel.style.display = 'flex';
+        panel.style.visibility = 'visible';
+        panel.style.opacity = '1';
+        console.log('[UI] ✅ QWEN Panel mostrado (iframe embebido)');
+        
+        // Cargar URL en el iframe (solo cuando se muestra)
+        if (iframe) {
+          const targetUrl = 'https://chat.qwenlm.ai/';
+          if (iframe.src === 'about:blank' || !iframe.src || iframe.src !== targetUrl) {
+            console.log('[UI] Cargando URL en iframe:', targetUrl);
+            iframe.src = targetUrl;
           }
         } else {
-          console.error('[UI] window.sandraAPI.qwenToggle no disponible');
-          throw new Error('QWEN API no disponible - window.sandraAPI no está cargado');
+          console.error('[UI] ❌ qwenIframe no encontrado en el DOM');
         }
-      } catch (e) {
-        console.error('[UI] Excepción en toggleQwen:', e);
-        addTerminalLine(`❌ Error: ${e.message}`);
-        // Restaurar estado anterior en caso de error
-        state.qwen.panelVisible = isCurrentlyVisible;
-        if (btn) btn.classList.toggle('active', isCurrentlyVisible);
+        
+        if (btn) btn.classList.add('active');
+        if (label) label.textContent = 'QWEN ON';
+        addTerminalLine('✅ QWEN abierto - iframe embebido (técnica VS Code)');
+        state.qwen.connected = true;
+      } else {
+        // Ocultar panel
+        if (panel) {
+          panel.classList.add('hidden');
+          panel.style.display = 'none';
+          panel.style.visibility = 'hidden';
+          console.log('[UI] QWEN Panel ocultado');
+        }
+        if (btn) btn.classList.remove('active');
+        if (label) label.textContent = 'QWEN';
+        addTerminalLine('QWEN cerrado');
+        state.qwen.connected = false;
       }
     }
 
