@@ -1,0 +1,85 @@
+===========================================
+DATOS PARA CONECTAR QWEN3 CON TU APLICACIÓN
+===========================================
+
+1. RUTA DE LA APLICACIÓN:
+   C:\Users\clayt\Desktop\desktop-app\renderer
+   
+   (El directorio principal es: C:\Users\clayt\Desktop\desktop-app)
+
+2. SERVIDORES MCP DISPONIBLES:
+
+   a) Servidor MCP Principal (Herramientas):
+      - Puerto: 19875
+      - URL: http://localhost:19875
+      - Protocolo: HTTP
+      - Archivo: mcp-server.js
+      - Funciones: Sistema de archivos, ejecución de comandos, memoria local
+
+   b) Servidor MCP NEON (Memoria Persistente):
+      - Puerto: 8765
+      - URL: http://localhost:8765
+      - Protocolo: HTTP
+      - Archivo: mcp-server-neon.py
+      - Base de datos: NEON (PostgreSQL)
+      - Funciones: Memoria persistente, historial de conversaciones
+
+3. CREDENCIALES:
+   - NO hay credenciales configuradas
+   - Los servidores MCP NO están protegidos por autenticación
+   - Acceso directo sin contraseñas
+
+4. ENDPOINTS DEL SERVIDOR MCP (Puerto 19875):
+   - GET http://localhost:19875/tools - Lista todas las herramientas disponibles
+   - POST http://localhost:19875/call - Ejecuta una herramienta
+     Body: { "tool": "nombre_herramienta", "params": {...} }
+   - GET http://localhost:19875/memory - Lista la memoria local
+
+5. HERRAMIENTAS DISPONIBLES (Puerto 19875):
+   - read_file: Leer archivos del sistema
+   - write_file: Escribir archivos en el sistema
+   - list_files: Listar archivos y directorios
+   - execute_command: Ejecutar comandos CMD/PowerShell
+   - memory_store: Guardar en memoria local
+   - memory_get: Obtener de memoria local
+   - memory_list: Listar toda la memoria
+   - memory_search: Buscar en memoria
+
+6. HERRAMIENTAS DEL SERVIDOR NEON (Puerto 8765):
+   - get_memory: Obtener memoria persistente de NEON
+   - set_memory: Guardar memoria persistente en NEON
+   - search_memory: Buscar en memoria NEON
+   - get_chat_history: Obtener historial de conversaciones
+
+7. ARCHIVOS IMPORTANTES:
+   - main.js: Proceso principal de Electron
+   - studiolab-final-v2.html: Interfaz principal de la aplicación
+   - mcp-server.js: Servidor MCP de herramientas (puerto 19875)
+   - mcp-server-neon.py: Servidor MCP de memoria persistente (puerto 8765)
+   - qwen-mcp-stdio-server.js: Servidor MCP stdio para app oficial de QWEN
+
+8. NOTAS:
+   - Los servidores MCP se inician automáticamente cuando se ejecuta la app Electron
+   - Ambos servidores están en localhost (127.0.0.1)
+   - No hay CORS restringido (Access-Control-Allow-Origin: *)
+   - Los servidores están disponibles mientras la aplicación Electron esté ejecutándose
+
+9. EJEMPLO DE USO:
+   Para leer un archivo desde QWEN3 usando el MCP:
+   POST http://localhost:19875/call
+   Body: {
+     "tool": "read_file",
+     "params": {
+       "filePath": "C:\\Users\\clayt\\Desktop\\desktop-app\\package.json"
+     }
+   }
+
+10. CONFIGURACIÓN MCP STDIO (App Oficial QWEN):
+    - Ya está configurado como "sandra-full-access" en la app oficial
+    - Usa el mismo servidor pero a través de stdio (no HTTP)
+    - No requiere puerto, se comunica directamente
+
+===========================================
+FIN DE DATOS
+===========================================
+

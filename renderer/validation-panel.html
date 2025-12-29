@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel de Validación - Sandra IA 8.0</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px; }
+    .header h1 { font-size: 28px; margin-bottom: 10px; }
+    .header p { opacity: 0.9; }
+    
+    .control-panel { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .button-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 20px 0; }
+    .btn { padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.3s; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5568d3; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .result-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #ddd; }
+    .result-card.success { border-left-color: #10b981; }
+    .result-card.warning { border-left-color: #f59e0b; }
+    .result-card.error { border-left-color: #ef4444; }
+    
+    .role-name { font-weight: 600; font-size: 16px; margin-bottom: 10px; }
+    .completion { font-size: 32px; font-weight: bold; margin: 10px 0; }
+    .completion.high { color: #10b981; }
+    .completion.medium { color: #f59e0b; }
+    .completion.low { color: #ef4444; }
+    
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+    .status-badge.ready { background: #d1fae5; color: #047857; }
+    .status-badge.pending { background: #fef3c7; color: #d97706; }
+    .status-badge.failed { background: #fee2e2; color: #dc2626; }
+    
+    .progress-bar { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.3s; }
+    
+    .loading { text-align: center; padding: 40px; color: #666; }
+    .spinner { display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f4f6; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .stats-summary { background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    .stat-item { display: inline-block; margin-right: 30px; }
+    .stat-label { font-size: 12px; color: #6b7280; text-transform: uppercase; }
+    .stat-value { font-size: 24px; font-weight: bold; color: #667eea; }
+    
+    .error-list { background: #fee2e2; border: 1px solid #fecaca; border-radius: 4px; padding: 12px; margin-top: 10px; color: #dc2626; font-size: 13px; }
+    .error-list li { margin-left: 20px; }
+    
+    #validationOutput { margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧪 Panel de Validación de Sandra IA 8.0</h1>
+      <p>Verifica que Sandra está lista para producción en tareas turísticas</p>
+    </div>
+
+    <div class="control-panel">
+      <h2>🎯 Acciones Disponibles</h2>
+      
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="validateAllRoles()" id="btnValidateAll">
+          Validar 18 Roles
+        </button>
+        <button class="btn btn-success" onclick="validateTourismProduction()" id="btnValidateTourism">
+          Validar Modo Turismo
+        </button>
+        <button class="btn btn-primary" onclick="getStats()" id="btnStats">
+          Ver Estadísticas
+        </button>
+        <button class="btn btn-danger" onclick="clearResults()" id="btnClear">
+          Limpiar Resultados
+        </button>
+      </div>
+
+      <div id="roleSelector" style="margin-top: 20px; display: none;">
+        <label>Validar rol específico:</label>
+        <select id="roleSelect" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+          <option value="developer">Desarrollador</option>
+          <option value="youtuber">Youtuber</option>
+          <option value="community_manager">Community Manager</option>
+          <option value="sales_negotiator">Negociador de Ventas</option>
+          <option value="tourism_specialist">Especialista Turístico</option>
+          <!-- Agregar otros roles aquí -->
+        </select>
+        <button class="btn btn-primary" onclick="validateSpecificRole()" style="margin-left: 10px;">
+          Validar
+        </button>
+      </div>
+    </div>
+
+    <div id="statsContainer" style="display: none;" class="stats-summary">
+      <div class="stat-item">
+        <div class="stat-label">Validaciones Completadas</div>
+        <div class="stat-value" id="statTotal">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Roles Listos</div>
+        <div class="stat-value" id="statReady" style="color: #10b981;">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Completación Promedio</div>
+        <div class="stat-value" id="statAverage">0%</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Estado</div>
+        <div class="stat-value" id="statStatus" style="font-size: 16px;">Pendiente</div>
+      </div>
+    </div>
+
+    <div id="loadingContainer" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p style="margin-top: 20px;">Validando Sandra IA...</p>
+    </div>
+
+    <div id="validationOutput"></div>
+  </div>
+
+  <script>
+    async function validateAllRoles() {
+      showLoading(true);
+      try {
+        const result = await window.electronAPI.validateAllRoles();
+        displayResults(result);
+      } catch (error) {
+        alert('Error: ' + error.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    async function validateTourismProduction() {
+      showLoading(true);
+      try {
+        const result = await window.electronAPI.validateTourismProduction();
+        displayProductionResults(result);
+      } catch (error) {
+        alert('Error: ' + error.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    async function validateSpecificRole() {
+      const role = document.getElementById('roleSelect').value;
+      const testTask = prompt('Ingresa la tarea de prueba para este rol:');
+      
+      if (!testTask) return;
+
+      showLoading(true);
+      try {
+        const result = await window.electronAPI.validateRole(role, testTask);
+        displaySingleResult(result);
+      } catch (error) {
+        alert('Error: ' + error.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    async function getStats() {
+      try {
+        const stats = await window.electronAPI.getValidationStats();
+        displayStats(stats);
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    function displayResults(result) {
+      const container = document.getElementById('validationOutput');
+      let html = `
+        <h2>📊 Resultados de Validación (18 Roles)</h2>
+        <div class="stats-summary">
+          <div class="stat-item">
+            <div class="stat-label">Roles Listos</div>
+            <div class="stat-value">${result.rolesReadyForProduction}/${result.totalRoles}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Porcentaje</div>
+            <div class="stat-value">${result.percentageReady}%</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Completación Promedio</div>
+            <div class="stat-value">${result.averageCompletion}%</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Estado</div>
+            <div class="stat-value" style="font-size: 16px; color: ${result.status.includes('LISTO') ? '#10b981' : '#f59e0b'};">
+              ${result.status.split(' ')[0]}
+            </div>
+          </div>
+        </div>
+        <div class="results">
+      `;
+
+      result.details.forEach(detail => {
+        const statusClass = detail.readyForProduction ? 'success' : detail.completionPercentage >= 50 ? 'warning' : 'error';
+        const completionClass = detail.completionPercentage >= 70 ? 'high' : detail.completionPercentage >= 50 ? 'medium' : 'low';
+        const statusText = detail.readyForProduction ? 'LISTO' : 'REQUIERE MEJORAS';
+        const statusColor = detail.readyForProduction ? 'ready' : detail.completionPercentage >= 50 ? 'pending' : 'failed';
+
+        html += `
+          <div class="result-card ${statusClass}">
+            <div class="role-name">${detail.role}</div>
+            <div class="completion ${completionClass}">${detail.completionPercentage}%</div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${detail.completionPercentage}%"></div>
+            </div>
+            <div class="status-badge ${statusColor}">${statusText}</div>
+            ${detail.errors && detail.errors.length > 0 ? `
+              <div class="error-list">
+                <strong>Errores:</strong>
+                <ul>${detail.errors.map(e => `<li>${e}</li>`).join('')}</ul>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+
+      html += '</div>';
+
+      if (result.recommendations && result.recommendations.length > 0) {
+        html += `<h3 style="margin-top: 30px;">💡 Recomendaciones:</h3>`;
+        html += '<ul style="margin-left: 20px; margin-top: 10px;">';
+        result.recommendations.forEach(rec => {
+          html += `<li style="margin-bottom: 8px;">${rec}</li>`;
+        });
+        html += '</ul>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    function displayProductionResults(result) {
+      const container = document.getElementById('validationOutput');
+      const readyClass = result.readyForLiveCall ? 'success' : 'warning';
+      const statusColor = result.readyForLiveCall ? '#10b981' : '#f59e0b';
+
+      let html = `
+        <h2>🎯 Validación para Producción Turística</h2>
+        <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid ${statusColor}; margin-bottom: 20px;">
+          <div style="font-size: 24px; font-weight: bold; color: ${statusColor};">
+            ${result.status}
+          </div>
+          <div style="margin-top: 15px; color: #666;">
+            Tests completados: ${result.testsCompleted} | Tests pasados: ${result.testsPassed}
+          </div>
+        </div>
+        
+        <div class="results">
+      `;
+
+      result.details.forEach(detail => {
+        const statusClass = detail.completionPercentage >= 70 ? 'success' : detail.completionPercentage >= 50 ? 'warning' : 'error';
+        html += `
+          <div class="result-card ${statusClass}">
+            <div class="role-name">${detail.role}</div>
+            <div class="completion" style="color: ${detail.completionPercentage >= 70 ? '#10b981' : '#f59e0b'};">
+              ${detail.completionPercentage}%
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${detail.completionPercentage}%"></div>
+            </div>
+            <div style="font-size: 13px; color: #666; margin-top: 10px;">
+              ${detail.task}
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+
+      if (result.nextSteps && result.nextSteps.length > 0) {
+        html += `<h3 style="margin-top: 30px;">📋 Próximos Pasos:</h3>`;
+        html += '<ol style="margin-left: 20px; margin-top: 10px;">';
+        result.nextSteps.forEach(step => {
+          html += `<li style="margin-bottom: 8px;">${step}</li>`;
+        });
+        html += '</ol>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    function displaySingleResult(result) {
+      const container = document.getElementById('validationOutput');
+      const statusClass = result.readyForProduction ? 'success' : 'error';
+      const completionClass = result.completionPercentage >= 70 ? 'high' : 'low';
+
+      const html = `
+        <h2>Resultado de Validación: ${result.role}</h2>
+        <div class="result-card ${statusClass}" style="width: 100%; margin-bottom: 20px;">
+          <div class="role-name">${result.role}</div>
+          <div class="completion ${completionClass}">${result.completionPercentage}%</div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${result.completionPercentage}%"></div>
+          </div>
+          <div class="status-badge ${result.readyForProduction ? 'ready' : 'failed'}">
+            ${result.readyForProduction ? 'LISTO' : 'REQUIERE MEJORAS'}
+          </div>
+          <div style="margin-top: 15px; color: #666;">
+            <strong>Pasos completados:</strong> ${result.stepsCompleted}/${result.totalSteps}
+          </div>
+          ${result.errors && result.errors.length > 0 ? `
+            <div class="error-list">
+              <strong>Errores encontrados:</strong>
+              <ul>${result.errors.map(e => `<li>${e}</li>`).join('')}</ul>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    function displayStats(stats) {
+      document.getElementById('statsContainer').style.display = 'block';
+      document.getElementById('statTotal').textContent = stats.totalValidations;
+      document.getElementById('statReady').textContent = stats.rolesSuccessful;
+      document.getElementById('statAverage').textContent = stats.averageCompletion + '%';
+      document.getElementById('statStatus').textContent = stats.overallStatus;
+    }
+
+    function showLoading(show) {
+      document.getElementById('loadingContainer').style.display = show ? 'block' : 'none';
+    }
+
+    function clearResults() {
+      document.getElementById('validationOutput').innerHTML = '';
+      document.getElementById('statsContainer').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
+

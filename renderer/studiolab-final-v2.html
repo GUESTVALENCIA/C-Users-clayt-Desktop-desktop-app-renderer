@@ -1,0 +1,4133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* https://* ws://localhost:*; frame-src 'self' https://*; child-src 'self' https://*;">
+  <title>StudioLab - Multimodal Intelligence</title>
+  <style>
+    /* ============================================
+       STUDIOLAB 8.0 PRO - FINAL POLISHED VERSION
+       Estilo QWEN + Cursor Fusion + Temas
+       ============================================ */
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Default Theme - Dark */
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #1a1a1a;
+      --bg-tertiary: #252525;
+      --bg-input: #2a2a2a;
+      --bg-hover: #333333;
+      --accent-primary: #00d4aa;
+      --accent-secondary: #00b894;
+      --accent-purple: #8b5cf6;
+      --accent-blue: #3b82f6;
+      --accent-glow: rgba(0, 212, 170, 0.25);
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --text-muted: #666666;
+      --text-placeholder: #555555;
+      --border-color: #2a2a2a;
+      --border-hover: #404040;
+      --border-focus: var(--accent-primary);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 30px var(--accent-glow);
+    }
+
+    /* ============================================
+       THEME VARIANTS
+       ============================================ */
+    
+    /* Tokyo Night */
+    [data-theme="tokyo-night"] {
+      --bg-primary: #1a1b26;
+      --bg-secondary: #24283b;
+      --bg-tertiary: #2f3549;
+      --bg-input: #343a52;
+      --bg-hover: #3b4261;
+      --accent-primary: #7aa2f7;
+      --accent-secondary: #bb9af7;
+      --accent-glow: rgba(122, 162, 247, 0.25);
+      --text-primary: #c0caf5;
+      --text-secondary: #9aa5ce;
+      --text-muted: #565f89;
+      --border-color: #3b4261;
+    }
+
+    /* Monokai */
+    [data-theme="monokai"] {
+      --bg-primary: #272822;
+      --bg-secondary: #2d2e27;
+      --bg-tertiary: #3e3d32;
+      --bg-input: #49483e;
+      --bg-hover: #54534a;
+      --accent-primary: #a6e22e;
+      --accent-secondary: #f92672;
+      --accent-glow: rgba(166, 226, 46, 0.25);
+      --text-primary: #f8f8f2;
+      --text-secondary: #cfcfc2;
+      --text-muted: #75715e;
+      --border-color: #49483e;
+    }
+
+    /* Synthwave 84 */
+    [data-theme="synthwave"] {
+      --bg-primary: #262335;
+      --bg-secondary: #2a2139;
+      --bg-tertiary: #34294f;
+      --bg-input: #3b3259;
+      --bg-hover: #463b6a;
+      --accent-primary: #ff7edb;
+      --accent-secondary: #36f9f6;
+      --accent-glow: rgba(255, 126, 219, 0.3);
+      --text-primary: #f0e7ff;
+      --text-secondary: #b6a0d1;
+      --text-muted: #6c5b8a;
+      --border-color: #463b6a;
+    }
+
+    /* Solarized Dark */
+    [data-theme="solarized"] {
+      --bg-primary: #002b36;
+      --bg-secondary: #073642;
+      --bg-tertiary: #0a4452;
+      --bg-input: #0d5566;
+      --bg-hover: #156478;
+      --accent-primary: #2aa198;
+      --accent-secondary: #268bd2;
+      --accent-glow: rgba(42, 161, 152, 0.25);
+      --text-primary: #fdf6e3;
+      --text-secondary: #93a1a1;
+      --text-muted: #586e75;
+      --border-color: #0a4452;
+    }
+
+    /* Red Theme */
+    [data-theme="red"] {
+      --bg-primary: #1a0a0a;
+      --bg-secondary: #2d1515;
+      --bg-tertiary: #3d1f1f;
+      --bg-input: #4a2525;
+      --bg-hover: #5a3030;
+      --accent-primary: #ff6b6b;
+      --accent-secondary: #ee5a5a;
+      --accent-glow: rgba(255, 107, 107, 0.25);
+      --text-primary: #ffeaea;
+      --text-secondary: #d4a5a5;
+      --text-muted: #8a6060;
+      --border-color: #4a2525;
+    }
+
+    /* Kimbi Dark */
+    [data-theme="kimbi"] {
+      --bg-primary: #221a0f;
+      --bg-secondary: #2d2418;
+      --bg-tertiary: #3d3222;
+      --bg-input: #4a3d2a;
+      --bg-hover: #5a4a35;
+      --accent-primary: #d19a66;
+      --accent-secondary: #e5c07b;
+      --accent-glow: rgba(209, 154, 102, 0.25);
+      --text-primary: #ffe4c4;
+      --text-secondary: #c9a87c;
+      --text-muted: #7a6040;
+      --border-color: #4a3d2a;
+    }
+
+    /* Ocean Blue */
+    [data-theme="ocean"] {
+      --bg-primary: #0a1628;
+      --bg-secondary: #0f2137;
+      --bg-tertiary: #152a45;
+      --bg-input: #1a3555;
+      --bg-hover: #204065;
+      --accent-primary: #61afef;
+      --accent-secondary: #56b6c2;
+      --accent-glow: rgba(97, 175, 239, 0.25);
+      --text-primary: #e6f1ff;
+      --text-secondary: #a0c4e8;
+      --text-muted: #5a7a9a;
+      --border-color: #1a3555;
+    }
+
+    /* Purple Haze */
+    [data-theme="purple"] {
+      --bg-primary: #13091c;
+      --bg-secondary: #1e1029;
+      --bg-tertiary: #2a1838;
+      --bg-input: #362045;
+      --bg-hover: #432855;
+      --accent-primary: #c792ea;
+      --accent-secondary: #ff9cac;
+      --accent-glow: rgba(199, 146, 234, 0.3);
+      --text-primary: #f0e6ff;
+      --text-secondary: #b8a2d0;
+      --text-muted: #6b5080;
+      --border-color: #362045;
+    }
+
+    /* High Contrast */
+    [data-theme="high-contrast"] {
+      --bg-primary: #000000;
+      --bg-secondary: #0a0a0a;
+      --bg-tertiary: #151515;
+      --bg-input: #1a1a1a;
+      --bg-hover: #252525;
+      --accent-primary: #00ff9f;
+      --accent-secondary: #00d4ff;
+      --accent-glow: rgba(0, 255, 159, 0.3);
+      --text-primary: #ffffff;
+      --text-secondary: #cccccc;
+      --text-muted: #808080;
+      --border-color: #333333;
+    }
+
+    /* Light Theme */
+    [data-theme="light"] {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f5;
+      --bg-tertiary: #e8e8e8;
+      --bg-input: #f0f0f0;
+      --bg-hover: #e0e0e0;
+      --accent-primary: #0066cc;
+      --accent-secondary: #0052a3;
+      --accent-glow: rgba(0, 102, 204, 0.15);
+      --text-primary: #1a1a1a;
+      --text-secondary: #555555;
+      --text-muted: #888888;
+      --border-color: #d0d0d0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* ============================================
+       TOP BAR
+       ============================================ */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 44px;
+      padding: 0 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      -webkit-app-region: drag;
+      user-select: none;
+      flex-shrink: 0;
+      transition: background-color 0.3s ease;
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      -webkit-app-region: no-drag;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--bg-primary);
+      box-shadow: var(--shadow-glow);
+      transition: all 0.3s ease;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-name {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+
+    /* Menu Items */
+    .menu-bar {
+      display: flex;
+      gap: 2px;
+      -webkit-app-region: no-drag;
+    }
+
+    .menu-item {
+      position: relative;
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .menu-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 6px;
+      min-width: 220px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+    }
+
+    .menu-item:hover .dropdown-menu {
+      display: block;
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .dropdown-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .dropdown-item-icon {
+      margin-right: 10px;
+    }
+
+    .dropdown-shortcut {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    .dropdown-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 6px 0;
+    }
+
+    /* Theme Submenu */
+    .theme-submenu {
+      position: relative;
+    }
+
+    .theme-submenu .submenu {
+      position: absolute;
+      left: 100%;
+      top: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 6px;
+      min-width: 180px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .theme-submenu:hover .submenu {
+      display: block;
+    }
+
+    .theme-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .theme-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .theme-option.active {
+      background: rgba(var(--accent-primary), 0.1);
+      color: var(--accent-primary);
+    }
+
+    .theme-option.active::after {
+      content: '✓';
+      margin-left: auto;
+      color: var(--accent-primary);
+    }
+
+    .theme-color-preview {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 2px solid var(--border-color);
+    }
+
+    /* Right side */
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      -webkit-app-region: no-drag;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.95); }
+    }
+
+    /* ============================================
+       MAIN LAYOUT
+       ============================================ */
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ============================================
+       SIDEBAR
+       ============================================ */
+    .sidebar {
+      width: 52px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      flex-shrink: 0;
+      transition: background-color 0.3s ease;
+    }
+
+    .sidebar-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-bottom: 8px;
+      font-size: 18px;
+      background: transparent;
+      border: none;
+    }
+
+    .sidebar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .sidebar-btn.active {
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+    }
+
+    /* QWEN Embedded Button - Special Style */
+    .sidebar-btn.qwen-btn {
+      background: linear-gradient(135deg, #1890ff 0%, #13c2c2 100%);
+      color: white;
+      font-weight: bold;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sidebar-btn.qwen-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #13c2c2 0%, #1890ff 100%);
+      transition: left 0.3s ease;
+      z-index: -1;
+    }
+
+    .sidebar-btn.qwen-btn:hover {
+      background: linear-gradient(135deg, #13c2c2 0%, #1890ff 100%);
+      transform: scale(1.05);
+      box-shadow: 0 4px 16px rgba(24, 144, 255, 0.4);
+    }
+
+    .sidebar-btn.qwen-btn:active {
+      transform: scale(0.98);
+    }
+
+    .qwen-logo {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-spacer {
+      flex: 1;
+    }
+
+    .sidebar-avatar {
+      width: 32px;
+      height: 32px;
+      background: var(--accent-primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--bg-primary);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    /* ============================================
+       HISTORY PANEL
+       ============================================ */
+    .history-panel {
+      width: 0;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      overflow: hidden;
+      transition: width 0.3s ease;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-panel.open {
+      width: 280px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .panel-title {
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-close {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border: none;
+      font-size: 18px;
+    }
+
+    .panel-close:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .panel-search {
+      padding: 12px 16px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-primary);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-placeholder);
+    }
+
+    .chat-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .chat-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-bottom: 4px;
+    }
+
+    .chat-item:hover {
+      background: var(--bg-hover);
+    }
+
+    .chat-item.active {
+      background: rgba(0, 212, 170, 0.1);
+      border: 1px solid rgba(0, 212, 170, 0.2);
+    }
+
+    .chat-item-icon {
+      width: 38px;
+      height: 38px;
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .chat-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chat-item-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-item-preview {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-item-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* ============================================
+       CHAT AREA
+       ============================================ */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--bg-primary);
+      position: relative;
+      transition: background-color 0.3s ease;
+    }
+
+    /* Model Selector (QWEN-style) */
+    .model-selector-container {
+      padding: 12px 20px;
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    .model-selector {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .model-trigger {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      color: var(--text-primary);
+    }
+
+    .model-trigger:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-tertiary);
+    }
+
+    .model-trigger:focus-visible {
+      outline: 2px solid var(--border-focus);
+      outline-offset: 2px;
+    }
+
+    .model-trigger-main {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 210px;
+    }
+
+    .model-name {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      line-height: 1.1;
+    }
+
+    .model-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .model-arrow {
+      font-size: 12px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .model-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      min-width: 340px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+      overflow: visible;
+    }
+
+    .model-selector.active .model-dropdown {
+      display: block;
+    }
+
+    .model-dropdown-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0));
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .model-dropdown-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .model-auto {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .toggle {
+      width: 44px;
+      height: 24px;
+      border-radius: 999px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-color);
+      position: relative;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .toggle .toggle-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      transition: all 0.15s ease;
+    }
+
+    .toggle.on {
+      background: rgba(0, 212, 170, 0.22);
+      border-color: rgba(0, 212, 170, 0.55);
+      box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.12);
+    }
+
+    .toggle.on .toggle-knob {
+      left: 22px;
+      background: var(--accent-primary);
+    }
+
+    .model-list {
+      padding: 8px;
+    }
+
+    .model-option {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border: none;
+      color: inherit;
+      text-align: left;
+    }
+
+    .model-option:hover {
+      background: var(--bg-hover);
+    }
+
+    .model-option:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .model-option.selected {
+      background: rgba(0, 212, 170, 0.1);
+      outline: 1px solid rgba(0, 212, 170, 0.25);
+    }
+
+    .model-option-left {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+    }
+
+    .model-option-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .model-option-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    .model-option-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .model-option-context {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--text-secondary);
+    }
+
+    .model-option-check {
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      color: var(--accent-primary);
+      opacity: 0;
+      transform: scale(0.9);
+      transition: all 0.15s ease;
+    }
+
+    .model-option.selected .model-option-check {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .model-more {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      background: none;
+      border: none;
+      border-top: 1px solid var(--border-color);
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 12px;
+      transition: all 0.15s ease;
+    }
+
+    .model-more:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .model-more-panel {
+      position: absolute;
+      top: 52px;
+      left: calc(100% + 10px);
+      width: 360px;
+      max-height: 360px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      display: none;
+      z-index: 101;
+    }
+
+    .model-selector.more-open .model-more-panel {
+      display: block;
+    }
+
+    .model-more-panel .model-list {
+      max-height: 360px;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    /* Chat Messages - MAIN SCROLL AREA */
+    .chat-content-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .chat-messages {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      scroll-behavior: smooth;
+      padding-bottom: var(--composer-height, 220px);
+    }
+
+    /* Welcome Screen */
+    .welcome-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .welcome-greeting {
+      font-size: 32px;
+      font-weight: 300;
+      color: var(--text-primary);
+      margin-bottom: 40px;
+    }
+
+    .welcome-greeting strong {
+      font-weight: 600;
+    }
+
+    /* Messages */
+    .messages-container {
+      padding: 20px;
+      display: none;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .messages-container.visible {
+      display: flex;
+    }
+
+    .message {
+      display: flex;
+      gap: 12px;
+      max-width: 85%;
+      animation: messageIn 0.3s ease;
+    }
+
+    @keyframes messageIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .message-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .message.assistant .message-avatar {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: var(--bg-primary);
+      font-weight: 700;
+    }
+
+    .message.user .message-avatar {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .message-content {
+      padding: 14px 18px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .message.assistant .message-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-bottom-left-radius: 4px;
+      color: var(--text-primary);
+    }
+
+    .message.user .message-content {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-bottom-right-radius: 4px;
+      color: var(--text-primary);
+    }
+
+    .message-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 8px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .message:hover .message-actions {
+      opacity: 1;
+    }
+
+    .message-action-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border: none;
+      font-size: 14px;
+    }
+
+    .message-action-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* ============================================
+       TERMINAL - INSIDE CHAT AREA
+       ============================================ */
+    .terminal-panel {
+      height: 0;
+      background: var(--bg-secondary);
+      border: 1px solid transparent;
+      border-radius: 14px;
+      overflow: hidden;
+      transition: height 0.3s ease, margin-top 0.3s ease, border-color 0.3s ease;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      margin-top: 0;
+    }
+
+    .terminal-panel.open {
+      height: 180px;
+      border-color: var(--border-color);
+      margin-top: 10px;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .terminal-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .terminal-tab {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border: none;
+    }
+
+    .terminal-tab:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .terminal-tab.active {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .terminal-content {
+      flex: 1;
+      min-height: 0;
+      padding: 12px 16px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      color: var(--text-secondary);
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    .terminal-line {
+      margin-bottom: 4px;
+    }
+
+    .terminal-prompt {
+      color: var(--accent-primary);
+      margin-right: 8px;
+    }
+
+    .terminal-input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-tertiary);
+    }
+
+    .terminal-input-field {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      color: var(--text-primary);
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .terminal-input-field:focus {
+      border-color: rgba(0, 212, 170, 0.45);
+      box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.12);
+    }
+
+    .terminal-btn {
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .terminal-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    /* ============================================
+       INPUT SECTION
+       ============================================ */
+    .input-section {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      width: min(980px, 92%);
+      z-index: 90;
+      pointer-events: none;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .composer {
+      width: 100%;
+      pointer-events: auto;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 10px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* Feature Chips */
+    .feature-chips {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      justify-content: flex-start;
+      margin-bottom: 10px;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0 2px;
+    }
+
+    .feature-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .feature-chip:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+      transform: translateY(-2px);
+    }
+
+    .feature-chip.active {
+      background: rgba(0, 212, 170, 0.1);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    .feature-chip-icon {
+      font-size: 14px;
+    }
+
+    /* Template Tray */
+    .template-tray {
+      width: 100%;
+      display: flex;
+      gap: 10px;
+      padding: 2px 4px 12px;
+      margin-bottom: 6px;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .template-tray:empty {
+      display: none;
+    }
+
+    .template-card {
+      flex: 0 0 auto;
+      width: 190px;
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      overflow: hidden;
+    }
+
+    .template-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .template-thumb {
+      height: 86px;
+      background: radial-gradient(circle at 30% 30%, rgba(0, 212, 170, 0.22), rgba(0, 0, 0, 0));
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 22px;
+    }
+
+    .template-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .template-body {
+      padding: 10px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .template-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .template-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.35;
+      height: 30px;
+      overflow: hidden;
+    }
+
+    /* Input Container */
+    .input-container {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .input-container:focus-within {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .input-main {
+      display: flex;
+      align-items: flex-end;
+      padding: 10px 12px;
+    }
+
+    .input-textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      min-height: 24px;
+      max-height: 130px;
+      padding: 4px 0;
+    }
+
+    .input-textarea::placeholder {
+      color: var(--text-placeholder);
+    }
+
+    /* Input Toolbar */
+    .input-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border-top: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .toolbar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .toolbar-btn-icon {
+      font-size: 16px;
+    }
+
+    .qwen-connect-btn {
+      border: 1px solid rgba(0, 212, 170, 0.35);
+      color: var(--accent-primary);
+    }
+
+    .qwen-connect-btn:hover {
+      border-color: rgba(0, 212, 170, 0.6);
+      color: var(--text-primary);
+    }
+
+    /* Pensamiento Toggle Button */
+    .thinking-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+    }
+
+    .thinking-btn.active {
+      background: rgba(139, 92, 246, 0.2);
+      border-color: var(--accent-purple);
+      color: var(--accent-purple);
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+    }
+
+    /* QWEN Connect Button */
+    .qwen-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+    }
+
+    .qwen-btn.active {
+      background: rgba(0, 212, 170, 0.2);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
+    }
+
+    /* API/Local Toggle Wrapper */
+    .api-toggle-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      margin-left: 8px;
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+    }
+
+    .api-toggle-wrapper:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-hover);
+    }
+
+    .api-toggle-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* Mode Button (Agente/Plan/Debug) */
+    .mode-btn {
+      position: relative;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+    }
+
+    .mode-btn.active {
+      background: rgba(0, 212, 170, 0.1);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 15px rgba(0, 212, 170, 0.3);
+    }
+
+    .mode-dropdown {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 160px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+
+    .mode-btn.active .mode-dropdown {
+      display: block;
+    }
+
+    .mode-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .mode-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .mode-option.selected {
+      background: rgba(0, 212, 170, 0.1);
+      color: var(--accent-primary);
+    }
+
+    /* Voice Button */
+    .voice-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .voice-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+    }
+
+    .voice-dropdown {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 180px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+
+    .voice-btn.active .voice-dropdown {
+      display: block;
+    }
+
+    .voice-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .voice-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .voice-option-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: var(--accent-blue);
+      color: white;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+
+    /* Send Button */
+    .send-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border: none;
+      border-radius: 10px;
+      color: var(--bg-primary);
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .send-btn:hover:not(:disabled) {
+      transform: scale(1.05);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Attach Menu */
+    .attach-btn {
+      position: relative;
+    }
+
+    .attach-dropdown {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 180px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+
+    .attach-btn.active .attach-dropdown {
+      display: block;
+    }
+
+    .attach-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .attach-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* ============================================
+       QWEN PANEL (Embedded)
+       ============================================ */
+    .qwen-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-primary);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+    }
+
+    .qwen-panel:not(.hidden) {
+      display: flex;
+    }
+
+    .qwen-panel iframe {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      min-height: 500px;
+      border: none;
+      background: white;
+    }
+
+    /* ============================================
+       CANVAS PANEL
+       ============================================ */
+    .canvas-panel {
+      width: 0;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border-color);
+      overflow: hidden;
+      transition: width 0.3s ease;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-panel.open {
+      width: 400px;
+    }
+
+    .canvas-header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .canvas-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .canvas-action {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+    }
+
+    .canvas-action:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .canvas-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .canvas-tab {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border: none;
+    }
+
+    .canvas-tab:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .canvas-tab.active {
+      background: rgba(0, 212, 170, 0.1);
+      color: var(--accent-primary);
+    }
+
+    .canvas-content {
+      flex: 1;
+      padding: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-workspace {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .canvas-pane {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-code {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      color: var(--text-primary);
+      padding: 12px;
+      font-family: Consolas, 'SFMono-Regular', Menlo, Monaco, 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+    }
+
+    .canvas-code:focus {
+      border-color: rgba(0, 212, 170, 0.45);
+      box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.12);
+    }
+
+    .canvas-preview {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      background: #0a0a0a;
+    }
+
+    .canvas-design {
+      flex: 1;
+      min-height: 0;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 12px;
+      overflow: auto;
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .canvas-placeholder {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .canvas-placeholder-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+
+    .canvas-placeholder-text {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ============================================
+       FOOTER
+       ============================================ */
+    .footer-note {
+      text-align: center;
+      padding: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* ============================================
+       SCROLLBAR
+       ============================================ */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 768px) {
+      .history-panel.open {
+        position: fixed;
+        left: 52px;
+        top: 44px;
+        bottom: 0;
+        z-index: 100;
+        width: calc(100% - 52px);
+        max-width: 300px;
+      }
+
+      .canvas-panel.open {
+        position: fixed;
+        right: 0;
+        top: 44px;
+        bottom: 0;
+        z-index: 100;
+        width: 100%;
+        max-width: 350px;
+      }
+
+      .feature-chips {
+        gap: 8px;
+      }
+
+      .feature-chip {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+
+      .input-section {
+        bottom: 10px;
+      }
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <!-- ============================================
+       TOP BAR
+       ============================================ -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <div class="brand" onclick="toggleHistoryPanel()">
+        <div class="brand-logo">S</div>
+        <div class="brand-text">
+          <span class="brand-name">StudioLab</span>
+          <span class="brand-subtitle">Multimodal Intelligence</span>
+        </div>
+      </div>
+
+      <nav class="menu-bar">
+        <div class="menu-item">
+          Archivo
+          <div class="dropdown-menu">
+            <div class="dropdown-item" onclick="newChat()">
+              <span><span class="dropdown-item-icon">📄</span>Nuevo Chat</span>
+              <span class="dropdown-shortcut">Ctrl+N</span>
+            </div>
+            <div class="dropdown-item" onclick="openProject()">
+              <span><span class="dropdown-item-icon">📂</span>Abrir Proyecto</span>
+              <span class="dropdown-shortcut">Ctrl+O</span>
+            </div>
+            <div class="dropdown-item" onclick="saveChat()">
+              <span><span class="dropdown-item-icon">💾</span>Guardar Chat</span>
+              <span class="dropdown-shortcut">Ctrl+S</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">📤</span>Exportar</span>
+              <span class="dropdown-shortcut">Ctrl+E</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">⚙️</span>Configuración</span>
+              <span class="dropdown-shortcut">Ctrl+,</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-item">
+          Editar
+          <div class="dropdown-menu">
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">↩️</span>Deshacer</span>
+              <span class="dropdown-shortcut">Ctrl+Z</span>
+            </div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">↪️</span>Rehacer</span>
+              <span class="dropdown-shortcut">Ctrl+Y</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">🔍</span>Buscar</span>
+              <span class="dropdown-shortcut">Ctrl+F</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-item">
+          Ver
+          <div class="dropdown-menu">
+            <div class="dropdown-item" onclick="toggleHistoryPanel()">
+              <span><span class="dropdown-item-icon">📑</span>Panel de Chats</span>
+              <span class="dropdown-shortcut">Ctrl+B</span>
+            </div>
+            <div class="dropdown-item" onclick="toggleCanvasPanel()">
+              <span><span class="dropdown-item-icon">🎨</span>Panel Canvas</span>
+              <span class="dropdown-shortcut">Ctrl+K</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item theme-submenu">
+              <span><span class="dropdown-item-icon">🎨</span>Temas</span>
+              <span>▶</span>
+              <div class="submenu">
+                <div class="theme-option" data-theme="default" onclick="setTheme('default')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #00d4aa, #0d0d0d);"></span>
+                  <span>Dark (Default)</span>
+                </div>
+                <div class="theme-option" data-theme="tokyo-night" onclick="setTheme('tokyo-night')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #7aa2f7, #1a1b26);"></span>
+                  <span>Tokyo Night</span>
+                </div>
+                <div class="theme-option" data-theme="monokai" onclick="setTheme('monokai')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #a6e22e, #272822);"></span>
+                  <span>Monokai</span>
+                </div>
+                <div class="theme-option" data-theme="synthwave" onclick="setTheme('synthwave')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #ff7edb, #262335);"></span>
+                  <span>Synthwave 84</span>
+                </div>
+                <div class="theme-option" data-theme="solarized" onclick="setTheme('solarized')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #2aa198, #002b36);"></span>
+                  <span>Solarized Dark</span>
+                </div>
+                <div class="theme-option" data-theme="red" onclick="setTheme('red')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #ff6b6b, #1a0a0a);"></span>
+                  <span>Red</span>
+                </div>
+                <div class="theme-option" data-theme="kimbi" onclick="setTheme('kimbi')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #d19a66, #221a0f);"></span>
+                  <span>Kimbi Dark</span>
+                </div>
+                <div class="theme-option" data-theme="ocean" onclick="setTheme('ocean')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #61afef, #0a1628);"></span>
+                  <span>Ocean Blue</span>
+                </div>
+                <div class="theme-option" data-theme="purple" onclick="setTheme('purple')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #c792ea, #13091c);"></span>
+                  <span>Purple Haze</span>
+                </div>
+                <div class="theme-option" data-theme="high-contrast" onclick="setTheme('high-contrast')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #00ff9f, #000000);"></span>
+                  <span>High Contrast</span>
+                </div>
+                <div class="theme-option" data-theme="light" onclick="setTheme('light')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #0066cc, #ffffff);"></span>
+                  <span>Light</span>
+                </div>
+                <div class="dropdown-divider"></div>
+                <div class="theme-option" onclick="customTheme()">
+                  <span class="dropdown-item-icon">➕</span>
+                  <span>Añadir tema personalizado...</span>
+                </div>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">🔍</span>Zoom In</span>
+              <span class="dropdown-shortcut">Ctrl++</span>
+            </div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">🔍</span>Zoom Out</span>
+              <span class="dropdown-shortcut">Ctrl+-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-item">
+          Ejecutar
+          <div class="dropdown-menu">
+            <div class="dropdown-item" onclick="executeCode()">
+              <span><span class="dropdown-item-icon">▶️</span>Ejecutar Código</span>
+              <span class="dropdown-shortcut">F5</span>
+            </div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">🐛</span>Depurar</span>
+              <span class="dropdown-shortcut">F9</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">⏹️</span>Detener</span>
+              <span class="dropdown-shortcut">Shift+F5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-item" onclick="toggleTerminal()">
+          Terminal
+        </div>
+      </nav>
+    </div>
+
+    <div class="top-bar-right">
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        <span>Conectado</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTAINER
+       ============================================ -->
+  <main class="main-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- QWEN Embedded Panel Button -->
+      <button class="sidebar-btn qwen-btn" id="qwenBtn" title="Abrir QWEN Embebido" onclick="openQwenEmbedded()">
+        <svg class="qwen-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <!-- QWEN Logo: Geometric design with stylized Q -->
+          <defs>
+            <linearGradient id="qwenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.9" />
+            </linearGradient>
+          </defs>
+          <!-- Main Q shape -->
+          <circle cx="50" cy="45" r="28" fill="none" stroke="url(#qwenGrad)" stroke-width="3"/>
+          <path d="M 70 60 L 85 85" stroke="url(#qwenGrad)" stroke-width="3" stroke-linecap="round"/>
+          <!-- Inner geometric element -->
+          <rect x="40" y="35" width="20" height="20" fill="url(#qwenGrad)" opacity="0.6" rx="2"/>
+        </svg>
+      </button>
+
+      <button class="sidebar-btn" onclick="toggleHistoryPanel()" title="Historial de Chats">📑</button>
+      <button class="sidebar-btn" onclick="newChat()" title="Nuevo Chat">➕</button>
+      <button class="sidebar-btn" title="Buscar">🔍</button>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-avatar" title="Perfil">C</div>
+    </aside>
+
+    <!-- History Panel -->
+    <aside class="history-panel" id="historyPanel">
+      <div class="panel-header">
+        <span class="panel-title">💬 Historial</span>
+        <button class="panel-close" onclick="toggleHistoryPanel()">×</button>
+      </div>
+      <div class="panel-search">
+        <input type="text" class="search-input" placeholder="Buscar en chats...">
+      </div>
+      <div class="chat-list" id="chatList"></div>
+    </aside>
+
+    <!-- Chat Area -->
+    <section class="chat-area">
+      <!-- Model Selector -->
+      <div class="model-selector-container">
+        <div class="model-selector" id="modelSelector">
+          <button class="model-trigger" id="modelTrigger" type="button" aria-haspopup="menu" aria-expanded="false">
+            <span class="model-trigger-main">
+              <span class="model-name" id="currentModelName">Qwen3-Omni-Flash</span>
+              <span class="model-sub" id="currentModelSub">Auto OFF · 0/65K</span>
+            </span>
+            <span class="model-arrow">▾</span>
+          </button>
+
+          <div class="model-dropdown" id="modelDropdown" role="menu">
+            <div class="model-dropdown-header">
+              <div class="model-dropdown-title">Modelos</div>
+              <div class="model-auto">
+                <span>Modo Auto</span>
+                <button class="toggle" id="modelAutoToggle" type="button" aria-pressed="false">
+                  <span class="toggle-knob"></span>
+                </button>
+              </div>
+            </div>
+
+            <div class="model-list" id="modelListPrimary"></div>
+
+            <button class="model-more" id="modelMoreBtn" type="button">
+              <span>Desplegar más modelos</span>
+              <span>›</span>
+            </button>
+
+            <div class="model-more-panel" id="modelMorePanel">
+              <div class="model-list" id="modelListMore"></div>
+            </div>
+          </div>
+        </div>
+        <div class="model-selector hidden" id="modelSelectorLegacy" onclick="toggleModelDropdown()">
+          <span class="model-name" id="currentModelNameLegacy">QWEN-Max</span>
+          <span class="model-arrow">▼</span>
+          <div class="model-dropdown">
+            <div class="model-option selected" data-model="qwen-max" onclick="selectModel('qwen-max', 'QWEN-Max')">
+              <span class="model-option-name">QWEN-Max</span>
+              <span class="model-option-badge">32K</span>
+            </div>
+            <div class="model-option" data-model="qwen-plus" onclick="selectModel('qwen-plus', 'QWEN-Plus')">
+              <span class="model-option-name">QWEN-Plus</span>
+              <span class="model-option-badge">131K</span>
+            </div>
+            <div class="model-option" data-model="qwen-turbo" onclick="selectModel('qwen-turbo', 'QWEN-Turbo')">
+              <span class="model-option-name">QWEN-Turbo</span>
+              <span class="model-option-badge">1M</span>
+            </div>
+            <div class="model-option" data-model="qwen-omni" onclick="selectModel('qwen-omni', 'QWEN-Omni')">
+              <span class="model-option-name">QWEN-Omni</span>
+              <span class="model-option-badge">Multimodal</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Content Wrapper -->
+      <div class="chat-content-wrapper">
+        <!-- QWEN usa BrowserView de Electron, no iframe -->
+        <!-- El panel se maneja desde main.js -->
+
+        <!-- Messages Area -->
+        <div class="chat-messages" id="chatMessages">
+          <div class="welcome-screen" id="welcomeScreen">
+            <h1 class="welcome-greeting">Buenas tardes, <strong>Cley</strong></h1>
+          </div>
+          <div class="messages-container" id="messagesContainer"></div>
+        </div>
+
+      </div>
+
+      <!-- Input Section -->
+      <div class="input-section">
+        <div class="composer" id="composer">
+        <!-- Feature Chips -->
+        <div class="feature-chips" id="featureChips">
+          <button class="feature-chip" data-feature="imagen" onclick="toggleFeature(this, 'imagen')">
+            <span class="feature-chip-icon">🖼️</span>
+            <span>Edición de imagen</span>
+          </button>
+          <button class="feature-chip" data-feature="web" onclick="toggleFeature(this, 'web')">
+            <span class="feature-chip-icon">🌐</span>
+            <span>desarrollo web</span>
+          </button>
+          <button class="feature-chip" data-feature="aprende" onclick="toggleFeature(this, 'aprende')">
+            <span class="feature-chip-icon">📚</span>
+            <span>Aprende</span>
+          </button>
+          <button class="feature-chip" data-feature="investigacion" onclick="toggleFeature(this, 'investigacion')">
+            <span class="feature-chip-icon">🔬</span>
+            <span>Investigación en profundidad</span>
+          </button>
+          <button class="feature-chip" data-feature="gen-imagen" onclick="toggleFeature(this, 'gen-imagen')">
+            <span class="feature-chip-icon">🎨</span>
+            <span>Generación de imágenes</span>
+          </button>
+          <button class="feature-chip" data-feature="video" onclick="toggleFeature(this, 'video')">
+            <span class="feature-chip-icon">🎬</span>
+            <span>Generación de Video</span>
+          </button>
+          <button class="feature-chip" data-feature="artefactos" onclick="toggleFeature(this, 'artefactos')">
+            <span class="feature-chip-icon">✨</span>
+            <span>Artefactos</span>
+          </button>
+          <button class="feature-chip" onclick="showMoreFeatures()">
+            <span>Más</span>
+          </button>
+        </div>
+
+        <div class="template-tray" id="templateTray" aria-label="Plantillas"></div>
+
+        <!-- Input Container -->
+        <div class="input-container">
+          <div class="input-main">
+            <textarea 
+              class="input-textarea" 
+              id="messageInput"
+              placeholder="¿Cómo puedo ayudarte hoy?"
+              rows="1"
+              onkeydown="handleKeyDown(event)"
+              oninput="autoResize(this); updateSendButton()"
+            ></textarea>
+          </div>
+
+          <div class="input-toolbar">
+            <div class="toolbar-left">
+              <!-- Attach Button (+) - CORRECTED -->
+              <div class="toolbar-btn attach-btn" id="attachBtn" onclick="toggleAttachMenu(event)">
+                <span class="toolbar-btn-icon">➕</span>
+                <div class="attach-dropdown">
+                  <div class="attach-option" onclick="attachFile('imagen')">
+                    <span>🖼️</span>
+                    <span>Imágenes</span>
+                  </div>
+                  <div class="attach-option" onclick="attachFile('video')">
+                    <span>🎬</span>
+                    <span>Video</span>
+                  </div>
+                  <div class="attach-option" onclick="attachFile('audio')">
+                    <span>🎵</span>
+                    <span>Audio</span>
+                  </div>
+                  <div class="attach-option" onclick="attachFile('texto')">
+                    <span>📝</span>
+                    <span>Texto</span>
+                  </div>
+                  <div class="attach-option" onclick="attachFile('archivos')">
+                    <span>📁</span>
+                    <span>Archivos</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pensamiento Toggle - SEPARATE (ON/OFF only) -->
+              <button class="toolbar-btn thinking-btn" id="thinkingBtn" onclick="toggleThinking()">
+                <span class="toolbar-btn-icon">🧠</span>
+                <span id="thinkingLabel">Pensamiento</span>
+              </button>
+
+              <!-- Mode Button - Agente/Plan/Debug -->
+              <div class="toolbar-btn mode-btn" id="modeBtn" onclick="toggleModeMenu(event)">
+                <span class="toolbar-btn-icon" id="modeIcon">∞</span>
+                <span id="currentModeName">Agente</span>
+                <span>▼</span>
+                <div class="mode-dropdown">
+                  <div class="mode-option selected" onclick="selectMode('agente', 'Agente', '∞')">
+                    <span>∞</span>
+                    <span>Agente</span>
+                  </div>
+                  <div class="mode-option" onclick="selectMode('plan', 'Plan', '📋')">
+                    <span>📋</span>
+                    <span>Plan</span>
+                  </div>
+                  <div class="mode-option" onclick="selectMode('debug', 'Debug', '🐛')">
+                    <span>🐛</span>
+                    <span>Debug</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Search Button -->
+              <button class="toolbar-btn" id="searchBtn" onclick="toggleSearch()">
+                <span class="toolbar-btn-icon">🌐</span>
+                <span>Buscar</span>
+              </button>
+
+              <!-- QWEN Connect Button -->
+              <button class="toolbar-btn qwen-btn" id="qwenBtn" onclick="toggleQwen()">
+                <span class="toolbar-btn-icon">🤖</span>
+                <span id="qwenLabel">QWEN</span>
+              </button>
+
+              <!-- API/Local Toggle Switch -->
+              <div class="api-toggle-wrapper">
+                <span class="api-toggle-label">Local</span>
+                <div class="toggle" id="apiToggle" onclick="toggleAPI()" title="Alternar entre uso Local (QWEN embebido) y API (Groq)">
+                  <div class="toggle-knob"></div>
+                </div>
+                <span class="api-toggle-label">API</span>
+              </div>
+
+            </div>
+
+            <div class="toolbar-right">
+              <!-- Voice Button -->
+              <div class="voice-btn" id="voiceBtn" onclick="toggleVoiceMenu(event)">
+                <span>🎙️</span>
+                <div class="voice-dropdown">
+                  <div class="voice-option" onclick="startVoice('chat')">
+                    <span>🎧</span>
+                    <span>Chat de Voz</span>
+                  </div>
+                  <div class="voice-option" onclick="startVoice('video')">
+                    <span>📹</span>
+                    <span>Chat de video</span>
+                    <span class="voice-option-badge">Beta</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Send Button -->
+              <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+                <span>↑</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal - DOCKED under composer -->
+        <div class="terminal-panel" id="terminalPanel">
+          <div class="terminal-header">
+            <div class="terminal-tabs">
+              <button class="terminal-tab active">Terminal</button>
+              <button class="terminal-tab">Problemas</button>
+              <button class="terminal-tab">Output</button>
+            </div>
+            <button class="panel-close" onclick="toggleTerminal()">×</button>
+          </div>
+          <div class="terminal-content" id="terminalContent">
+            <div class="terminal-line"><span class="terminal-prompt">$</span>StudioLab v8.0 Pro inicializado</div>
+            <div class="terminal-line"><span class="terminal-prompt">$</span>QWEN Omni conectado ✓</div>
+            <div class="terminal-line"><span class="terminal-prompt">$</span>MCP Server: http://localhost:19875 ✓</div>
+            <div class="terminal-line"><span class="terminal-prompt">$</span>Listo para comandos...</div>
+          </div>
+          <div class="terminal-input-row" id="terminalInputRow">
+            <span class="terminal-prompt">$</span>
+            <input class="terminal-input-field" id="terminalInput" type="text" placeholder="Escribe un comando y Enter..." />
+            <button class="terminal-btn" id="terminalRunBtn" type="button">Run</button>
+            <button class="terminal-btn" id="terminalClearBtn" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          El contenido generado por IA puede no ser preciso.
+        </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Canvas Panel -->
+    <aside class="canvas-panel" id="canvasPanel">
+      <div class="canvas-header">
+        <div class="canvas-tabs">
+          <button class="canvas-tab active">Código</button>
+          <button class="canvas-tab">Preview</button>
+          <button class="canvas-tab">Diseño</button>
+        </div>
+        <button class="panel-close" onclick="toggleCanvasPanel()">×</button>
+      </div>
+      <div class="canvas-content">
+        <div class="canvas-workspace" id="canvasWorkspace">
+          <div class="canvas-pane" id="canvasPaneCode">
+            <textarea id="canvasCode" class="canvas-code" spellcheck="false"></textarea>
+          </div>
+          <div class="canvas-pane hidden" id="canvasPanePreview">
+            <iframe id="canvasPreview" class="canvas-preview" title="Preview"></iframe>
+          </div>
+          <div class="canvas-pane hidden" id="canvasPaneDesign">
+            <div id="canvasDesign" class="canvas-design"></div>
+          </div>
+        </div>
+        <div class="canvas-placeholder hidden">
+          <div class="canvas-placeholder-icon">🎨</div>
+          <p class="canvas-placeholder-text">
+            Selecciona "desarrollo web" o "Artefactos"<br>
+            para activar el canvas
+          </p>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ============================================
+       JAVASCRIPT
+       ============================================ -->
+  <script>
+    // ============================================
+    // STATE
+    // ============================================
+    const state = {
+      historyPanelOpen: false,
+      canvasPanelOpen: false,
+      terminalOpen: false,
+      currentModel: 'qwen3-omni-flash',
+      qwen: { model: 'qwen3-omni-flash', auto: false, tokens: 0, tokensMax: 65536, models: [], connected: false, panelVisible: false },
+      currentMode: 'agente',
+      thinkingEnabled: false,
+      searchEnabled: false,
+      currentTheme: 'default',
+      activeFeatures: new Set(),
+      primaryFeature: null,
+      attachments: [],
+      messages: [],
+      useAPI: false, // false = Local (QWEN embebido), true = API (Groq)
+      chatHistory: [
+        { id: 1, icon: '🌐', title: 'Desarrollo Web App', preview: 'Creando componentes...', time: 'Ahora', active: true },
+        { id: 2, icon: '🎬', title: 'Video Marketing', preview: 'Guión para campaña...', time: '2h' },
+        { id: 3, icon: '🖼️', title: 'Diseño de Logo', preview: 'Iteración 3 del concepto...', time: 'Ayer' },
+        { id: 4, icon: '📊', title: 'Análisis de Datos', preview: 'Dashboard con métricas...', time: '2d' },
+      ]
+    };
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+      renderChatHistory();
+      setupKeyboardShortcuts();
+      updateGreeting();
+      loadSavedTheme();
+      
+      // Cargar estado API/Local
+      const savedUseAPI = loadLocal('studiolab-useAPI');
+      if (savedUseAPI === 'true') {
+        state.useAPI = true;
+      }
+      
+      // Aplicar estado al toggle
+      const apiToggle = document.getElementById('apiToggle');
+      if (apiToggle) {
+        apiToggle.classList.toggle('on', state.useAPI);
+      }
+      
+      initModelSelector();
+      initTerminal();
+      initCanvas();
+      wireMiscButtons();
+      restoreUIState();
+      restoreViewState();
+      setupComposerDock();
+      // QWEN usa BrowserView desde main.js, no necesita setup aquí
+      document.getElementById('messageInput')?.focus();
+      console.log('✅ StudioLab 8.0 Pro cargado correctamente');
+      console.log(`[StudioLab] Modo inicial: ${state.useAPI ? 'API (Groq)' : 'Local (QWEN)'}`);
+    });
+
+    // ============================================
+    // QWEN WEBVIEW SETUP
+    // ============================================
+    // QWEN usa BrowserView desde main.js - no necesita setup aquí
+
+    let composerDockObserver = null;
+
+    function updateComposerDock() {
+      const chatArea = document.querySelector('.chat-area');
+      const composer = document.getElementById('composer');
+      if (!chatArea || !composer) return;
+      const rect = composer.getBoundingClientRect();
+      const height = Math.ceil(rect.height + 28);
+      chatArea.style.setProperty('--composer-height', `${height}px`);
+    }
+
+    function setupComposerDock() {
+      updateComposerDock();
+      if (composerDockObserver || !window.ResizeObserver) return;
+
+      const composer = document.getElementById('composer');
+      if (!composer) return;
+      composerDockObserver = new ResizeObserver(() => updateComposerDock());
+      composerDockObserver.observe(composer);
+      window.addEventListener('resize', updateComposerDock);
+    }
+
+    function updateGreeting() {
+      const hour = new Date().getHours();
+      let greeting = 'Buenos días';
+      if (hour >= 12 && hour < 20) greeting = 'Buenas tardes';
+      else if (hour >= 20) greeting = 'Buenas noches';
+      
+      const welcomeEl = document.querySelector('.welcome-greeting');
+      if (welcomeEl) {
+        welcomeEl.innerHTML = `${greeting}, <strong>Cley</strong>`;
+      }
+    }
+
+    // ============================================
+    // THEME SYSTEM
+    // ============================================
+    function setTheme(themeName) {
+      state.currentTheme = themeName;
+      
+      if (themeName === 'default') {
+        document.body.removeAttribute('data-theme');
+      } else {
+        document.body.setAttribute('data-theme', themeName);
+      }
+      
+      // Update active state in menu
+      document.querySelectorAll('.theme-option').forEach(opt => {
+        opt.classList.remove('active');
+        if (opt.dataset.theme === themeName) {
+          opt.classList.add('active');
+        }
+      });
+      
+      // Save preference
+      localStorage.setItem('studiolab-theme', themeName);
+      addTerminalLine(`Tema cambiado a: ${themeName}`);
+    }
+
+    function loadSavedTheme() {
+      const savedTheme = localStorage.getItem('studiolab-theme') || 'default';
+      setTheme(savedTheme);
+    }
+
+    function customTheme() {
+      alert('Próximamente: Editor de temas personalizados.\n\nPodrás crear y guardar tus propios esquemas de colores.');
+    }
+
+    // ============================================
+    // PANEL TOGGLES
+    // ============================================
+    function toggleHistoryPanel() {
+      state.historyPanelOpen = !state.historyPanelOpen;
+      document.getElementById('historyPanel').classList.toggle('open', state.historyPanelOpen);
+    }
+
+    function toggleCanvasPanel() {
+      state.canvasPanelOpen = !state.canvasPanelOpen;
+      document.getElementById('canvasPanel').classList.toggle('open', state.canvasPanelOpen);
+    }
+
+    function toggleTerminal() {
+      state.terminalOpen = !state.terminalOpen;
+      document.getElementById('terminalPanel').classList.toggle('open', state.terminalOpen);
+      if (state.terminalOpen) {
+        setTimeout(() => document.getElementById('terminalInput')?.focus(), 0);
+      }
+    }
+
+    // ============================================
+    // CANVAS (CODE/PREVIEW/DESIGN)
+    // ============================================
+    function initCanvas() {
+      const tabs = Array.from(document.querySelectorAll('#canvasPanel .canvas-tab'));
+      const tabIds = ['code', 'preview', 'design'];
+
+      tabs.forEach((tab, idx) => {
+        tab.dataset.tab = tabIds[idx] || `tab-${idx}`;
+        tab.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setCanvasTab(tab.dataset.tab);
+        });
+      });
+
+      const header = document.querySelector('#canvasPanel .canvas-header');
+      const closeBtn = header?.querySelector('.panel-close');
+      if (header && closeBtn && !document.getElementById('canvasRenderBtn')) {
+        const actions = document.createElement('div');
+        actions.className = 'canvas-actions';
+        actions.innerHTML = `
+          <button class="canvas-action" id="canvasRenderBtn" type="button" title="Render">▶</button>
+          <button class="canvas-action" id="canvasResetBtn" type="button" title="Reset">↺</button>
+          <button class="canvas-action" id="canvasOpenLocalBtn" type="button" title="Abrir en ventana">↗</button>
+        `;
+        header.insertBefore(actions, closeBtn);
+      }
+
+      document.getElementById('canvasRenderBtn')?.addEventListener('click', () => {
+        renderCanvas();
+        setCanvasTab('preview');
+      });
+
+      document.getElementById('canvasResetBtn')?.addEventListener('click', () => {
+        setCanvasCode(defaultCanvasSeed());
+        addTerminalLine('Canvas reseteado');
+      });
+
+      document.getElementById('canvasOpenLocalBtn')?.addEventListener('click', () => {
+        openCanvasInNewWindow();
+      });
+
+      const codeEl = document.getElementById('canvasCode');
+      if (codeEl) {
+        const saved = loadLocal('studiolab:canvas:code');
+        codeEl.value = saved || defaultCanvasSeed();
+        codeEl.addEventListener('input', () => {
+          saveLocal('studiolab:canvas:code', codeEl.value);
+          if (state.canvasTab === 'preview') renderCanvas();
+        });
+      }
+
+      setCanvasTab('code');
+      renderCanvas();
+    }
+
+    function setCanvasTab(tabId) {
+      state.canvasTab = tabId;
+      const tabs = Array.from(document.querySelectorAll('#canvasPanel .canvas-tab'));
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+
+      document.getElementById('canvasPaneCode')?.classList.toggle('hidden', tabId !== 'code');
+      document.getElementById('canvasPanePreview')?.classList.toggle('hidden', tabId !== 'preview');
+      document.getElementById('canvasPaneDesign')?.classList.toggle('hidden', tabId !== 'design');
+
+      if (tabId === 'preview') renderCanvas();
+      if (tabId === 'code') setTimeout(() => document.getElementById('canvasCode')?.focus(), 0);
+    }
+
+    function setCanvasCode(code) {
+      const el = document.getElementById('canvasCode');
+      if (!el) return;
+      el.value = code || '';
+      saveLocal('studiolab:canvas:code', el.value);
+      renderCanvas();
+    }
+
+    function renderCanvas() {
+      const code = document.getElementById('canvasCode')?.value || defaultCanvasSeed();
+      const preview = document.getElementById('canvasPreview');
+      if (preview) preview.srcdoc = code;
+    }
+
+    function openCanvasInNewWindow() {
+      const code = document.getElementById('canvasCode')?.value || defaultCanvasSeed();
+      const blob = new Blob([code], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    }
+
+    function defaultCanvasSeed() {
+      return `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudioLab Canvas</title>
+    <style>
+      :root { --bg:#0d0d0d; --panel:#151515; --text:#ffffff; --muted:#a0a0a0; --accent:#00d4aa; }
+      * { box-sizing: border-box; }
+      body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Arial; background: radial-gradient(circle at 20% 20%, rgba(0,212,170,.18), transparent 40%), var(--bg); color: var(--text); }
+      .wrap { max-width: 900px; margin: 0 auto; padding: 48px 20px; }
+      .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 22px; }
+      .pill { display:inline-flex; align-items:center; gap:10px; padding: 8px 12px; border-radius: 999px; background: rgba(0,212,170,0.15); border: 1px solid rgba(0,212,170,0.35); color: var(--accent); font-weight: 700; }
+      h1 { margin: 16px 0 8px; font-size: 34px; letter-spacing: 0.2px; }
+      p { margin: 0; color: var(--muted); line-height: 1.6; }
+      .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+      .tile { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 14px; }
+      .tile strong { display:block; margin-bottom: 6px; }
+      @media (max-width: 780px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="pill">Canvas · StudioLab</div>
+        <h1>Preview listo</h1>
+        <p>Edita el código en el panel y pulsa Render para ver el resultado.</p>
+        <div class="grid">
+          <div class="tile"><strong>Web</strong><span>Landing, dashboard, posts</span></div>
+          <div class="tile"><strong>Artefactos</strong><span>Componentes y UI</span></div>
+          <div class="tile"><strong>Diseño</strong><span>Paleta verde consistente</span></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+    }
+
+    function defaultDashboardSeed() {
+      return `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard</title>
+    <style>
+      :root { --bg:#0d0d0d; --panel:#141414; --border:rgba(255,255,255,.08); --text:#fff; --muted:#a0a0a0; --accent:#00d4aa; }
+      * { box-sizing: border-box; }
+      body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Arial; background: var(--bg); color: var(--text); }
+      .app { display:grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+      .side { border-right: 1px solid var(--border); padding: 18px; background: rgba(255,255,255,.02); }
+      .brand { display:flex; align-items:center; gap:10px; font-weight:800; }
+      .dot { width:10px; height:10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 20px rgba(0,212,170,.35); }
+      .nav { margin-top: 16px; display:flex; flex-direction:column; gap: 8px; }
+      .nav a { color: var(--muted); text-decoration:none; padding: 10px 12px; border-radius: 12px; border: 1px solid transparent; }
+      .nav a:hover { color: var(--text); background: rgba(255,255,255,.03); border-color: rgba(255,255,255,.06); }
+      main { padding: 22px; }
+      .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .card { background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
+      .card h3 { margin: 0 0 6px; font-size: 14px; }
+      .metric { font-size: 28px; font-weight: 900; }
+      .muted { color: var(--muted); font-size: 12px; }
+      @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .side { border-right: none; border-bottom: 1px solid var(--border); } .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="side">
+        <div class="brand"><span class="dot"></span>StudioLab</div>
+        <div class="nav">
+          <a href="#">Resumen</a>
+          <a href="#">Proyectos</a>
+          <a href="#">Artefactos</a>
+          <a href="#">Ajustes</a>
+        </div>
+      </aside>
+      <main>
+        <h1 style="margin:0 0 12px;">Dashboard</h1>
+        <div class="grid">
+          <div class="card"><h3>Tokens</h3><div class="metric">12.4K</div><div class="muted">Uso estimado</div></div>
+          <div class="card"><h3>Artefactos</h3><div class="metric">7</div><div class="muted">En el workspace</div></div>
+          <div class="card"><h3>Estado</h3><div class="metric" style="color:var(--accent)">OK</div><div class="muted">Servicios activos</div></div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>`;
+    }
+
+    function defaultWidgetSeed() {
+      return `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Widget</title>
+    <style>
+      :root { --bg:#0d0d0d; --panel:#151515; --border:rgba(255,255,255,.08); --text:#fff; --muted:#a0a0a0; --accent:#00d4aa; }
+      body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Arial; background: var(--bg); color: var(--text); display:grid; place-items:center; min-height:100vh; }
+      .card { width:min(520px, 92vw); background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 18px; padding: 18px; transition: transform .15s ease, border-color .15s ease; }
+      .card:hover { transform: translateY(-2px); border-color: rgba(0,212,170,.45); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+      .tag { display:inline-block; padding: 6px 10px; border-radius: 999px; background: rgba(0,212,170,.15); border: 1px solid rgba(0,212,170,.35); color: var(--accent); font-weight: 700; font-size: 12px; }
+      h2 { margin: 12px 0 8px; }
+      p { margin: 0; color: var(--muted); line-height: 1.6; }
+      button { margin-top: 14px; width:100%; border: none; border-radius: 14px; padding: 12px 14px; font-weight: 800; background: linear-gradient(135deg, rgba(0,212,170,.95), rgba(0,184,148,.95)); color: #05231c; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <span class="tag">Artefacto</span>
+      <h2>Componente Card</h2>
+      <p>Listo para reutilizar en tu app. Ajusta texto, estilos y estados hover.</p>
+      <button>Acción</button>
+    </div>
+  </body>
+</html>`;
+    }
+
+    function saveLocal(key, value) {
+      try { localStorage.setItem(key, value); } catch {}
+    }
+
+    function loadLocal(key) {
+      try { return localStorage.getItem(key) || ''; } catch { return ''; }
+    }
+
+    // ============================================
+    // MODEL SELECTOR
+    // ============================================
+    function initModelSelector() {
+      const trigger = document.getElementById('modelTrigger');
+      const selector = document.getElementById('modelSelector');
+      const moreBtn = document.getElementById('modelMoreBtn');
+      const autoToggle = document.getElementById('modelAutoToggle');
+
+      trigger?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllDropdowns('modelSelector');
+        toggleModelDropdown();
+      });
+
+      moreBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selector?.classList.toggle('more-open');
+      });
+
+      autoToggle?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await setAutoMode(!state.qwen.auto);
+      });
+
+      if (window.sandraAPI?.onAppStatus) {
+        window.sandraAPI.onAppStatus((data) => applyQwenStatus(data));
+      }
+
+      refreshQwenState().catch(() => {});
+      updateModelUI();
+    }
+
+    function toggleModelDropdown(forceOpen = null) {
+      const selector = document.getElementById('modelSelector');
+      if (!selector) return;
+      const next = typeof forceOpen === 'boolean' ? forceOpen : !selector.classList.contains('active');
+      selector.classList.toggle('active', next);
+      document.getElementById('modelTrigger')?.setAttribute('aria-expanded', String(next));
+      if (!next) selector.classList.remove('more-open');
+    }
+
+    async function refreshQwenState() {
+      if (!window.sandraAPI?.qwenGetStateFull) return;
+      const res = await window.sandraAPI.qwenGetStateFull();
+      if (!res?.success) return;
+      state.qwen.models = Array.isArray(res.models) ? res.models : [];
+      applyQwenStatus(res.state || {});
+      renderModelLists();
+    }
+
+    function applyQwenStatus(data = {}) {
+      state.qwen.model = data.model || state.qwen.model;
+      state.qwen.auto = data.auto ?? state.qwen.auto;
+      state.qwen.tokens = Number(data.tokens ?? state.qwen.tokens) || 0;
+      state.qwen.tokensMax = Number(data.tokensMax || state.qwen.tokensMax) || 65536;
+      state.currentModel = state.qwen.model;
+      updateModelUI();
+      renderModelLists();
+    }
+
+    async function setAutoMode(enabled) {
+      state.qwen.auto = !!enabled;
+      updateModelUI();
+      renderModelLists();
+      try {
+        await window.sandraAPI?.qwenSetAutoMode?.(state.qwen.auto);
+      } catch {}
+      addTerminalLine(`Modo Auto: ${state.qwen.auto ? 'ON' : 'OFF'}`);
+    }
+
+    async function setModelSoft(modelId) {
+      if (!modelId) return;
+      const meta = (state.qwen.models || []).find(m => m.id === modelId);
+      state.qwen.model = modelId;
+      state.currentModel = modelId;
+      updateModelUI(meta);
+      renderModelLists();
+
+      try {
+        await window.sandraAPI?.qwenSetModel?.(modelId, { manual: false });
+      } catch {}
+
+      addTerminalLine(`Auto · modelo base: ${meta?.name || modelId}`);
+    }
+
+    async function setModel(modelId) {
+      if (!modelId) return;
+      if (state.qwen.auto) {
+        addTerminalLine('Desactiva Auto para elegir un modelo manualmente');
+        return;
+      }
+
+      const meta = (state.qwen.models || []).find(m => m.id === modelId);
+      state.qwen.model = modelId;
+      state.currentModel = modelId;
+      updateModelUI(meta);
+      renderModelLists();
+      toggleModelDropdown(false);
+
+      try {
+        await window.sandraAPI?.qwenSetModel?.(modelId);
+      } catch {}
+
+      addTerminalLine(`Modelo cambiado a: ${meta?.name || modelId}`);
+    }
+
+    function getModelDescription(modelId) {
+      const map = {
+        'qwen3-max': 'El modelo de lenguaje más potente de la serie Qwen.',
+        'qwen3-vl-235b-a22b': 'Modelo fuerte de visión y lenguaje basado en Qwen3.',
+        'qwen3-vl-32b': 'Modelo denso de visión y lenguaje en la serie Qwen3-VL.',
+        'qwen3-coder': 'Agente de codificación fuerte para tareas largas.',
+        'qwen3-coder-flash': 'Codificación rápida con alta ventana de contexto.',
+        'qwen3-omni-flash': 'Modelo multimodal nativo (rápido) basado en Qwen3.',
+        'qwen3-next-80b-a3b': 'Próxima generación MoE de alto rendimiento.',
+        'qvq-max': 'Razonamiento visual (VQA) de alta capacidad.',
+        'qwq-32b': 'Razonamiento profundo con QwQ.'
+      };
+      return map[modelId] || 'Modelo QWEN disponible para esta sesión.';
+    }
+
+    function formatCompactNumber(num) {
+      const n = Number(num) || 0;
+      if (n >= 1_000_000) return `${Math.round(n / 1_000_000)}M`;
+      if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+      return String(Math.round(n));
+    }
+
+    function updateModelUI(metaOverride = null) {
+      const currentId = state.qwen.model || state.currentModel;
+      const meta = metaOverride || (state.qwen.models || []).find(m => m.id === currentId);
+      const name = meta?.name || currentId || 'QWEN';
+      const tokens = state.qwen.tokens || 0;
+      const max = state.qwen.tokensMax || meta?.context || 0;
+
+      const nameEl = document.getElementById('currentModelName');
+      const subEl = document.getElementById('currentModelSub');
+      if (nameEl) nameEl.textContent = name;
+      if (subEl) subEl.textContent = `Auto ${state.qwen.auto ? 'ON' : 'OFF'} | ${formatCompactNumber(tokens)}/${formatCompactNumber(max)}`;
+
+      const autoToggle = document.getElementById('modelAutoToggle');
+      autoToggle?.classList.toggle('on', !!state.qwen.auto);
+      autoToggle?.setAttribute('aria-pressed', String(!!state.qwen.auto));
+    }
+
+    function renderModelLists() {
+      const primaryEl = document.getElementById('modelListPrimary');
+      const moreEl = document.getElementById('modelListMore');
+      if (!primaryEl || !moreEl) return;
+
+      const models = Array.isArray(state.qwen.models) ? state.qwen.models : [];
+      if (!models.length) return;
+
+      const primaryIds = [
+        'qwen3-max',
+        'qwen3-vl-235b-a22b',
+        'qwen3-coder',
+        'qwen3-omni-flash',
+        'qwen3-vl-32b'
+      ];
+
+      const byId = new Map(models.map(m => [m.id, m]));
+      const primary = primaryIds.map(id => byId.get(id)).filter(Boolean);
+      const more = models.filter(m => !primaryIds.includes(m.id));
+
+      const render = (root, list) => {
+        root.innerHTML = '';
+        list.forEach((m) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'model-option' + (m.id === state.qwen.model ? ' selected' : '');
+          btn.dataset.modelId = m.id;
+          btn.disabled = !!state.qwen.auto;
+
+          const ctx = formatCompactNumber(m.context || 0);
+          btn.innerHTML = `
+            <div class="model-option-left">
+              <div class="model-option-name">${m.name || m.id}</div>
+              <div class="model-option-desc">${getModelDescription(m.id)}</div>
+            </div>
+            <div class="model-option-right">
+              <div class="model-option-context">${ctx}</div>
+              <div class="model-option-check">✓</div>
+            </div>
+          `;
+
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setModel(m.id).catch(() => {});
+          });
+
+          root.appendChild(btn);
+        });
+      };
+
+      render(primaryEl, primary);
+      render(moreEl, more);
+    }
+
+    // ============================================
+    // DROPDOWN MENUS
+    // ============================================
+    function toggleAttachMenu(e) {
+      e.stopPropagation();
+      closeAllDropdowns('attachBtn');
+      document.getElementById('attachBtn').classList.toggle('active');
+    }
+
+    function toggleModeMenu(e) {
+      e.stopPropagation();
+      closeAllDropdowns('modeBtn');
+      document.getElementById('modeBtn').classList.toggle('active');
+    }
+
+    function toggleVoiceMenu(e) {
+      e.stopPropagation();
+      closeAllDropdowns('voiceBtn');
+      document.getElementById('voiceBtn').classList.toggle('active');
+    }
+
+    function closeAllDropdowns(except = null) {
+      const dropdowns = ['attachBtn', 'modeBtn', 'voiceBtn', 'modelSelector'];
+      dropdowns.forEach(id => {
+        if (id !== except) {
+          document.getElementById(id)?.classList.remove('active');
+        }
+      });
+
+      if (except !== 'modelSelector') {
+        document.getElementById('modelSelector')?.classList.remove('more-open');
+        document.getElementById('modelTrigger')?.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    document.addEventListener('click', () => {
+      closeAllDropdowns();
+    });
+
+    // ============================================
+    // THINKING TOGGLE (ON/OFF only)
+    // ============================================
+    function toggleThinking() {
+      state.thinkingEnabled = !state.thinkingEnabled;
+      const btn = document.getElementById('thinkingBtn');
+      btn.classList.toggle('active', state.thinkingEnabled);
+      
+      const label = document.getElementById('thinkingLabel');
+      label.textContent = state.thinkingEnabled ? 'Pensamiento ON' : 'Pensamiento';
+      
+      addTerminalLine(`Pensamiento profundo: ${state.thinkingEnabled ? 'ACTIVADO' : 'DESACTIVADO'}`);
+    }
+
+    // ============================================
+    // MODE SELECTOR (Agente/Plan/Debug)
+    // ============================================
+    function selectMode(modeId, modeName, modeIcon) {
+      state.currentMode = modeId;
+      document.getElementById('currentModeName').textContent = modeName;
+      document.getElementById('modeIcon').textContent = modeIcon;
+
+      const options = Array.from(document.querySelectorAll('.mode-option'));
+      options.forEach(opt => opt.classList.remove('selected'));
+      const idxMap = { agente: 0, plan: 1, debug: 2 };
+      const idx = idxMap[modeId];
+      if (typeof idx === 'number' && options[idx]) {
+        options[idx].classList.add('selected');
+      }
+
+      document.getElementById('modeBtn').classList.remove('active');
+      addTerminalLine(`Modo cambiado a: ${modeName}`);
+    }
+
+    // ============================================
+    // FEATURE CHIPS
+    // ============================================
+    function toggleFeature(element, featureId) {
+      const enabled = !element.classList.contains('active');
+      element.classList.toggle('active', enabled);
+
+      if (enabled) {
+        state.activeFeatures.add(featureId);
+        state.primaryFeature = featureId;
+        applyFeature(featureId);
+      } else {
+        state.activeFeatures.delete(featureId);
+        if (state.primaryFeature === featureId) {
+          const remaining = Array.from(state.activeFeatures);
+          state.primaryFeature = remaining.length ? remaining[remaining.length - 1] : null;
+        }
+      }
+
+      renderTemplateTray();
+      persistUIState();
+    }
+
+    function applyFeature(featureId) {
+      const cfg = {
+        imagen: { modeId: 'debug', modeName: 'Debug', modeIcon: '🐛', modelId: 'qwen3-vl-235b-a22b' },
+        'gen-imagen': { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'qwen3-vl-235b-a22b' },
+        video: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'qwen3-omni-flash' },
+        web: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'qwen3-coder', openCanvas: true },
+        artefactos: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'qwen3-coder', openCanvas: true },
+        aprende: { modeId: 'plan', modeName: 'Plan', modeIcon: '📋', modelId: 'qwen3-max' },
+        investigacion: { modeId: 'plan', modeName: 'Plan', modeIcon: '📋', modelId: 'qwen3-max' }
+      }[featureId];
+
+      if (!cfg) return;
+
+      try {
+        selectMode(cfg.modeId, cfg.modeName, cfg.modeIcon);
+      } catch {}
+
+      if (cfg.modelId) {
+        if (state.qwen.auto) setModelSoft(cfg.modelId).catch(() => {});
+        else setModel(cfg.modelId).catch(() => {});
+      }
+
+      if (cfg.openCanvas) {
+        if (!state.canvasPanelOpen) toggleCanvasPanel();
+        setCanvasTab('code');
+      }
+
+      addTerminalLine(`Feature activa: ${featureId}`);
+    }
+
+    function svgTemplate(title, subtitle) {
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="800" height="450">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#00d4aa" stop-opacity="0.35"/>
+              <stop offset="1" stop-color="#0d0d0d" stop-opacity="1"/>
+            </linearGradient>
+          </defs>
+          <rect width="800" height="450" fill="url(#g)"/>
+          <rect x="26" y="26" width="748" height="398" rx="22" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
+          <text x="60" y="120" fill="rgba(255,255,255,0.92)" font-size="40" font-family="Segoe UI, Arial" font-weight="700">${title}</text>
+          <text x="60" y="172" fill="rgba(255,255,255,0.65)" font-size="22" font-family="Segoe UI, Arial">${subtitle}</text>
+          <circle cx="730" cy="86" r="10" fill="#00d4aa" opacity="0.85"/>
+        </svg>
+      `.trim();
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    }
+
+    function getDefaultTemplates(featureId) {
+      const defaults = {
+        imagen: [
+          { id: 'img-edit-style', kind: 'image', title: 'Cambio de estilo', subtitle: 'Convierte una foto a un estilo (anime, cine, póster).', thumb: svgTemplate('Edición', 'Cambio de estilo'), prompt: 'Edita la imagen con estilo cinematográfico, manteniendo rostro y pose.' },
+          { id: 'img-edit-bg', kind: 'image', title: 'Borrar fondo', subtitle: 'Quita el fondo y crea uno limpio tipo estudio.', thumb: svgTemplate('Edición', 'Borrar fondo'), prompt: 'Elimina el fondo y pon un fondo blanco tipo estudio con sombra suave.' },
+          { id: 'img-edit-text', kind: 'image', title: 'Añadir texto', subtitle: 'Añade tipografía y composición para un flyer.', thumb: svgTemplate('Edición', 'Añadir texto'), prompt: 'Añade un titular y subtítulo en estilo moderno, alineado y legible.' }
+        ],
+        'gen-imagen': [
+          { id: 'img-gen-logo', kind: 'image', title: 'Logo minimal', subtitle: 'Logo vectorial con paleta verde StudioLab.', thumb: svgTemplate('Generación', 'Logo minimal'), prompt: 'Genera un logo minimalista en verde y negro, estilo tech.' },
+          { id: 'img-gen-flyer', kind: 'image', title: 'Flyer', subtitle: 'Composición lista para redes sociales.', thumb: svgTemplate('Generación', 'Flyer'), prompt: 'Crea un flyer para redes con CTA y jerarquía tipográfica.' }
+        ],
+        video: [
+          { id: 'vid-story', kind: 'video', title: 'Plantilla Story', subtitle: 'Guión + escenas vertical 9:16.', icon: '🎬', prompt: 'Genera un guión de 20s en formato story (9:16) con 5 escenas.' },
+          { id: 'vid-launch', kind: 'video', title: 'Lanzamiento', subtitle: 'Estructura de anuncio con gancho.', icon: '📽️', prompt: 'Crea un guión de video de lanzamiento con hook + prueba social + CTA.' }
+        ],
+        web: [
+          { id: 'web-landing', kind: 'canvas', title: 'Landing', subtitle: 'Landing en verde con hero y CTA.', icon: '🌐', canvas: defaultCanvasSeed(), prompt: 'Crea una landing moderna en verde con hero, features y CTA.' },
+          { id: 'web-dashboard', kind: 'canvas', title: 'Dashboard', subtitle: 'UI con tarjetas y sidebar.', icon: '🧩', canvas: defaultDashboardSeed(), prompt: 'Construye un dashboard con sidebar y tarjetas, tema oscuro verde.' }
+        ],
+        artefactos: [
+          { id: 'art-widget', kind: 'canvas', title: 'Widget', subtitle: 'Componente reutilizable listo.', icon: '✨', canvas: defaultWidgetSeed(), prompt: 'Crea un componente (card) reutilizable con estados hover.' },
+          { id: 'art-poster', kind: 'prompt', title: 'Póster', subtitle: 'Concepto de póster con copy.', icon: '🪄', prompt: 'Propón 3 conceptos de póster con copy y paleta verde.' }
+        ],
+        aprende: [
+          { id: 'learn-roadmap', kind: 'prompt', title: 'Roadmap', subtitle: 'Plan de aprendizaje por niveles.', icon: '📚', prompt: 'Crea un roadmap de aprendizaje de 4 semanas con ejercicios.' },
+          { id: 'learn-explain', kind: 'prompt', title: 'Explica', subtitle: 'Explicación clara con ejemplos.', icon: '🧠', prompt: 'Explícame el tema paso a paso con analogías y un mini proyecto.' }
+        ],
+        investigacion: [
+          { id: 'res-outline', kind: 'prompt', title: 'Esquema', subtitle: 'Estructura de investigación profunda.', icon: '🔬', prompt: 'Haz un esquema de investigación: hipótesis, fuentes, metodología y riesgos.' },
+          { id: 'res-ideas', kind: 'prompt', title: 'Ideas', subtitle: '10 ideas con pros/contras.', icon: '💡', prompt: 'Dame 10 ideas y evalúalas con pros/contras y next steps.' }
+        ]
+      };
+      return defaults[featureId] ? structuredClone(defaults[featureId]) : [];
+    }
+
+    function loadTemplates(featureId) {
+      if (!featureId) return [];
+      const key = `studiolab:templates:${featureId}`;
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+      return getDefaultTemplates(featureId);
+    }
+
+    function saveTemplates(featureId, templates) {
+      const key = `studiolab:templates:${featureId}`;
+      try { localStorage.setItem(key, JSON.stringify(templates || [])); } catch {}
+    }
+
+    function renderTemplateTray() {
+      const featureId = state.primaryFeature;
+      const tray = document.getElementById('templateTray');
+      if (!tray) return;
+      tray.innerHTML = '';
+      if (!featureId) return;
+
+      const templates = loadTemplates(featureId);
+      if (!templates.length) return;
+
+      templates.forEach((t) => {
+        const card = document.createElement('div');
+        card.className = 'template-card';
+        card.dataset.templateId = t.id;
+        card.dataset.featureId = featureId;
+        card.innerHTML = `
+          <div class="template-thumb">
+            ${t.thumb ? `<img alt="" src="${t.thumb}">` : `<div>${t.icon || '•'}</div>`}
+          </div>
+          <div class="template-body">
+            <div class="template-title">${t.title || 'Plantilla'}</div>
+            <div class="template-subtitle">${t.subtitle || ''}</div>
+          </div>
+        `;
+
+        card.addEventListener('click', () => {
+          handleTemplateClick(featureId, t);
+        });
+
+        tray.appendChild(card);
+      });
+
+      saveTemplates(featureId, templates);
+    }
+
+    function handleTemplateClick(featureId, template) {
+      const input = document.getElementById('messageInput');
+      if (template.kind === 'canvas' && template.canvas) {
+        setCanvasCode(template.canvas);
+        if (!state.canvasPanelOpen) toggleCanvasPanel();
+        setCanvasTab('preview');
+        addTerminalLine(`Plantilla canvas aplicada: ${template.title || template.id}`);
+      }
+
+      if (template.prompt && input) {
+        input.value = template.prompt;
+        updateSendButton();
+        input.focus();
+      }
+
+      addTerminalLine(`Plantilla seleccionada (${featureId}): ${template.title || template.id}`);
+    }
+
+    function persistUIState() {
+      try {
+        saveLocal('studiolab:ui', JSON.stringify({
+          activeFeatures: Array.from(state.activeFeatures || []),
+          primaryFeature: state.primaryFeature || null
+        }));
+      } catch {}
+    }
+
+    function restoreUIState() {
+      let raw = '';
+      try { raw = loadLocal('studiolab:ui'); } catch {}
+      if (!raw) return;
+
+      try {
+        const data = JSON.parse(raw);
+        const active = Array.isArray(data.activeFeatures) ? data.activeFeatures : [];
+        const primary = data.primaryFeature || active[active.length - 1] || null;
+
+        state.activeFeatures.clear();
+        active.forEach(f => state.activeFeatures.add(f));
+        state.primaryFeature = primary;
+
+        document.querySelectorAll('#featureChips .feature-chip[data-feature]').forEach((btn) => {
+          const id = btn.dataset.feature;
+          btn.classList.toggle('active', state.activeFeatures.has(id));
+        });
+
+        if (primary) applyFeature(primary);
+        renderTemplateTray();
+      } catch {}
+    }
+
+    function restoreViewState() {}
+
+    function showMoreFeatures() {
+      alert('Más funcionalidades disponibles:\n• Traducción\n• Resumen\n• Análisis de datos\n• Documentos\n• Audio/Podcast');
+    }
+
+    // ============================================
+    // VOICE
+    // ============================================
+    function startVoice(type) {
+      document.getElementById('voiceBtn').classList.remove('active');
+      
+      const messages = {
+        'chat': '🎧 Iniciando Chat de Voz...',
+        'video': '📹 Iniciando Chat de Video (Beta)...'
+      };
+      
+      addTerminalLine(messages[type]);
+      
+      if (window.sandraAPI?.startMultimodalConversation) {
+        window.sandraAPI.startMultimodalConversation({ mode: type });
+      }
+    }
+
+    // ============================================
+    // ATTACH FILES - CORRECTED
+    // ============================================
+    function attachFile(type) {
+      document.getElementById('attachBtn').classList.remove('active');
+      
+      const labels = {
+        'imagen': '🖼️ Adjuntando imagen...',
+        'video': '🎬 Adjuntando video...',
+        'audio': '🎵 Adjuntando audio...',
+        'texto': '📝 Adjuntando texto...',
+        'archivos': '📁 Adjuntando archivos...'
+      };
+      
+      addTerminalLine(labels[type] || `📎 Adjuntando ${type}...`);
+      
+      // Call Electron API
+      // window.sandraAPI.attachFile(type);
+    }
+
+    // ============================================
+    // SEARCH
+    // ============================================
+    function cryptoRandomId() {
+      try {
+        const bytes = new Uint8Array(12);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch {
+        return String(Date.now()) + '-' + String(Math.random()).slice(2);
+      }
+    }
+
+    // Override attachFile with real picker + basic persistence
+    function attachFile(type) {
+      document.getElementById('attachBtn')?.classList.remove('active');
+
+      const accept = {
+        imagen: 'image/*',
+        video: 'video/*',
+        audio: 'audio/*',
+        texto: '.txt,.md,.json,.csv,.log,.html,.css,.js',
+        archivos: '*/*'
+      }[type] || '*/*';
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = accept;
+      input.multiple = true;
+
+      input.addEventListener('change', async () => {
+        const files = Array.from(input.files || []);
+        if (!files.length) return;
+
+        const readAsDataUrl = (file) => new Promise((resolve) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result || ''));
+          r.onerror = () => resolve('');
+          r.readAsDataURL(file);
+        });
+
+        for (const file of files.slice(0, 6)) {
+          const attachment = {
+            id: cryptoRandomId(),
+            type,
+            name: file.name,
+            size: file.size,
+            mime: file.type || 'application/octet-stream'
+          };
+
+          if (type === 'imagen') {
+            attachment.dataUrl = await readAsDataUrl(file);
+          }
+
+          state.attachments.push(attachment);
+        }
+
+        saveLocal('studiolab:attachments', JSON.stringify(state.attachments.slice(-20)));
+        addTerminalLine(`Adjuntos: +${files.length} (${type})`);
+      });
+
+      input.click();
+    }
+
+    // ============================================
+    // QWEN PANEL TOGGLE (Embedded)
+    // ============================================
+    async function toggleQwen() {
+      const btn = document.getElementById('qwenBtn');
+      const label = document.getElementById('qwenLabel');
+      
+      const isCurrentlyVisible = !state.qwen.panelVisible;
+      state.qwen.panelVisible = isCurrentlyVisible;
+      
+      try {
+        // QWEN usa BrowserView - manejado completamente desde main.js
+        if (window.sandraAPI?.qwenToggle) {
+          const result = await window.sandraAPI.qwenToggle(isCurrentlyVisible);
+          if (result && result.success) {
+            if (isCurrentlyVisible) {
+              if (btn) btn.classList.add('active');
+              if (label) label.textContent = 'QWEN ON';
+              addTerminalLine('✅ QWEN abierto - cargando...');
+              state.qwen.connected = true;
+              state.qwen.panelVisible = true;
+            } else {
+              if (btn) btn.classList.remove('active');
+              if (label) label.textContent = 'QWEN';
+              addTerminalLine('QWEN cerrado');
+              state.qwen.connected = false;
+              state.qwen.panelVisible = false;
+            }
+          } else {
+            const errorMsg = result?.error || 'Error desconocido';
+            console.error('Error toggle QWEN:', errorMsg);
+            addTerminalLine(`❌ Error: ${errorMsg}`);
+            // Restaurar estado
+            state.qwen.panelVisible = !isCurrentlyVisible;
+          }
+        } else {
+          throw new Error('QWEN API no disponible');
+        }
+      } catch (e) {
+        console.error('Error toggle QWEN:', e);
+        addTerminalLine(`❌ Error: ${e.message}`);
+        // Restaurar estado en caso de error
+        state.qwen.panelVisible = !isCurrentlyVisible;
+      }
+    }
+
+    function toggleSearch() {
+      state.searchEnabled = !state.searchEnabled;
+      const btn = document.getElementById('searchBtn');
+      if (btn) {
+        btn.classList.toggle('active', state.searchEnabled);
+      }
+      addTerminalLine(`Búsqueda web: ${state.searchEnabled ? 'ACTIVADA' : 'DESACTIVADA'}`);
+    }
+
+    // ============================================
+    // API/LOCAL TOGGLE
+    // ============================================
+    function toggleAPI() {
+      state.useAPI = !state.useAPI;
+      const toggle = document.getElementById('apiToggle');
+      if (toggle) {
+        toggle.classList.toggle('on', state.useAPI);
+      }
+      
+      // Guardar estado en localStorage
+      saveLocal('studiolab-useAPI', state.useAPI ? 'true' : 'false');
+      
+      const mode = state.useAPI ? 'API (Groq)' : 'Local (QWEN)';
+      addTerminalLine(`Modo cambiado a: ${mode}`);
+      console.log(`[StudioLab] Modo: ${mode}`);
+    }
+
+    // ============================================
+    // CHAT PIPELINE (QWEN embebido + streaming + canvas)
+    // ============================================
+    function escapeHtml(text) {
+      return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatMessageHtml(text) {
+      return escapeHtml(text).replace(/\n/g, '<br>');
+    }
+
+    function estimateTokens(text) {
+      return Math.ceil(String(text ?? '').length / 4);
+    }
+
+    async function callAssistant(payload) {
+      // Si está en modo API, usar Groq API con modelo QWEN real
+      if (state.useAPI) {
+        if (window.sandraAPI?.chatSend) {
+          try {
+            const result = await window.sandraAPI.chatSend('groq', payload.message || '', payload.mode || 'user');
+            if (result.success) {
+              return { text: result.response || result.message || '', provider: 'groq', model: 'qwen2.5-72b-instruct' };
+            } else {
+              throw new Error(result.error || 'Error en Groq API');
+            }
+          } catch (e) {
+            throw new Error(`Error conectando con Groq API: ${e.message}`);
+          }
+        }
+        throw new Error('Groq API no está disponible. Configura GROQ_API_KEY o cambia a modo Local.');
+      }
+      
+      // Modo Local: QWEN funciona en BrowserView - el usuario chatea directamente ahí
+      if (state.qwen.connected) {
+        return { text: '', provider: 'qwen', model: payload?.modelId || '' };
+      }
+      
+      throw new Error('QWEN local no está abierto. Haz clic en el botón QWEN o cambia a modo API.');
+    }
+
+    function getChatScrollContainer() {
+      return document.querySelector('.chat-messages');
+    }
+
+    function scrollChatToBottom(force = false) {
+      const scroller = getChatScrollContainer();
+      if (!scroller) return;
+      const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+      if (force || distance < 120) {
+        scroller.scrollTop = scroller.scrollHeight;
+      }
+    }
+
+    function updateMessageDiv(messageDiv, text) {
+      const contentEl = messageDiv?.querySelector?.('.message-content');
+      if (!contentEl) return;
+      contentEl.innerHTML = formatMessageHtml(text);
+    }
+
+    async function streamMessage(messageDiv, fullText) {
+      const text = String(fullText ?? '');
+      const contentEl = messageDiv?.querySelector?.('.message-content');
+      if (!contentEl) return;
+
+      if (text.length > 2000) {
+        contentEl.innerHTML = formatMessageHtml(text);
+        return;
+      }
+
+      const parts = text.split(/(\s+)/);
+      let acc = '';
+      for (const part of parts) {
+        acc += part;
+        contentEl.innerHTML = formatMessageHtml(acc);
+        scrollChatToBottom();
+        await new Promise(r => setTimeout(r, 10));
+      }
+    }
+
+    function extractHtmlFromText(text) {
+      const t = String(text ?? '');
+      const m = t.match(/```(?:html)?\s*([\s\S]*?)```/i);
+      if (m?.[1]) return m[1].trim();
+      if (/(<!doctype html|<html[\s>])/i.test(t)) return t.trim();
+      return null;
+    }
+
+    function maybeApplyCanvasFromResponse(text) {
+      if (!state.activeFeatures.has('web') && !state.activeFeatures.has('artefactos')) return;
+      const code = extractHtmlFromText(text);
+      if (!code) return;
+      setCanvasCode(code);
+      if (!state.canvasPanelOpen) toggleCanvasPanel();
+      setCanvasTab('preview');
+      addTerminalLine('Lienzo actualizado desde la respuesta');
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function waitFor(predicate, timeoutMs = 8000, intervalMs = 120) {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        try {
+          if (await predicate()) return true;
+        } catch {}
+        await sleep(intervalMs);
+      }
+      return false;
+    }
+
+    // SendMessage: Restaurar funcionalidad completa
+    async function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const message = (input?.value || '').trim();
+      if (!message) return;
+
+      document.getElementById('welcomeScreen').style.display = 'none';
+      document.getElementById('messagesContainer').classList.add('visible');
+
+      addMessage('user', message);
+
+      input.value = '';
+      input.style.height = 'auto';
+      updateSendButton();
+
+      const assistantDiv = addMessage('assistant', 'Pensando…');
+
+      const sendBtn = document.getElementById('sendBtn');
+      if (sendBtn) sendBtn.disabled = true;
+
+      const meta = {
+        modelId: state.qwen.model,
+        mode: state.currentMode,
+        features: Array.from(state.activeFeatures),
+        thinking: !!state.thinkingEnabled,
+        search: !!state.searchEnabled,
+        attachments: state.attachments.map(a => ({ type: a.type, name: a.name, mime: a.mime, size: a.size }))
+      };
+
+      addTerminalLine(`→ QWEN: ${meta.modelId} | modo ${meta.mode} | features ${meta.features.join(',') || '-'}`);
+
+      try {
+        const result = await callAssistant({
+          message,
+          userId: 'default',
+          modelId: meta.modelId,
+          mode: meta.mode,
+          features: meta.features,
+          thinking: meta.thinking,
+          search: meta.search,
+          attachments: meta.attachments
+        });
+
+        const responseText = String(result?.text || '');
+        if (responseText) {
+          await streamMessage(assistantDiv, responseText);
+          maybeApplyCanvasFromResponse(responseText);
+
+          updateModelUI();
+        } else {
+          assistantDiv.remove();
+        }
+      } catch (e) {
+        updateMessageDiv(assistantDiv, `Error: ${e.message}`);
+        addTerminalLine(`Error chat: ${e.message}`);
+      } finally {
+        if (sendBtn) sendBtn.disabled = false;
+        updateSendButton();
+      }
+    }
+
+    // Override addMessage: safe HTML + returns DOM node for streaming
+    function addMessage(role, content) {
+      const container = document.getElementById('messagesContainer');
+      const avatar = role === 'user' ? 'C' : 'S';
+      const modelName = role === 'assistant' ? (document.getElementById('currentModelName')?.textContent || '') : '';
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${role}`;
+
+      const header = role === 'assistant' && modelName
+        ? `<div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">${escapeHtml(modelName)}</div>`
+        : '';
+
+      const actions = role === 'assistant'
+        ? `<div class="message-actions">
+             <button class="message-action-btn" title="Copiar">Copy</button>
+             <button class="message-action-btn" title="Me gusta">Like</button>
+             <button class="message-action-btn" title="No me gusta">Dislike</button>
+           </div>`
+        : '';
+
+      messageDiv.innerHTML = `
+        <div class="message-avatar">${avatar}</div>
+        <div>
+          ${header}
+          <div class="message-content">${formatMessageHtml(content)}</div>
+          ${actions}
+        </div>
+      `;
+
+      container.appendChild(messageDiv);
+      scrollChatToBottom(true);
+      state.messages.push({ role, content, timestamp: new Date() });
+
+      return messageDiv;
+    }
+
+    // INPUT HANDLING
+    // ============================================
+    function handleKeyDown(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function autoResize(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 130) + 'px';
+    }
+
+    function updateSendButton() {
+      const input = document.getElementById('messageInput');
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = !input.value.trim();
+    }
+
+    // ============================================
+    // CHAT HISTORY
+    // ============================================
+    function renderChatHistory() {
+      const container = document.getElementById('chatList');
+      container.innerHTML = state.chatHistory.map(chat => `
+        <div class="chat-item ${chat.active ? 'active' : ''}" onclick="loadChat(${chat.id})">
+          <div class="chat-item-icon">${chat.icon}</div>
+          <div class="chat-item-content">
+            <div class="chat-item-title">${chat.title}</div>
+            <div class="chat-item-preview">${chat.preview}</div>
+          </div>
+          <div class="chat-item-time">${chat.time}</div>
+        </div>
+      `).join('');
+    }
+
+    function loadChat(chatId) {
+      state.chatHistory.forEach(chat => {
+        chat.active = chat.id === chatId;
+      });
+      renderChatHistory();
+      addTerminalLine(`Cargando chat #${chatId}...`);
+    }
+
+    function newChat() {
+      document.getElementById('welcomeScreen').style.display = 'flex';
+      document.getElementById('messagesContainer').classList.remove('visible');
+      document.getElementById('messagesContainer').innerHTML = '';
+      state.messages = [];
+      state.qwen.tokens = 0;
+      window.sandraAPI?.qwenReportUsage?.(0).catch?.(() => {});
+      updateModelUI();
+      document.getElementById('messageInput').value = '';
+      document.getElementById('messageInput').focus();
+      addTerminalLine('Nuevo chat iniciado');
+    }
+
+    // ============================================
+    // TERMINAL
+    // ============================================
+    function initTerminal() {
+      try {
+        const raw = loadLocal('studiolab:attachments');
+        if (raw) state.attachments = JSON.parse(raw);
+      } catch {}
+
+      const input = document.getElementById('terminalInput');
+      const runBtn = document.getElementById('terminalRunBtn');
+      const clearBtn = document.getElementById('terminalClearBtn');
+
+      runBtn?.addEventListener('click', () => {
+        runTerminalCommand().catch(() => {});
+      });
+
+      clearBtn?.addEventListener('click', () => {
+        const terminal = document.getElementById('terminalContent');
+        if (terminal) terminal.innerHTML = '';
+        addTerminalLine('Terminal limpiada');
+      });
+
+      input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runTerminalCommand().catch(() => {});
+        }
+      });
+    }
+
+    async function runTerminalCommand() {
+      const input = document.getElementById('terminalInput');
+      const cmd = input?.value?.trim();
+      if (!cmd) return;
+
+      if (!state.terminalOpen) toggleTerminal();
+      addTerminalLine(cmd);
+      input.value = '';
+
+      try {
+        if (window.sandraAPI?.executeCommand) {
+          const res = await window.sandraAPI.executeCommand(cmd);
+          const out = (res?.output ?? res?.error ?? '').toString();
+          if (!out.trim()) {
+            addTerminalLine(res?.success ? 'OK' : 'Sin salida');
+          } else {
+            out.split(/\r?\n/).filter(Boolean).forEach(line => addTerminalLine(line));
+          }
+          return;
+        }
+
+        if (window.sandraAPI?.mcpCall) {
+          const res = await window.sandraAPI.mcpCall('execute_command', { command: cmd });
+          const out = (res?.output ?? res?.error ?? '').toString();
+          if (out.trim()) out.split(/\r?\n/).filter(Boolean).forEach(line => addTerminalLine(line));
+          return;
+        }
+
+        addTerminalLine('IPC no disponible para ejecutar comandos');
+      } catch (e) {
+        addTerminalLine(`Error: ${e.message}`);
+      }
+    }
+
+    function addTerminalLine(text) {
+      const terminal = document.getElementById('terminalContent');
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      line.innerHTML = `<span class="terminal-prompt">$</span>${text}`;
+      terminal.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // ============================================
+    // MENU ACTIONS
+    // ============================================
+    function openProject() { addTerminalLine('Abriendo selector de proyecto...'); }
+    function saveChat() { addTerminalLine('Chat guardado ✓'); }
+    function executeCode() { addTerminalLine('Ejecutando código...'); }
+
+    // ============================================
+    // KEYBOARD SHORTCUTS
+    // ============================================
+    function setupKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'b') { e.preventDefault(); toggleHistoryPanel(); }
+        if (e.ctrlKey && e.key === 'k') { e.preventDefault(); toggleCanvasPanel(); }
+        if (e.ctrlKey && e.key === '`') { e.preventDefault(); toggleTerminal(); }
+        if (e.ctrlKey && e.key === 'n') { e.preventDefault(); newChat(); }
+        if (e.key === 'Escape') { closeAllDropdowns(); }
+      });
+    }
+
+    function wireMiscButtons() {
+      // Sidebar search button (no handler by default)
+      document.querySelectorAll('.sidebar-btn[title="Buscar"]').forEach((btn) => {
+        btn.addEventListener('click', () => toggleSearch());
+      });
+
+      // Dropdown items without inline onclick
+      document.querySelectorAll('.dropdown-item').forEach((item) => {
+        if (item.getAttribute('onclick')) return;
+        item.addEventListener('click', () => {
+          const label = (item.textContent || '').trim().toLowerCase();
+          if (label.includes('exportar')) return exportChat();
+          if (label.includes('configuraci')) return openSettings();
+          if (label.includes('depurar')) return addTerminalLine('Depurar: modo debug listo (stub)');
+          if (label.includes('detener')) return addTerminalLine('Detener: cancelación lista (stub)');
+        });
+      });
+
+      // Message actions (copy/like/dislike/regenerate)
+      document.getElementById('messagesContainer')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.message-action-btn');
+        if (!btn) return;
+        const message = btn.closest('.message');
+        const text = message?.querySelector('.message-content')?.innerText || '';
+        const title = (btn.getAttribute('title') || btn.textContent || '').toLowerCase();
+
+        if (title.includes('cop') || title.includes('copy')) {
+          try {
+            await navigator.clipboard.writeText(text);
+            addTerminalLine('Copiado al portapapeles');
+          } catch {
+            addTerminalLine('No se pudo copiar (permiso)');
+          }
+          return;
+        }
+
+        if (title.includes('me gusta') || title.includes('like')) {
+          btn.classList.toggle('active');
+          addTerminalLine('Feedback: like');
+          return;
+        }
+
+        if (title.includes('no me gusta') || title.includes('dislike')) {
+          btn.classList.toggle('active');
+          addTerminalLine('Feedback: dislike');
+          return;
+        }
+
+        if (title.includes('regener')) {
+          const lastUser = [...(state.messages || [])].reverse().find(m => m.role === 'user');
+          if (lastUser?.content) {
+            document.getElementById('messageInput').value = lastUser.content;
+            updateSendButton();
+            sendMessage();
+          }
+          return;
+        }
+
+        addTerminalLine(`Acción: ${title || 'mensaje'}`);
+      });
+    }
+
+    function exportChat() {
+      try {
+        const payload = JSON.stringify({ exportedAt: new Date().toISOString(), messages: state.messages || [] }, null, 2);
+        const blob = new Blob([payload], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `studiolab-chat-${Date.now()}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        addTerminalLine('Chat exportado (JSON)');
+      } catch (e) {
+        addTerminalLine(`Error exportando: ${e.message}`);
+      }
+    }
+
+    function openSettings() {
+      alert('Configuración: próximamente (tema, atajos, providers).');
+    }
+
+    // ============================================
+    // Override menu actions with real behavior (canvas + localStorage)
+    function openProject() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.html,.htm,.css,.js,.txt,.md,.json';
+
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const content = String(reader.result || '');
+          setCanvasCode(content);
+          if (!state.canvasPanelOpen) toggleCanvasPanel();
+          setCanvasTab('preview');
+          addTerminalLine(`Archivo cargado en canvas: ${file.name}`);
+        };
+        reader.readAsText(file);
+      });
+
+      input.click();
+    }
+
+    function saveChat() {
+      try {
+        saveLocal('studiolab:chat:last', JSON.stringify(state.messages || []));
+        addTerminalLine(`Chat guardado (${(state.messages || []).length} mensajes)`);
+      } catch (e) {
+        addTerminalLine(`Error guardando chat: ${e.message}`);
+      }
+    }
+
+    async function executeCode() {
+      try {
+        if (!state.canvasPanelOpen) toggleCanvasPanel();
+        const code = String(document.getElementById('canvasCode')?.value || '').trim();
+        if (!code) {
+          addTerminalLine('Canvas vacío');
+          return;
+        }
+
+        if (/(<!doctype html|<html[\\s>])/i.test(code)) {
+          renderCanvas();
+          setCanvasTab('preview');
+          addTerminalLine('Canvas renderizado');
+          return;
+        }
+
+        if (window.sandraAPI?.executeCode) {
+          const res = await window.sandraAPI.executeCode(code, 'javascript');
+          if (res?.output) addTerminalLine(String(res.output).trim());
+          else if (res?.error) addTerminalLine(`Error: ${res.error}`);
+          else addTerminalLine('Código ejecutado');
+          return;
+        }
+
+        addTerminalLine('No hay runner de código disponible');
+      } catch (e) {
+        addTerminalLine(`Error ejecutando: ${e.message}`);
+      }
+    }
+
+
+    // ============================================
+    // QWEN EMBEDDED PANEL - Integración Completa
+    // ============================================
+
+    /**
+     * Abre el panel QWEN embebido (estilo VS Code)
+     * Envía IPC signal a main.js para crear la ventana
+     */
+    function openQwenEmbedded() {
+      try {
+        const { ipcRenderer } = require('electron');
+
+        console.log('[UI] 🤖 Abriendo panel QWEN embebido...');
+
+        // Highlight the QWEN button
+        const qwenBtn = document.getElementById('qwenBtn');
+        if (qwenBtn) {
+          qwenBtn.style.filter = 'brightness(1.3)';
+          setTimeout(() => {
+            qwenBtn.style.filter = 'brightness(1)';
+          }, 500);
+        }
+
+        // Enviar IPC signal al main process
+        ipcRenderer.send('open-qwen-embedded');
+
+        addTerminalLine('📤 Panel QWEN embebido abierto');
+      } catch (error) {
+        console.error('[UI] Error abriendo QWEN:', error);
+        addTerminalLine(`❌ Error abriendo QWEN: ${error.message}`);
+      }
+    }
+
+    /**
+     * Listener: Respuestas del MCP Server
+     */
+    try {
+      const { ipcRenderer } = require('electron');
+
+      ipcRenderer.on('mcp-response', (event, response) => {
+        if (response.success) {
+          addTerminalLine(`✅ ${response.message || 'Propuesta enviada al MCP'}`);
+          console.log('[UI] MCP Response:', response.result);
+        } else {
+          addTerminalLine(`❌ Error MCP: ${response.error || 'Error desconocido'}`);
+          console.error('[UI] MCP Error:', response.error);
+        }
+      });
+    } catch (e) {
+      console.warn('[UI] IPC no disponible aún');
+    }
+
+    // ============================================
+    // INITIALIZATION - QWEN Panel Ready
+    // ============================================
+    console.log('✅ QWEN Panel embebido disponible - Click en botón azul para abrir');
+  </script>
+</body>
+</html>

@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:* https://*;">
+  <title>StudioLab - Multimodal Intelligence</title>
+  <style>
+    /* ============================================
+       STUDIOLAB 8.0 PRO - FINAL POLISHED VERSION
+       Estilo QWEN + Cursor Fusion + Temas
+       ============================================ */
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Default Theme - Dark */
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #1a1a1a;
+      --bg-tertiary: #252525;
+      --bg-input: #2a2a2a;
+      --bg-hover: #333333;
+      --accent-primary: #00d4aa;
+      --accent-secondary: #00b894;
+      --accent-purple: #8b5cf6;
+      --accent-blue: #3b82f6;
+      --accent-glow: rgba(0, 212, 170, 0.25);
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --text-muted: #666666;
+      --text-placeholder: #555555;
+      --border-color: #2a2a2a;
+      --border-hover: #404040;
+      --border-focus: var(--accent-primary);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 30px var(--accent-glow);
+    }
+
+    /* ============================================
+       THEME VARIANTS
+       ============================================ */
+    
+    /* Tokyo Night */
+    [data-theme="tokyo-night"] {
+      --bg-primary: #1a1b26;
+      --bg-secondary: #24283b;
+      --bg-tertiary: #2f3549;
+      --bg-input: #343a52;
+      --bg-hover: #3b4261;
+      --accent-primary: #7aa2f7;
+      --accent-secondary: #bb9af7;
+      --accent-glow: rgba(122, 162, 247, 0.25);
+      --text-primary: #c0caf5;
+      --text-secondary: #9aa5ce;
+      --text-muted: #565f89;
+      --border-color: #3b4261;
+    }
+
+    /* Monokai */
+    [data-theme="monokai"] {
+      --bg-primary: #272822;
+      --bg-secondary: #2d2e27;
+      --bg-tertiary: #3e3d32;
+      --bg-input: #49483e;
+      --bg-hover: #54534a;
+      --accent-primary: #a6e22e;
+      --accent-secondary: #f92672;
+      --accent-glow: rgba(166, 226, 46, 0.25);
+      --text-primary: #f8f8f2;
+      --text-secondary: #cfcfc2;
+      --text-muted: #75715e;
+      --border-color: #49483e;
+    }
+
+    /* Synthwave 84 */
+    [data-theme="synthwave"] {
+      --bg-primary: #262335;
+      --bg-secondary: #2a2139;
+      --bg-tertiary: #34294f;
+      --bg-input: #3b3259;
+      --bg-hover: #463b6a;
+      --accent-primary: #ff7edb;
+      --accent-secondary: #36f9f6;
+      --accent-glow: rgba(255, 126, 219, 0.3);
+      --text-primary: #f0e7ff;
+      --text-secondary: #b6a0d1;
+      --text-muted: #6c5b8a;
+      --border-color: #463b6a;
+    }
+
+    /* Solarized Dark */
+    [data-theme="solarized"] {
+      --bg-primary: #002b36;
+      --bg-secondary: #073642;
+      --bg-tertiary: #0a4452;
+      --bg-input: #0d5566;
+      --bg-hover: #156478;
+      --accent-primary: #2aa198;
+      --accent-secondary: #268bd2;
+      --accent-glow: rgba(42, 161, 152, 0.25);
+      --text-primary: #fdf6e3;
+      --text-secondary: #93a1a1;
+      --text-muted: #586e75;
+      --border-color: #0a4452;
+    }
+
+    /* Red Theme */
+    [data-theme="red"] {
+      --bg-primary: #1a0a0a;
+      --bg-secondary: #2d1515;
+      --bg-tertiary: #3d1f1f;
+      --bg-input: #4a2525;
+      --bg-hover: #5a3030;
+      --accent-primary: #ff6b6b;
+      --accent-secondary: #ee5a5a;
+      --accent-glow: rgba(255, 107, 107, 0.25);
+      --text-primary: #ffeaea;
+      --text-secondary: #d4a5a5;
+      --text-muted: #8a6060;
+      --border-color: #4a2525;
+    }
+
+    /* Kimbi Dark */
+    [data-theme="kimbi"] {
+      --bg-primary: #221a0f;
+      --bg-secondary: #2d2418;
+      --bg-tertiary: #3d3222;
+      --bg-input: #4a3d2a;
+      --bg-hover: #5a4a35;
+      --accent-primary: #d19a66;
+      --accent-secondary: #e5c07b;
+      --accent-glow: rgba(209, 154, 102, 0.25);
+      --text-primary: #ffe4c4;
+      --text-secondary: #c9a87c;
+      --text-muted: #7a6040;
+      --border-color: #4a3d2a;
+    }
+
+    /* Ocean Blue */
+    [data-theme="ocean"] {
+      --bg-primary: #0a1628;
+      --bg-secondary: #0f2137;
+      --bg-tertiary: #152a45;
+      --bg-input: #1a3555;
+      --bg-hover: #204065;
+      --accent-primary: #61afef;
+      --accent-secondary: #56b6c2;
+      --accent-glow: rgba(97, 175, 239, 0.25);
+      --text-primary: #e6f1ff;
+      --text-secondary: #a0c4e8;
+      --text-muted: #5a7a9a;
+      --border-color: #1a3555;
+    }
+
+    /* Purple Haze */
+    [data-theme="purple"] {
+      --bg-primary: #13091c;
+      --bg-secondary: #1e1029;
+      --bg-tertiary: #2a1838;
+      --bg-input: #362045;
+      --bg-hover: #432855;
+      --accent-primary: #c792ea;
+      --accent-secondary: #ff9cac;
+      --accent-glow: rgba(199, 146, 234, 0.3);
+      --text-primary: #f0e6ff;
+      --text-secondary: #b8a2d0;
+      --text-muted: #6b5080;
+      --border-color: #362045;
+    }
+
+    /* High Contrast */
+    [data-theme="high-contrast"] {
+      --bg-primary: #000000;
+      --bg-secondary: #0a0a0a;
+      --bg-tertiary: #151515;
+      --bg-input: #1a1a1a;
+      --bg-hover: #252525;
+      --accent-primary: #00ff9f;
+      --accent-secondary: #00d4ff;
+      --accent-glow: rgba(0, 255, 159, 0.3);
+      --text-primary: #ffffff;
+      --text-secondary: #cccccc;
+      --text-muted: #808080;
+      --border-color: #333333;
+    }
+
+    /* Light Theme */
+    [data-theme="light"] {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f5;
+      --bg-tertiary: #e8e8e8;
+      --bg-input: #f0f0f0;
+      --bg-hover: #e0e0e0;
+      --accent-primary: #0066cc;
+      --accent-secondary: #0052a3;
+      --accent-glow: rgba(0, 102, 204, 0.15);
+      --text-primary: #1a1a1a;
+      --text-secondary: #555555;
+      --text-muted: #888888;
+      --border-color: #d0d0d0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    /* ============================================
+       TOP BAR
+       ============================================ */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 44px;
+      padding: 0 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      -webkit-app-region: drag;
+      user-select: none;
+      flex-shrink: 0;
+      transition: background-color 0.3s ease;
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      -webkit-app-region: no-drag;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--bg-primary);
+      box-shadow: var(--shadow-glow);
+      transition: all 0.3s ease;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-name {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+
+    /* Menu Items */
+    .menu-bar {
+      display: flex;
+      gap: 2px;
+      -webkit-app-region: no-drag;
+    }
+
+    .menu-item {
+      position: relative;
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .menu-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 6px;
+      min-width: 220px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+    }
+
+    .menu-item:hover .dropdown-menu {
+      display: block;
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .dropdown-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .dropdown-item-icon {
+      margin-right: 10px;
+    }
+
+    .dropdown-shortcut {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    .dropdown-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 6px 0;
+    }
+
+    /* Theme Submenu */
+    .theme-submenu {
+      position: relative;
+    }
+
+    .theme-submenu .submenu {
+      position: absolute;
+      left: 100%;
+      top: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 6px;
+      min-width: 180px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .theme-submenu:hover .submenu {
+      display: block;
+    }
+
+    .theme-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .theme-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .theme-option.active {
+      background: rgba(var(--accent-primary), 0.1);
+      color: var(--accent-primary);
+    }
+
+    .theme-option.active::after {
+      content: '✔';
+      margin-left: auto;
+      color: var(--accent-primary);
+    }
+
+    .theme-color-preview {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 2px solid var(--border-color);
+    }
+
+    /* Right side */
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      -webkit-app-region: no-drag;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.95); }
+    }
+    /* ============================================
+       MAIN LAYOUT
+       ============================================ */
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ============================================
+       SIDEBAR
+       ============================================ */
+    .sidebar {
+      width: 52px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      flex-shrink: 0;
+      transition: background-color 0.3s ease;
+    }
+
+    .sidebar-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-bottom: 8px;
+      font-size: 18px;
+      background: transparent;
+      border: none;
+    }
+
+    .sidebar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .sidebar-btn.active {
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+    }
+
+    .sidebar-spacer {
+      flex: 1;
+    }
+
+    .sidebar-avatar {
+      width: 32px;
+      height: 32px;
+      background: var(--accent-primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--bg-primary);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    /* ============================================
+       HISTORY PANEL
+       ============================================ */
+    .history-panel {
+      width: 0;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      overflow: hidden;
+      transition: width 0.3s ease;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-panel.open {
+      width: 280px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .panel-title {
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-close {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border: none;
+      font-size: 18px;
+    }
+
+    .panel-close:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .panel-search {
+      padding: 12px 16px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-primary);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-placeholder);
+    }
+
+    .chat-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .chat-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-bottom: 4px;
+    }
+
+    .chat-item:hover {
+      background: var(--bg-hover);
+    }
+
+    .chat-item.active {
+      background: rgba(0, 212, 170, 0.1);
+      border: 1px solid rgba(0, 212, 170, 0.2);
+    }
+
+    .chat-item-icon {
+      width: 38px;
+      height: 38px;
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .chat-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chat-item-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-item-preview {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-item-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    } all 0.15s ease;
+      background: none;
+      border: none;
+      font-size: 14px;
+    }
+
+    .message-action-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* ============================================
+       TERMINAL - INSIDE CHAT AREA
+       ============================================ */
+    .terminal-panel {
+      height: 0;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      overflow: hidden;
+      transition: height 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .terminal-panel.open {
+      height: 180px;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .terminal-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .terminal-tab {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border: none;
+    }
+
+    .terminal-tab:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .terminal-tab.active {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .terminal-content {
+      flex: 1;
+      padding: 12px 16px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      color: var(--text-secondary);
+      overflow-y: auto;
+      line-height: 1.6;
+      height: calc(100% - 40px);
+    }
+
+    .terminal-line {
+      margin-bottom: 4px;
+    }
+
+    .terminal-prompt {
+      color: var(--accent-primary);
+      margin-right: 8px;
+    }
+
+    /* ============================================
+       INPUT SECTION
+       ============================================ */
+    .input-section {
+      padding: 16px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    /* Feature Chips */
+    .feature-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 16px;
+      max-width: 800px;
+    }
+
+    .feature-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .feature-chip:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+      transform: translateY(-2px);
+    }
+
+    .feature-chip.active {
+      background: rgba(0, 212, 170, 0.1);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    .feature-chip-icon {
+      font-size: 16px;
+    }
+
+    /* Input Container */
+    .input-container {
+      width: 100%;
+      max-width: 800px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .input-container:focus-within {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .input-main {
+      display: flex;
+      align-items: flex-end;
+      padding: 12px 16px;
+    }
+
+    .input-textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 15px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      min-height: 24px;
+      max-height: 150px;
+      padding: 4px 0;
+    }
+
+    .input-textarea::placeholder {
+      color: var(--text-placeholder);
+    }
+
+    /* Input Toolbar */
+    .input-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-top: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .toolbar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .toolbar-btn-icon {
+      font-size: 18px;
+    }
+
+    /* Pensamiento Toggle Button */
+    .thinking-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+    }
+
+    .thinking-btn.active {
+      background: rgba(139, 92, 246, 0.2);
+      border-color: var(--accent-purple);
+      color: var(--accent-purple);
+    }
+
+    /* Mode Button (Agente/Plan/Debug) */
+    .mode-btn {
+      position: relative;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+    }
+
+    .mode-dropdown {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 160px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+
+    .mode-btn.active .mode-dropdown {
+      display: block;
+    }
+
+    .mode-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .mode-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .mode-option.selected {
+      background: rgba(0, 212, 170, 0.1);
+      color: var(--accent-primary);
+    }
+    /* Voice Button */
+    .voice-btn {
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .voice-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+    }
+
+    .voice-dropdown {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 180px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+
+    .voice-btn.active .voice-dropdown {
+      display: block;
+    }
+
+    .voice-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .voice-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .voice-option-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: var(--accent-blue);
+      color: white;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+
+    /* Send Button */
+    .send-btn {
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border: none;
+      border-radius: 12px;
+      color: var(--bg-primary);
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .send-btn:hover:not(:disabled) {
+      transform: scale(1.05);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Attach Menu */
+    .attach-btn {
+      position: relative;
+    }
+
+    .attach-dropdown {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 180px;
+      display: none;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+
+    .attach-btn.active .attach-dropdown {
+      display: block;
+    }
+
+    .attach-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .attach-option:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* ============================================
+       CANVAS PANEL
+       ============================================ */
+    .canvas-panel {
+      width: 0;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border-color);
+      overflow: hidden;
+      transition: width 0.3s ease;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-panel.open {
+      width: 400px;
+    }
+
+    .canvas-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .canvas-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .canvas-tab {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border: none;
+    }
+
+    .canvas-tab:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .canvas-tab.active {
+      background: rgba(0, 212, 170, 0.1);
+      color: var(--accent-primary);
+    }
+
+    .canvas-content {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .canvas-placeholder {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .canvas-placeholder-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+
+    .canvas-placeholder-text {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ============================================
+       FOOTER
+       ============================================ */
+    .footer-note {
+      text-align: center;
+      padding: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* ============================================
+       SCROLLBAR
+       ============================================ */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 768px) {
+      .history-panel.open {
+        position: fixed;
+        left: 52px;
+        top: 44px;
+        bottom: 0;
+        z-index: 100;
+        width: calc(100% - 52px);
+        max-width: 300px;
+      }
+
+      .canvas-panel.open {
+        position: fixed;
+        right: 0;
+        top: 44px;
+        bottom: 0;
+        z-index: 100;
+        width: 100%;
+        max-width: 350px;
+      }
+
+      .feature-chips {
+        gap: 8px;
+      }
+
+      .feature-chip {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+
+      .input-section {
+        padding: 12px;
+      }
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>  <!-- ============================================
+       TOP BAR
+       ============================================ -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <div class="brand" onclick="toggleHistoryPanel()">
+        <div class="brand-logo">S</div>
+        <div class="brand-text">
+          <span class="brand-name">StudioLab</span>
+          <span class="brand-subtitle">Multimodal Intelligence</span>
+        </div>
+      </div>
+
+      <nav class="menu-bar">
+        <div class="menu-item">
+          Archivo
+          <div class="dropdown-menu">
+            <div class="dropdown-item" onclick="newChat()">
+              <span><span class="dropdown-item-icon">📄</span>Nuevo Chat</span>
+              <span class="dropdown-shortcut">Ctrl+N</span>
+            </div>
+            <div class="dropdown-item" onclick="openProject()">
+              <span><span class="dropdown-item-icon">📂</span>Abrir Proyecto</span>
+              <span class="dropdown-shortcut">Ctrl+O</span>
+            </div>
+            <div class="dropdown-item" onclick="saveChat()">
+              <span><span class="dropdown-item-icon">💾</span>Guardar Chat</span>
+              <span class="dropdown-shortcut">Ctrl+S</span>
+            </div>            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">📤</span>Exportar</span>
+              <span class="dropdown-shortcut">Ctrl+E</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">⚙️</span>Configuración</span>
+              <span class="dropdown-shortcut">Ctrl+,</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-item">
+          Editar
+          <div class="dropdown-menu">
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">↩️</span>Deshacer</span>
+              <span class="dropdown-shortcut">Ctrl+Z</span>
+            </div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">↪️</span>Rehacer</span>
+              <span class="dropdown-shortcut">Ctrl+Y</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">🔍</span>Buscar</span>
+              <span class="dropdown-shortcut">Ctrl+F</span>
+            </div>
+          </div>
+        </div>
+        <div class="menu-item">
+          Ver
+          <div class="dropdown-menu">
+            <div class="dropdown-item" onclick="toggleHistoryPanel()">
+              <span><span class="dropdown-item-icon">📑</span>Panel de Chats</span>
+              <span class="dropdown-shortcut">Ctrl+B</span>
+            </div>
+            <div class="dropdown-item" onclick="toggleCanvasPanel()">
+              <span><span class="dropdown-item-icon">🎨</span>Panel Canvas</span>
+              <span class="dropdown-shortcut">Ctrl+K</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item theme-submenu">
+              <span><span class="dropdown-item-icon">🎨</span>Temas</span>
+              <span>▶</span>
+              <div class="submenu">
+                <div class="theme-option" data-theme="default" onclick="setTheme('default')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #00d4aa, #0d0d0d);"></span>
+                  <span>Dark (Default)</span>
+                </div>
+                <div class="theme-option" data-theme="tokyo-night" onclick="setTheme('tokyo-night')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #7aa2f7, #1a1b26);"></span>
+                  <span>Tokyo Night</span>
+                </div>
+                <div class="theme-option" data-theme="monokai" onclick="setTheme('monokai')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #a6e22e, #272822);"></span>
+                  <span>Monokai</span>
+                </div>
+                <div class="theme-option" data-theme="synthwave" onclick="setTheme('synthwave')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #ff7edb, #262335);"></span>
+                  <span>Synthwave 84</span>
+                </div>                <div class="theme-option" data-theme="solarized" onclick="setTheme('solarized')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #2aa198, #002b36);"></span>
+                  <span>Solarized Dark</span>
+                </div>
+                <div class="theme-option" data-theme="red" onclick="setTheme('red')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #ff6b6b, #1a0a0a);"></span>
+                  <span>Red</span>
+                </div>
+                <div class="theme-option" data-theme="kimbi" onclick="setTheme('kimbi')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #d19a66, #221a0f);"></span>
+                  <span>Kimbi Dark</span>
+                </div>
+                <div class="theme-option" data-theme="ocean" onclick="setTheme('ocean')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #61afef, #0a1628);"></span>
+                  <span>Ocean Blue</span>
+                </div>
+                <div class="theme-option" data-theme="purple" onclick="setTheme('purple')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #c792ea, #13091c);"></span>
+                  <span>Purple Haze</span>
+                </div>
+                <div class="theme-option" data-theme="high-contrast" onclick="setTheme('high-contrast')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #00ff9f, #000000);"></span>
+                  <span>High Contrast</span>
+                </div>
+                <div class="theme-option" data-theme="light" onclick="setTheme('light')">
+                  <span class="theme-color-preview" style="background: linear-gradient(135deg, #0066cc, #ffffff);"></span>
+                  <span>Light</span>
+                </div>
+                <div class="dropdown-divider"></div>
+                <div class="theme-option" onclick="customTheme()">
+                  <span class="dropdown-item-icon">➕</span>
+                  <span>Añadir tema personalizado...</span>
+                </div>
+              </div>
+            </div>            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">🔍</span>Zoom In</span>
+              <span class="dropdown-shortcut">Ctrl++</span>
+            </div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">🔍</span>Zoom Out</span>
+              <span class="dropdown-shortcut">Ctrl+-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-item">
+          Ejecutar
+          <div class="dropdown-menu">
+            <div class="dropdown-item" onclick="executeCode()">
+              <span><span class="dropdown-item-icon">▶️</span>Ejecutar Código</span>
+              <span class="dropdown-shortcut">F5</span>
+            </div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">🐛</span>Depurar</span>
+              <span class="dropdown-shortcut">F9</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <span><span class="dropdown-item-icon">⏹️</span>Detener</span>
+              <span class="dropdown-shortcut">Shift+F5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-item" onclick="toggleTerminal()">
+          Terminal
+        </div>
+      </nav>
+    </div>
+
+    <div class="top-bar-right">
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        <span>Conectado</span>
+      </div>
+    </div>
+  </header>
+  <!-- ============================================
+       MAIN CONTAINER
+       ============================================ -->
+  <main class="main-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <button class="sidebar-btn" onclick="toggleHistoryPanel()" title="Historial de Chats">📑</button>
+      <button class="sidebar-btn" onclick="newChat()" title="Nuevo Chat">➕</button>
+      <button class="sidebar-btn" title="Buscar">🔍</button>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-avatar" title="Perfil">C</div>
+    </aside>
+
+    <!-- History Panel -->
+    <aside class="history-panel" id="historyPanel">
+      <div class="panel-header">
+        <span class="panel-title">💬 Historial</span>
+        <button class="panel-close" onclick="toggleHistoryPanel()">×</button>
+      </div>
+      <div class="panel-search">
+        <input type="text" class="search-input" placeholder="Buscar en chats...">
+      </div>
+      <div class="chat-list" id="chatList"></div>
+    </aside>
+
+    <!-- Chat Area -->
+    <section class="chat-area">
+      <!-- Model Selector -->
+      <div class="model-selector-container">
+        <div class="model-selector" id="modelSelector" onclick="toggleModelDropdown()">
+          <span class="model-name" id="currentModelName">QWEN-Max</span>
+          <span class="model-arrow">▼</span>
+          <div class="model-dropdown">
+            <div class="model-option selected" data-model="qwen-max" onclick="selectModel('qwen-max', 'QWEN-Max')">
+              <span class="model-option-name">QWEN-Max</span>
+              <span class="model-option-badge">32K</span>
+            </div>
+            <div class="model-option" data-model="qwen-plus" onclick="selectModel('qwen-plus', 'QWEN-Plus')">
+              <span class="model-option-name">QWEN-Plus</span>
+              <span class="model-option-badge">131K</span>
+            </div>
+            <div class="model-option" data-model="qwen-turbo" onclick="selectModel('qwen-turbo', 'QWEN-Turbo')">
+              <span class="model-option-name">QWEN-Turbo</span>
+              <span class="model-option-badge">1M</span>
+            </div>
+            <div class="model-option" data-model="qwen-omni" onclick="selectModel('qwen-omni', 'QWEN-Omni')">
+              <span class="model-option-name">QWEN-Omni</span>
+              <span class="model-option-badge">Multimodal</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Chat Content Wrapper (contains messages + terminal) -->
+      <div class="chat-content-wrapper">
+        <!-- Messages Area -->
+        <div class="chat-messages">
+          <div class="welcome-screen" id="welcomeScreen">
+            <h1 class="welcome-greeting">Buenas tardes, <strong>Cley</strong></h1>
+          </div>
+          <div class="messages-container" id="messagesContainer"></div>
+        </div>
+
+        <!-- Terminal - INSIDE chat area -->
+        <div class="terminal-panel" id="terminalPanel">
+          <div class="terminal-header">
+            <div class="terminal-tabs">
+              <button class="terminal-tab active">Terminal</button>
+              <button class="terminal-tab">Problemas</button>
+              <button class="terminal-tab">Output</button>
+            </div>
+            <button class="panel-close" onclick="toggleTerminal()">×</button>
+          </div>
+          <div class="terminal-content" id="terminalContent">
+            <div class="terminal-line"><span class="terminal-prompt">$</span>StudioLab v8.0 Pro inicializado</div>
+            <div class="terminal-line"><span class="terminal-prompt">$</span>QWEN Omni conectado ✔</div>
+            <div class="terminal-line"><span class="terminal-prompt">$</span>MCP Server: http://localhost:19875 ✔</div>
+            <div class="terminal-line"><span class="terminal-prompt">$</span>Listo para comandos...</div>
+          </div>
+        </div>
+      </div>
+      <!-- Input Section -->
+      <div class="input-section">
+        <!-- Feature Chips -->
+        <div class="feature-chips" id="featureChips">
+          <button class="feature-chip" data-feature="imagen" onclick="toggleFeature(this, 'imagen')">
+            <span class="feature-chip-icon">🖼️</span>
+            <span>Edición de imagen</span>
+          </button>
+          <button class="feature-chip" data-feature="web" onclick="toggleFeature(this, 'web')">
+            <span class="feature-chip-icon">🌐</span>
+            <span>desarrollo web</span>
+          </button>
+          <button class="feature-chip" data-feature="aprende" onclick="toggleFeature(this, 'aprende')">
+            <span class="feature-chip-icon">📚</span>
+            <span>Aprende</span>
+          </button>
+          <button class="feature-chip" data-feature="investigacion" onclick="toggleFeature(this, 'investigacion')">
+            <span class="feature-chip-icon">🔬</span>
+            <span>Investigación en profundidad</span>
+          </button>
+          <button class="feature-chip" data-feature="gen-imagen" onclick="toggleFeature(this, 'gen-imagen')">
+            <span class="feature-chip-icon">🎨</span>
+            <span>Generación de imágenes</span>
+          </button>
+          <button class="feature-chip" data-feature="video" onclick="toggleFeature(this, 'video')">
+            <span class="feature-chip-icon">🎬</span>
+            <span>Generación de Video</span>
+          </button>
+          <button class="feature-chip" data-feature="artefactos" onclick="toggleFeature(this, 'artefactos')">
+            <span class="feature-chip-icon">✨</span>
+            <span>Artefactos</span>
+          </button>
+          <button class="feature-chip" onclick="showMoreFeatures()">
+            <span>Más</span>
+          </button>
+        </div>
+        <!-- Input Container -->
+        <div class="input-container">
+          <div class="input-main">
+            <textarea 
+              class="input-textarea" 
+              id="messageInput"
+              placeholder="¿Cómo puedo ayudarte hoy?"
+              rows="1"
+              onkeydown="handleKeyDown(event)"
+              oninput="autoResize(this); updateSendButton()"
+            ></textarea>
+          </div>
+
+          <div class="input-toolbar">
+            <div class="toolbar-left">
+              <!-- Attach Button (+) - CORRECTED -->
+              <div class="toolbar-btn attach-btn" id="attachBtn" onclick="toggleAttachMenu(event)">
+                <span class="toolbar-btn-icon">➕</span>
+                <div class="attach-dropdown">
+                  <div class="attach-option" onclick="attachFile('imagen')">
+                    <span>🖼️</span>
+                    <span>Imágenes</span>
+                  </div>
+                  <div class="attach-option" onclick="attachFile('video')">
+                    <span>🎬</span>
+                    <span>Video</span>
+                  </div>
+                  <div class="attach-option" onclick="attachFile('audio')">
+                    <span>🎵</span>
+                    <span>Audio</span>
+                  </div>
+                  <div class="attach-option" onclick="attachFile('texto')">
+                    <span>📄</span>
+                    <span>Texto</span>
+                  </div>
+                  <div class="attach-option" onclick="attachFile('archivos')">
+                    <span>📁</span>
+                    <span>Archivos</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Pensamiento Toggle - SEPARATE (ON/OFF only) -->
+              <button class="toolbar-btn thinking-btn" id="thinkingBtn" onclick="toggleThinking()">
+                <span class="toolbar-btn-icon">🧠</span>
+                <span id="thinkingLabel">Pensamiento</span>
+              </button>
+
+              <!-- Mode Button - Agente/Plan/Debug -->
+              <div class="toolbar-btn mode-btn" id="modeBtn" onclick="toggleModeMenu(event)">
+                <span class="toolbar-btn-icon" id="modeIcon">∞</span>
+                <span id="currentModeName">Agente</span>
+                <span>▼</span>
+                <div class="mode-dropdown">
+                  <div class="mode-option selected" onclick="selectMode('agente', 'Agente', '∞')">
+                    <span>∞</span>
+                    <span>Agente</span>
+                  </div>
+                  <div class="mode-option" onclick="selectMode('plan', 'Plan', '📋')">
+                    <span>📋</span>
+                    <span>Plan</span>
+                  </div>
+                  <div class="mode-option" onclick="selectMode('debug', 'Debug', '🐛')">
+                    <span>🐛</span>
+                    <span>Debug</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Search Button -->
+              <button class="toolbar-btn" onclick="toggleSearch()">
+                <span class="toolbar-btn-icon">🌐</span>
+                <span>Buscar</span>
+              </button>
+            </div>
+            <div class="toolbar-right">
+              <!-- Voice Button -->
+              <div class="voice-btn" id="voiceBtn" onclick="toggleVoiceMenu(event)">
+                <span>🎙️</span>
+                <div class="voice-dropdown">
+                  <div class="voice-option" onclick="startVoice('chat')">
+                    <span>🎧</span>
+                    <span>Chat de Voz</span>
+                  </div>
+                  <div class="voice-option" onclick="startVoice('video')">
+                    <span>📹</span>
+                    <span>Chat de video</span>
+                    <span class="voice-option-badge">Beta</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Send Button -->
+              <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+                <span>→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          El contenido generado por IA puede no ser preciso.
+        </div>
+      </div>
+    </section>
+    <!-- Canvas Panel -->
+    <aside class="canvas-panel" id="canvasPanel">
+      <div class="canvas-header">
+        <div class="canvas-tabs">
+          <button class="canvas-tab active">Código</button>
+          <button class="canvas-tab">Preview</button>
+          <button class="canvas-tab">Diseño</button>
+        </div>
+        <button class="panel-close" onclick="toggleCanvasPanel()">×</button>
+      </div>
+      <div class="canvas-content">
+        <div class="canvas-placeholder">
+          <div class="canvas-placeholder-icon">🎨</div>
+          <p class="canvas-placeholder-text">
+            Selecciona "desarrollo web" o "Artefactos"<br>
+            para activar el canvas
+          </p>
+        </div>
+      </div>
+    </aside>
+  </main>
+  <!-- ============================================
+       JAVASCRIPT
+       ============================================ -->
+  <script>
+    // ============================================
+    // STATE
+    // ============================================
+    const state = {
+      historyPanelOpen: false,
+      canvasPanelOpen: false,
+      terminalOpen: false,
+      currentModel: 'qwen-max',
+      currentMode: 'agente',
+      thinkingEnabled: false,
+      searchEnabled: false,
+      currentTheme: 'default',
+      activeFeatures: new Set(),
+      messages: [],
+      chatHistory: [
+        { id: 1, icon: '🌐', title: 'Desarrollo Web App', preview: 'Creando componentes...', time: 'Ahora', active: true },
+        { id: 2, icon: '🎬', title: 'Video Marketing', preview: 'Guión para campaña...', time: '2h' },
+        { id: 3, icon: '🖼️', title: 'Diseño de Logo', preview: 'Iteración 3 del concepto...', time: 'Ayer' },
+        { id: 4, icon: '📊', title: 'Análisis de Datos', preview: 'Dashboard con métricas...', time: '2d' },
+      ]
+    };
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+      renderChatHistory();
+      setupKeyboardShortcuts();
+      updateGreeting();
+      loadSavedTheme();
+      document.getElementById('messageInput').focus();
+      console.log('✅ StudioLab 8.0 Pro cargado correctamente');
+    });
+
+    function updateGreeting() {
+      const hour = new Date().getHours();
+      let greeting = 'Buenos días';
+      if (hour >= 12 && hour < 20) greeting = 'Buenas tardes';
+      else if (hour >= 20) greeting = 'Buenas noches';
+      
+      const welcomeEl = document.querySelector('.welcome-greeting');
+      if (welcomeEl) {
+        welcomeEl.innerHTML = `${greeting}, <strong>Cley</strong>`;
+      }
+    }
+    // ============================================
+    // THEME SYSTEM
+    // ============================================
+    function setTheme(themeName) {
+      state.currentTheme = themeName;
+      
+      if (themeName === 'default') {
+        document.body.removeAttribute('data-theme');
+      } else {
+        document.body.setAttribute('data-theme', themeName);
+      }
+      
+      // Update active state in menu
+      document.querySelectorAll('.theme-option').forEach(opt => {
+        opt.classList.remove('active');
+        if (opt.dataset.theme === themeName) {
+          opt.classList.add('active');
+        }
+      });
+      
+      // Save preference
+      localStorage.setItem('studiolab-theme', themeName);
+      addTerminalLine(`Tema cambiado a: ${themeName}`);
+    }
+
+    function loadSavedTheme() {
+      const savedTheme = localStorage.getItem('studiolab-theme') || 'default';
+      setTheme(savedTheme);
+    }
+
+    function customTheme() {
+      alert('Próximamente: Editor de temas personalizados.\n\nPodrás crear y guardar tus propios esquemas de colores.');
+    }
+
+    // ============================================
+    // PANEL TOGGLES
+    // ============================================
+    function toggleHistoryPanel() {
+      state.historyPanelOpen = !state.historyPanelOpen;
+      document.getElementById('historyPanel').classList.toggle('open', state.historyPanelOpen);
+    }
+
+    function toggleCanvasPanel() {
+      state.canvasPanelOpen = !state.canvasPanelOpen;
+      document.getElementById('canvasPanel').classList.toggle('open', state.canvasPanelOpen);
+    }
+
+    function toggleTerminal() {
+      state.terminalOpen = !state.terminalOpen;
+      document.getElementById('terminalPanel').classList.toggle('open', state.terminalOpen);
+    }
+    // ============================================
+    // MODEL SELECTOR
+    // ============================================
+    function toggleModelDropdown() {
+      document.getElementById('modelSelector').classList.toggle('active');
+    }
+
+    function selectModel(modelId, modelName) {
+      state.currentModel = modelId;
+      document.getElementById('currentModelName').textContent = modelName;
+      
+      document.querySelectorAll('.model-option').forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.model === modelId);
+      });
+      
+      document.getElementById('modelSelector').classList.remove('active');
+      addTerminalLine(`Modelo cambiado a: ${modelName}`);
+    }
+
+    // ============================================
+    // DROPDOWN MENUS
+    // ============================================
+    function toggleAttachMenu(e) {
+      e.stopPropagation();
+      closeAllDropdowns('attachBtn');
+      document.getElementById('attachBtn').classList.toggle('active');
+    }
+
+    function toggleModeMenu(e) {
+      e.stopPropagation();
+      closeAllDropdowns('modeBtn');
+      document.getElementById('modeBtn').classList.toggle('active');
+    }
+    function toggleVoiceMenu(e) {
+      e.stopPropagation();
+      closeAllDropdowns('voiceBtn');
+      document.getElementById('voiceBtn').classList.toggle('active');
+    }
+
+    function closeAllDropdowns(except = null) {
+      const dropdowns = ['attachBtn', 'modeBtn', 'voiceBtn', 'modelSelector'];
+      dropdowns.forEach(id => {
+        if (id !== except) {
+          document.getElementById(id)?.classList.remove('active');
+        }
+      });
+    }
+
+    document.addEventListener('click', () => {
+      closeAllDropdowns();
+    });
+
+    // ============================================
+    // THINKING TOGGLE (ON/OFF only)
+    // ============================================
+    function toggleThinking() {
+      state.thinkingEnabled = !state.thinkingEnabled;
+      const btn = document.getElementById('thinkingBtn');
+      btn.classList.toggle('active', state.thinkingEnabled);
+      
+      const label = document.getElementById('thinkingLabel');
+      label.textContent = state.thinkingEnabled ? 'Pensamiento ON' : 'Pensamiento';
+      
+      addTerminalLine(`Pensamiento profundo: ${state.thinkingEnabled ? 'ACTIVADO' : 'DESACTIVADO'}`);
+    }
+    // ============================================
+    // MODE SELECTOR (Agente/Plan/Debug)
+    // ============================================
+    function selectMode(modeId, modeName, modeIcon) {
+      state.currentMode = modeId;
+      document.getElementById('currentModeName').textContent = modeName;
+      document.getElementById('modeIcon').textContent = modeIcon;
+      
+      document.querySelectorAll('.mode-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      event.target.closest('.mode-option').classList.add('selected');
+      
+      document.getElementById('modeBtn').classList.remove('active');
+      addTerminalLine(`Modo cambiado a: ${modeName}`);
+    }
+
+    // ============================================
+    // FEATURE CHIPS
+    // ============================================
+    function toggleFeature(element, featureId) {
+      element.classList.toggle('active');
+      
+      if (element.classList.contains('active')) {
+        state.activeFeatures.add(featureId);
+        
+        if (featureId === 'web' || featureId === 'artefactos') {
+          if (!state.canvasPanelOpen) {
+            toggleCanvasPanel();
+          }
+        }
+      } else {
+        state.activeFeatures.delete(featureId);
+      }
+    }
+
+    function showMoreFeatures() {
+      alert('Más funcionalidades disponibles:\n• Traducción\n• Resumen\n• Análisis de datos\n• Documentos\n• Audio/Podcast');
+    }
+    // ============================================
+    // VOICE
+    // ============================================
+    function startVoice(type) {
+      document.getElementById('voiceBtn').classList.remove('active');
+      
+      const messages = {
+        'chat': '🎧 Iniciando Chat de Voz...',
+        'video': '📹 Iniciando Chat de Video (Beta)...'
+      };
+      
+      addTerminalLine(messages[type]);
+      
+      if (window.sandraAPI?.startMultimodalConversation) {
+        window.sandraAPI.startMultimodalConversation({ mode: type });
+      }
+    }
+
+    // ============================================
+    // ATTACH FILES - CORRECTED
+    // ============================================
+    function attachFile(type) {
+      document.getElementById('attachBtn').classList.remove('active');
+      
+      const labels = {
+        'imagen': '🖼️ Adjuntando imagen...',
+        'video': '🎬 Adjuntando video...',
+        'audio': '🎵 Adjuntando audio...',
+        'texto': '📄 Adjuntando texto...',
+        'archivos': '📁 Adjuntando archivos...'
+      };
+      
+      addTerminalLine(labels[type] || `📎 Adjuntando ${type}...`);
+      
+      // Call Electron API
+      // window.sandraAPI.attachFile(type);
+    }
+
+    // ============================================
+    // SEARCH
+    // ============================================
+    function toggleSearch() {
+      state.searchEnabled = !state.searchEnabled;
+      addTerminalLine(`Búsqueda web: ${state.searchEnabled ? 'ACTIVADA' : 'DESACTIVADA'}`);
+    }

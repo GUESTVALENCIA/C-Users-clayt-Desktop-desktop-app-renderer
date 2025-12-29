@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat con Qwen - Integración Ollama</title>
+  <link rel="stylesheet" href="qwen-chat-style.css">
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <h1>Chat con Qwen</h1>
+      <div id="status" class="status-indicator">Verificando conexión...</div>
+    </div>
+    
+    <div id="chatOutput" class="chat-messages">
+      <div class="assistant-message">
+        <strong>Qwen:</strong> ¡Hola! Soy Qwen, integrado con Ollama. ¿En qué puedo ayudarte hoy?
+      </div>
+    </div>
+    
+    <div class="input-area">
+      <input type="text" id="messageInput" placeholder="Escribe tu mensaje aquí..." />
+      <button id="sendButton">Enviar</button>
+    </div>
+  </div>
+  
+  <script src="qwen-ollama-integration.js"></script>
+</body>
+</html>

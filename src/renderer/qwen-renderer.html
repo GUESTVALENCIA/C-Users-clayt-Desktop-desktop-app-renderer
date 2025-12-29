@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               frame-src https://qwenlm.ai https://qwen.alibaba.com https://*.aliyun.com;
+               connect-src 'self' https://qwenlm.ai https://qwen.alibaba.com https://*.aliyun.com;
+               script-src 'self' https://qwenlm.ai https://qwen.alibaba.com 'unsafe-inline' 'unsafe-eval';
+               style-src 'self' https://qwenlm.ai 'unsafe-inline';
+               font-src 'self' https://qwenlm.ai;
+               img-src 'self' https:;">
+    <title>QWEN - Studio Lab</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            overflow: hidden;
+        }
+
+        #qwen-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Barra de estado */
+        #status-bar {
+            padding: 8px 12px;
+            background: linear-gradient(to right, #1e1e1e, #252526);
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+            height: 36px;
+        }
+
+        #status-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #4ec9b0;
+            box-shadow: 0 0 8px rgba(78, 201, 176, 0.5);
+        }
+
+        .status-indicator.connecting {
+            background: #dcdcaa;
+            animation: pulse 1s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #f48771;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #status-text {
+            font-size: 12px;
+            color: #d4d4d4;
+        }
+
+        #status-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            padding: 4px 10px;
+            background: #0e639c;
+            color: #ffffff;
+            border: 1px solid #007acc;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #1177bb;
+            border-color: #0099ff;
+        }
+
+        button:active {
+            background: #0d5a96;
+        }
+
+        button:disabled {
+            background: #3e3e42;
+            color: #858585;
+            cursor: not-allowed;
+            border-color: #3e3e42;
+        }
+
+        #mcp-btn {
+            background: #4ec9b0;
+            border-color: #4ec9b0;
+        }
+
+        #mcp-btn:hover {
+            background: #5dd9c0;
+            border-color: #5dd9c0;
+        }
+
+        #mcp-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            background: #1e5631;
+            border: 1px solid #4ec9b0;
+            border-radius: 5px;
+            color: #4ec9b0;
+            font-size: 12px;
+            display: none;
+            z-index: 100;
+            animation: slideIn 0.3s ease-in-out;
+        }
+
+        #mcp-notification.show {
+            display: block;
+        }
+
+        #mcp-notification.error {
+            background: #3c2c2c;
+            border-color: #f48771;
+            color: #f48771;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* iframe */
+        #qwen-iframe {
+            flex: 1;
+            width: 100%;
+            height: auto;
+            border: none;
+            background: white;
+        }
+
+        /* Spinner de carga */
+        .spinner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+
+        .spinner.show {
+            display: block;
+        }
+
+        .spinner::after {
+            content: "";
+            display: block;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0e639c;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Mensaje de error */
+        #error-message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #3c2c2c;
+            border: 1px solid #f48771;
+            padding: 20px;
+            border-radius: 5px;
+            color: #f48771;
+            text-align: center;
+            z-index: 20;
+            max-width: 400px;
+        }
+
+        #error-message.show {
+            display: block;
+        }
+
+        #error-message p {
+            margin-bottom: 10px;
+        }
+
+        #error-message button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="qwen-container">
+        <!-- Barra de estado -->
+        <div id="status-bar">
+            <div id="status-left">
+                <span class="status-indicator connected" id="status-indicator"></span>
+                <span id="status-text">Cargando QWEN...</span>
+            </div>
+            <div id="status-right">
+                <button id="mcp-btn" title="Enviar respuesta de QWEN al servidor MCP">
+                    📤 Enviar al MCP
+                </button>
+                <button id="reconnect-btn" title="Reconectar a QWEN">
+                    🔄 Reconectar
+                </button>
+            </div>
+        </div>
+
+        <!-- Notificación MCP -->
+        <div id="mcp-notification"></div>
+
+        <!-- Spinner de carga -->
+        <div class="spinner" id="spinner"></div>
+
+        <!-- Mensaje de error -->
+        <div id="error-message">
+            <p id="error-text">Error conectando a QWEN</p>
+            <button onclick="document.getElementById('reconnect-btn').click()">
+                Reintentar
+            </button>
+        </div>
+
+        <!-- iframe de QWEN -->
+        <iframe
+            id="qwen-iframe"
+            title="QWEN Chat Interface">
+        </iframe>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        const iframe = document.getElementById('qwen-iframe');
+        const statusText = document.getElementById('status-text');
+        const statusIndicator = document.getElementById('status-indicator');
+        const reconnectBtn = document.getElementById('reconnect-btn');
+        const spinner = document.getElementById('spinner');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+
+        let qwenUrl = 'https://qwenlm.ai/';
+        let isLoading = false;
+
+        /**
+         * Actualizar barra de estado
+         */
+        function updateStatus(status, message = '') {
+            statusIndicator.className = 'status-indicator ' + status;
+            statusText.textContent = message || getStatusMessage(status);
+
+            switch (status) {
+                case 'connected':
+                    spinner.classList.remove('show');
+                    errorMessage.classList.remove('show');
+                    reconnectBtn.disabled = false;
+                    break;
+                case 'connecting':
+                    spinner.classList.add('show');
+                    errorMessage.classList.remove('show');
+                    reconnectBtn.disabled = true;
+                    break;
+                case 'disconnected':
+                    spinner.classList.remove('show');
+                    errorMessage.classList.add('show');
+                    reconnectBtn.disabled = false;
+                    break;
+            }
+        }
+
+        function getStatusMessage(status) {
+            switch (status) {
+                case 'connected': return '🟢 Conectado a QWEN';
+                case 'connecting': return '🟡 Conectando...';
+                case 'disconnected': return '🔴 Desconectado';
+                default: return 'QWEN';
+            }
+        }
+
+        /**
+         * Recibir URL desde main process
+         */
+        ipcRenderer.on('load-qwen-url', (event, url) => {
+            qwenUrl = url;
+            updateStatus('connecting');
+            loadQwenUrl(url);
+        });
+
+        /**
+         * Manejar errores de carga
+         */
+        ipcRenderer.on('qwen-load-error', (event, error) => {
+            errorText.textContent = `Error: ${error}`;
+            updateStatus('disconnected', '❌ Error de conexión');
+        });
+
+        /**
+         * Cargar QWEN desde URL
+         */
+        function loadQwenUrl(url) {
+            try {
+                isLoading = true;
+                iframe.src = url;
+                console.log(`[Renderer] Cargando QWEN desde: ${url}`);
+            } catch (error) {
+                console.error('[Renderer] Error cargando URL:', error);
+                updateStatus('disconnected', '❌ Error al cargar');
+            }
+        }
+
+        /**
+         * Evento: iframe cargó correctamente
+         */
+        iframe.onload = () => {
+            isLoading = false;
+            updateStatus('connected');
+
+            // Guardar URL de sesión
+            ipcRenderer.send('qwen-url-changed', qwenUrl);
+
+            console.log('[Renderer] ✅ QWEN cargado correctamente');
+        };
+
+        /**
+         * Evento: error al cargar iframe
+         */
+        iframe.onerror = (error) => {
+            isLoading = false;
+            updateStatus('disconnected', '❌ Error de conexión');
+            console.error('[Renderer] Error cargando iframe:', error);
+        };
+
+        /**
+         * Evento: iframe inició carga
+         */
+        iframe.onloadstart = () => {
+            updateStatus('connecting');
+        };
+
+        /**
+         * Botón: Reconectar
+         */
+        reconnectBtn.addEventListener('click', () => {
+            updateStatus('connecting');
+            ipcRenderer.send('qwen-reconnect');
+            loadQwenUrl(qwenUrl);
+            console.log('[Renderer] 🔄 Reconectando...');
+        });
+
+        /**
+         * Botón: Enviar mensaje a MCP Server
+         */
+        const mcpBtn = document.getElementById('mcp-btn');
+        const mcpNotification = document.getElementById('mcp-notification');
+
+        mcpBtn.addEventListener('click', async () => {
+            // Obtener texto seleccionado o el contenido actual de QWEN
+            const selectedText = window.getSelection().toString();
+
+            if (!selectedText) {
+                showMCPNotification('Por favor, selecciona el texto de QWEN que quieres enviar al MCP', 'error');
+                return;
+            }
+
+            mcpBtn.disabled = true;
+            showMCPNotification('Enviando mensaje al servidor MCP...');
+
+            try {
+                // Enviar al handler de IPC
+                ipcRenderer.send('qwen-send-to-mcp', {
+                    message: selectedText,
+                    context: {
+                        sessionId: 'qwen-embedded',
+                        userId: 'studiolab',
+                        timestamp: new Date().toISOString(),
+                        source: 'qwen-renderer'
+                    }
+                });
+
+                console.log('[Renderer] 📤 Mensaje enviado al MCP:', selectedText.substring(0, 50));
+
+                // Esperar respuesta desde main.js
+                setTimeout(() => {
+                    showMCPNotification('✅ Mensaje enviado exitosamente al servidor MCP (https://pwa-imbf.onrender.com)');
+                    mcpBtn.disabled = false;
+                }, 1000);
+            } catch (error) {
+                console.error('[Renderer] Error enviando al MCP:', error);
+                showMCPNotification('❌ Error enviando al MCP: ' + error.message, 'error');
+                mcpBtn.disabled = false;
+            }
+        });
+
+        /**
+         * Mostrar notificación MCP
+         */
+        function showMCPNotification(message, type = 'success') {
+            mcpNotification.textContent = message;
+            mcpNotification.className = 'show' + (type === 'error' ? ' error' : '');
+
+            setTimeout(() => {
+                mcpNotification.classList.remove('show');
+            }, 4000);
+        }
+
+        /**
+         * Escuchar respuestas del MCP Server
+         */
+        ipcRenderer.on('mcp-response', (event, response) => {
+            if (response.success) {
+                showMCPNotification('✅ ' + response.message);
+                console.log('[Renderer] MCP Response:', response.result);
+            } else {
+                showMCPNotification('❌ Error: ' + response.error, 'error');
+                console.error('[Renderer] MCP Error:', response.error);
+            }
+        });
+
+        /**
+         * Detectar cambios de URL (navegación dentro de QWEN)
+         */
+        window.addEventListener('beforeunload', () => {
+            if (iframe.src && iframe.src !== qwenUrl) {
+                qwenUrl = iframe.src;
+                ipcRenderer.send('qwen-url-changed', qwenUrl);
+            }
+        });
+
+        /**
+         * Log de inicialización
+         */
+        console.log('[Renderer] ✅ Contexto de QWEN renderer inicializado');
+        updateStatus('connecting', 'Esperando URL...');
+    </script>
+</body>
+</html>

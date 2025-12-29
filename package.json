@@ -1,0 +1,15 @@
+{
+  "name": "studiolab",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main-simple.js",
+  "bin": {
+    "sandra-full-access-mcp": "./qwen-mcp-stdio-server.js"
+  },
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^28.2.0"
+  }
+}

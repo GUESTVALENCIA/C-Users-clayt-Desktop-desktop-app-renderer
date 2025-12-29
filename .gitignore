@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# Production
+dist/
+build/
+
+# Logs
+logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Local env files
+.env
+.env.local
+.env.pro
+
+# Build artifacts
+out/

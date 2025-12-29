@@ -1,0 +1,73 @@
+// qwen-preload.js - Archivo preload para StudioLab 8.0 Pro
+const { contextBridge, ipcRenderer } = require('electron');
+
+// Exponer APIs seguras al renderer
+contextBridge.exposeInMainWorld('sandraAPI', {
+  // Funciones de carga de rutas
+  loadRoute: async (route) => {
+    return await ipcRenderer.invoke('load-route', route);
+  },
+  
+  // Funciones de servicios
+  checkOllama: async () => {
+    return await ipcRenderer.invoke('service-call', 'ollama-check', {});
+  },
+  
+  sendMessage: async (message, options = {}) => {
+    return await ipcRenderer.invoke('service-call', 'send-message', {
+      message,
+      model: options.model || 'qwen2.5:7b'
+    });
+  },
+  
+  // Eventos
+  onServicesReady: (callback) => {
+    ipcRenderer.on('services-ready', (event, data) => callback(data));
+  },
+  
+  onResponseReady: (callback) => {
+    ipcRenderer.on('response-ready', (event, data) => callback(data));
+  },
+  
+  // Funciones de sistema
+  executeCommand: async (command) => {
+    // Solo comandos específicos permitidos por seguridad
+    if (!command.startsWith('ollama')) {
+      throw new Error('Comando no permitido por razones de seguridad');
+    }
+    
+    return await ipcRenderer.invoke('execute-command', command);
+  },
+  
+  // Funciones de utilidad
+  utils: {
+    delay: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+    formatDate: (date) => {
+      return new Intl.DateTimeFormat('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).format(date);
+    }
+  }
+});
+
+console.log('✅ Sandra API preload cargada correctamente');
+
+// Verificar conexión con Ollama al cargar
+window.addEventListener('load', async () => {
+  try {
+    const isConnected = await window.sandraAPI.checkOllama();
+    console.log(isConnected ? '✅ Conexión con Ollama activa' : '⚠️ Ollama no disponible');
+    
+    // Disparar evento de estado
+    window.dispatchEvent(new CustomEvent('ollamaStatus', {
+      detail: { connected: isConnected }
+    }));
+  } catch (error) {
+    console.error('Error verificando conexión con Ollama:', error);
+  }
+});
