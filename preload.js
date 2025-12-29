@@ -180,6 +180,31 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   onModelSwitched: (callback) => ipcRenderer.on('qwen:modelSwitched', (event, data) => callback(data)),
   onAppStatus: (callback) => ipcRenderer.on('app-status', (_event, data) => callback(data)),
   onQwenResponse: (callback) => ipcRenderer.on('qwen:response', (_event, data) => callback(data)),
+  // Eventos de visibilidad del BrowserView
+  onQwenViewShown: (callback) => ipcRenderer.on('qwen:view-shown', (_event) => callback()),
+  onQwenViewHidden: (callback) => ipcRenderer.on('qwen:view-hidden', (_event) => callback()),
+  
+  // Método genérico 'on' para compatibilidad con código existente
+  on: (eventName, callback) => {
+    if (eventName === 'qwen:view-shown') {
+      ipcRenderer.on('qwen:view-shown', (_event) => callback());
+    } else if (eventName === 'qwen:view-hidden') {
+      ipcRenderer.on('qwen:view-hidden', (_event) => callback());
+    } else if (eventName === 'qwen:response') {
+      ipcRenderer.on('qwen:response', (_event, data) => callback(data));
+    } else {
+      console.warn(`[Preload] Evento desconocido: ${eventName}`);
+    }
+  },
+  
+  // Método genérico 'off' para remover listeners
+  off: (eventName, callback) => {
+    if (eventName === 'qwen:view-shown' || eventName === 'qwen:view-hidden' || eventName === 'qwen:response') {
+      ipcRenderer.removeListener(eventName, callback);
+    } else {
+      console.warn(`[Preload] Evento desconocido para off: ${eventName}`);
+    }
+  },
 
   // ==================== AUTENTICACIÓN ====================
   authStartGoogle: () => ipcRenderer.invoke('auth:startGoogle'),
