@@ -365,16 +365,26 @@ async function toggleAutoMode() {
 }
 
 async function openQwenPortal() {
-  if (window.sandraAPI?.qwenOpenPortal) {
+  // Usar el sistema BrowserView embebido (estilo VS Code extension)
+  if (window.sandraAPI?.qwenToggle) {
     try {
-      await window.sandraAPI.qwenOpenPortal(CONFIG.qwenLoginUrl);
-      addSystem('QWEN abierto en Opera/ventana embebida');
-      return;
+      const result = await window.sandraAPI.qwenToggle(true);
+      if (result && result.success) {
+        addSystem('QWEN abierto en panel lateral (estilo VS Code)');
+        return;
+      }
     } catch (e) {
-      addSystem('No se pudo abrir en Opera, usando navegador por defecto');
+      console.error('Error abriendo Qwen:', e);
+      addSystem(`Error al abrir Qwen: ${e.message || 'Error desconocido'}`);
+      return;
     }
   }
-  window.open(CONFIG.qwenLoginUrl, '_blank');
+  // Fallback: si no hay API disponible, intentar abrir en navegador
+  if (CONFIG.qwenLoginUrl) {
+    window.open(CONFIG.qwenLoginUrl, '_blank');
+  } else {
+    addSystem('QWEN: URL no configurada. Usa el botón de la toolbar para abrir Qwen embebido.');
+  }
 }
 
 async function loginQwen() {
