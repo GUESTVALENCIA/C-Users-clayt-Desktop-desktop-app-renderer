@@ -327,13 +327,43 @@ function createWindow() {
 
     try { mainWindow.setMenuBarVisibility(false); } catch {}
     
-    // CRÍTICO: Bloquear ventanas externas desde la ventana principal
-    mainWindow.webContents.setWindowOpenHandler(({ url, frameName }) => {
-      console.log('[Main] ⚠️  Intento de abrir ventana externa (BLOQUEADO):', url);
-      // QWEN3 está completamente embebido - NO permitir ventanas externas
-      // Todo el login/auth debe ocurrir dentro del webview embebido
-      // Si QWEN3 intenta abrir un popup, será capturado automáticamente
-      // por el webview y redirigido internamente
+    // CRÍTICO: Permitir popups para OAuth de QWEN3
+    // Los webviews necesitan popups para autenticación (Google, GitHub, etc)
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      console.log('[Main] Popup OAuth detectado:', url.substring(0, 50) + '...');
+
+      // PERMITIR popups OAuth (reconocer patrones)
+      const isOAuthFlow = url.includes('accounts.google.com') ||
+                          url.includes('github.com/login') ||
+                          url.includes('qwen') ||
+                          url.includes('alibaba') ||
+                          url.includes('auth') ||
+                          url.includes('oauth');
+
+      if (isOAuthFlow) {
+        console.log('[Main] ✅ Permitiendo popup OAuth');
+        // Crear ventana popup para OAuth
+        const popup = new BrowserWindow({
+          parent: mainWindow,
+          modal: false,
+          show: false,
+          width: 600,
+          height: 700,
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: false,
+            webSecurity: false,
+            enableRemoteModule: false
+          }
+        });
+        popup.loadURL(url);
+        popup.once('ready-to-show', () => popup.show());
+        popup.on('closed', () => popup.destroy());
+        return { action: 'allow' };
+      }
+
+      // Bloquear otros popups
+      console.log('[Main] 🚫 Bloqueando popup no autorizado');
       return { action: 'deny' };
     });
 
