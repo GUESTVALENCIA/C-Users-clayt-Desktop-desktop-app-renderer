@@ -3586,22 +3586,66 @@
     // ============================================
     // QWEN PANEL TOGGLE (Embedded)
     // ============================================
-    // QWEN Toggle - DESHABILITADO TEMPORALMENTE (evita bloqueos)
-    function toggleQwen() {
-      console.log('[UI] ⚠️ QWEN DESHABILITADO - función bloqueada para evitar ventanas emergentes');
-      addTerminalLine('⚠️ QWEN temporalmente deshabilitado - en desarrollo');
+    // ============================================
+    // QWEN3 TOGGLE - IMPLEMENTACIÓN LIMPIA
+    // ============================================
+    async function toggleQwen() {
+      console.log('[UI] toggleQwen llamado - implementación limpia desde cero');
       
       const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
       const label = document.getElementById('qwenLabel');
       
-      // NO hacer nada - solo mostrar mensaje
-      if (btn) btn.classList.remove('active');
-      if (label) label.textContent = 'QWEN';
-      state.qwen.panelVisible = false;
-      state.qwen.connected = false;
+      // Invertir estado actual
+      const isCurrentlyVisible = state.qwen.panelVisible;
+      const newState = !isCurrentlyVisible;
       
-      return;
+      console.log('[UI] toggleQwen - Estado:', isCurrentlyVisible, '→', newState);
+      
+      // Actualizar estado local
+      state.qwen.panelVisible = newState;
+      
+      try {
+        // Llamar a IPC para controlar BrowserView
+        if (window.sandraAPI?.qwenToggle) {
+          const result = await window.sandraAPI.qwenToggle(newState);
+          
+          if (result && result.success) {
+            if (newState) {
+              // QWEN3 abierto
+              if (btn) btn.classList.add('active');
+              if (label) label.textContent = 'QWEN3 ON';
+              addTerminalLine('✅ QWEN3 abierto - embebido correctamente');
+              state.qwen.connected = true;
+            } else {
+              // QWEN3 cerrado
+              if (btn) btn.classList.remove('active');
+              if (label) label.textContent = 'QWEN3';
+              addTerminalLine('QWEN3 cerrado');
+              state.qwen.connected = false;
+            }
+          } else {
+            const errorMsg = result?.error || 'Error desconocido';
+            console.error('[UI] Error toggle QWEN3:', errorMsg);
+            addTerminalLine(`❌ Error: ${errorMsg}`);
+            // Restaurar estado anterior
+            state.qwen.panelVisible = isCurrentlyVisible;
+            if (btn) btn.classList.toggle('active', isCurrentlyVisible);
+          }
+        } else {
+          console.error('[UI] window.sandraAPI.qwenToggle no disponible');
+          throw new Error('QWEN3 API no disponible');
+        }
+      } catch (e) {
+        console.error('[UI] Excepción en toggleQwen:', e);
+        addTerminalLine(`❌ Error: ${e.message}`);
+        // Restaurar estado anterior
+        state.qwen.panelVisible = isCurrentlyVisible;
+        if (btn) btn.classList.toggle('active', isCurrentlyVisible);
+      }
     }
+    
+    // Exponer globalmente para atributos HTML inline
+    window.toggleQwen = toggleQwen;
 
     function toggleSearch() {
       state.searchEnabled = !state.searchEnabled;
@@ -4304,14 +4348,14 @@
         const { ipcRenderer } = require('electron');
         if (ipcRenderer) {
           ipcRenderer.on('qwen:view-hidden', () => {
-            console.log('[UI] QWEN BrowserView ocultado - restaurando UI');
+            console.log('[UI] QWEN3 BrowserView ocultado - restaurando UI');
             state.qwen.panelVisible = false;
             state.qwen.connected = false;
             const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
             if (btn) btn.classList.remove('active');
             const label = document.getElementById('qwenLabel');
-            if (label) label.textContent = 'QWEN';
-            addTerminalLine('QWEN cerrado - UI restaurada');
+            if (label) label.textContent = 'QWEN3';
+            addTerminalLine('QWEN3 cerrado - UI restaurada');
           });
         }
       }
