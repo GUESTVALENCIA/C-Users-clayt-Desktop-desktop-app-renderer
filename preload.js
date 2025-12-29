@@ -335,10 +335,37 @@ contextBridge.exposeInMainWorld('timeoutAPI', {
   getReport: () => ipcRenderer.invoke('timeout:getReport')
 });
 
+// ============================================================================
+// API DISCOVERY SERVICE - Descubrimiento de APIs Gratuitas
+// ============================================================================
+contextBridge.exposeInMainWorld('apiDiscovery', {
+  // Buscar APIs por consulta
+  search: (query) => ipcRenderer.invoke('api:search', query),
+
+  // Obtener APIs de una categoría
+  getCategory: (category) => ipcRenderer.invoke('api:getCategory', category),
+
+  // Obtener todas las categorías
+  getAllCategories: () => ipcRenderer.invoke('api:allCategories'),
+
+  // Obtener recomendaciones para una tarea
+  recommend: (task) => ipcRenderer.invoke('api:recommend', task),
+
+  // Obtener APIs completamente gratuitas
+  getFreeAPIs: () => ipcRenderer.invoke('api:free'),
+
+  // Obtener estadísticas
+  getStats: () => ipcRenderer.invoke('api:stats'),
+
+  // Obtener instrucciones del sistema para modelos IA
+  getSystemInstruction: () => ipcRenderer.invoke('api:systemInstruction')
+});
+
 // QWEN - Solo QWEN embebido
 console.log('✅ MCP Universal API expuesta');
 console.log('✅ AUTO Orchestrator API expuesta');
 console.log('✅ Audit System API expuesta');
 console.log('✅ Cache API expuesta');
 console.log('✅ Timeout Manager API expuesta');
+console.log('✅ API Discovery Service expuesta');
 console.log('✅ QWEN disponible');
