@@ -1529,13 +1529,18 @@
       box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
     }
 
-    /* AUTO Orchestrator Button */
+    /* AUTO Orchestrator Button - Tipo Cursor */
+    .auto-btn-container {
+      position: relative;
+      display: inline-block;
+    }
+
     .auto-btn {
       background: var(--bg-tertiary);
       border: 1px solid var(--border-color);
-      position: relative;
       color: var(--accent-blue);
       transition: all 0.3s ease;
+      cursor: pointer;
     }
 
     .auto-btn:hover {
@@ -1544,33 +1549,127 @@
       box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
     }
 
-    .auto-btn.active {
-      background: rgba(59, 130, 246, 0.2);
+    /* AUTO Dropdown */
+    .auto-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      min-width: 300px;
+      z-index: 1000;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Tabs */
+    .auto-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-tertiary);
+    }
+
+    .auto-tab-btn {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      font-size: 0.9em;
+    }
+
+    .auto-tab-btn:hover {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--text-primary);
+    }
+
+    .auto-tab-btn.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    /* Tab Content */
+    .auto-tab-content {
+      padding: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    /* Model List */
+    .auto-model-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .auto-model-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .auto-model-item:hover {
+      background: rgba(59, 130, 246, 0.1);
+    }
+
+    .auto-model-item input[type="checkbox"] {
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-blue);
+    }
+
+    .auto-model-item span {
+      color: var(--text-primary);
+      font-size: 0.95em;
+    }
+
+    /* Action Buttons */
+    .auto-action-buttons {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-tertiary);
+    }
+
+    .auto-action-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: all 0.2s;
+    }
+
+    .auto-action-btn:hover {
+      background: var(--bg-input);
+      border-color: var(--accent-blue);
+    }
+
+    .auto-action-execute {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(59, 130, 246, 0.1));
       border-color: var(--accent-blue);
       color: var(--accent-blue);
-      box-shadow: 0 0 25px rgba(59, 130, 246, 0.5);
+      font-weight: 600;
     }
 
-    .auto-btn.querying {
-      opacity: 0.8;
-      cursor: not-allowed;
-    }
-
-    /* AUTO Spinner Animation */
-    .auto-spinner {
-      position: absolute;
-      right: -4px;
-      top: -4px;
-      width: 12px;
-      height: 12px;
-      border: 2px solid var(--accent-blue);
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .auto-action-execute:hover {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(59, 130, 246, 0.2));
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
     }
 
     /* API/Local Toggle Wrapper */
@@ -2491,12 +2590,93 @@
                 <span id="qwenLabel">QWEN</span>
               </button>
 
-              <!-- AUTO Orchestrator Button - Multi-Model Consensus -->
-              <button class="toolbar-btn auto-btn" id="autoBtn" onclick="triggerAutoOrchestrator()" title="AUTO: Orquesta múltiples modelos de IA en paralelo y sintetiza la mejor respuesta">
-                <span class="toolbar-btn-icon">⚡</span>
-                <span id="autoLabel">AUTO</span>
-                <div class="auto-spinner" id="autoSpinner" style="display: none;"></div>
-              </button>
+              <!-- AUTO Orchestrator Button - Tipo Cursor con Dropdown -->
+              <div class="toolbar-btn auto-btn-container" id="autoContainer">
+                <button class="toolbar-btn auto-btn" id="autoBtn" onclick="toggleAutoMenu(event)">
+                  <span class="toolbar-btn-icon">⚡</span>
+                  <span id="autoLabel">AUTO</span>
+                  <span style="font-size: 0.8em;">▼</span>
+                </button>
+                <div class="auto-dropdown" id="autoDropdown" style="display: none;">
+                  <!-- Tabs -->
+                  <div class="auto-tabs">
+                    <div class="auto-tab-btn active" onclick="switchAutoTab('embebidos')">🤖 Embebidos</div>
+                    <div class="auto-tab-btn" onclick="switchAutoTab('api')">🌐 APIs</div>
+                    <div class="auto-tab-btn" onclick="switchAutoTab('local')">💻 Local</div>
+                  </div>
+
+                  <!-- Tab Content: Embebidos -->
+                  <div class="auto-tab-content" id="tab-embebidos" style="display: block;">
+                    <div class="auto-model-list">
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="chatgpt" checked />
+                        <span>🟢 ChatGPT Plus</span>
+                      </label>
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="qwen" checked />
+                        <span>🟡 QWEN 3</span>
+                      </label>
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="gemini" checked />
+                        <span>🔵 Gemini</span>
+                      </label>
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="deepseek" checked />
+                        <span>🟣 DeepSeek</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Tab Content: APIs -->
+                  <div class="auto-tab-content" id="tab-api" style="display: none;">
+                    <div class="auto-model-list">
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="groq" checked />
+                        <span>⚡ Groq (Gratis)</span>
+                      </label>
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="kimi" checked />
+                        <span>🟠 Kimi K2</span>
+                      </label>
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="openrouter" />
+                        <span>🌈 OpenRouter</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Tab Content: Local -->
+                  <div class="auto-tab-content" id="tab-local" style="display: none;">
+                    <div class="auto-model-list">
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="ollama-qwen" />
+                        <span>🐳 Ollama: Qwen</span>
+                      </label>
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="ollama-mixtral" />
+                        <span>🐳 Ollama: Mixtral</span>
+                      </label>
+                      <label class="auto-model-item">
+                        <input type="checkbox" class="auto-model-check" data-model="ollama-deepseek" />
+                        <span>🐳 Ollama: DeepSeek</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Auto Button -->
+                  <div class="auto-action-buttons">
+                    <button class="auto-action-btn auto-action-all" onclick="selectAllAutoModels()">
+                      Seleccionar Todo
+                    </button>
+                    <button class="auto-action-btn auto-action-none" onclick="deselectAllAutoModels()">
+                      Limpiar
+                    </button>
+                    <button class="auto-action-btn auto-action-execute" onclick="executeAutoOrchestrator()">
+                      ⚡ USAR AUTO
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               <!-- API/Local Toggle Switch -->
               <div class="api-toggle-wrapper">
