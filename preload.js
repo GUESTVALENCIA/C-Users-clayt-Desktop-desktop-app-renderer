@@ -283,7 +283,62 @@ contextBridge.exposeInMainWorld('autoAPI', {
     ipcRenderer.on('auto:queryCompleted', (_, data) => callback(data))
 });
 
+// ============================================================================
+// AUDIT SYSTEM API - Auditoría y Login
+// ============================================================================
+contextBridge.exposeInMainWorld('auditAPI', {
+  // Login con credenciales
+  login: (username, password) => ipcRenderer.invoke('audit:login', { username, password }),
+
+  // Logout
+  logout: (token) => ipcRenderer.invoke('audit:logout', { token }),
+
+  // Registrar nuevo usuario (solo admin)
+  registerUser: (username, password, role) =>
+    ipcRenderer.invoke('audit:registerUser', { username, password, role }),
+
+  // Obtener log de auditoría
+  getLog: (token, options = {}) =>
+    ipcRenderer.invoke('audit:getLog', { token, ...options })
+});
+
+// ============================================================================
+// CACHE API - Optimización de respuestas
+// ============================================================================
+contextBridge.exposeInMainWorld('cacheAPI', {
+  // Obtener respuesta cacheada
+  get: (query, models) => ipcRenderer.invoke('cache:get', { query, models }),
+
+  // Guardar respuesta en cache
+  set: (query, models, response) =>
+    ipcRenderer.invoke('cache:set', { query, models, response }),
+
+  // Obtener estadísticas
+  getStats: () => ipcRenderer.invoke('cache:stats'),
+
+  // Limpiar cache
+  clear: () => ipcRenderer.invoke('cache:clear')
+});
+
+// ============================================================================
+// TIMEOUT MANAGER API - Timeouts dinámicos
+// ============================================================================
+contextBridge.exposeInMainWorld('timeoutAPI', {
+  // Registrar tiempo de respuesta
+  recordResponse: (modelId, responseTime, success) =>
+    ipcRenderer.invoke('timeout:recordResponse', { modelId, responseTime, success }),
+
+  // Obtener timeouts actuales
+  getTimeouts: () => ipcRenderer.invoke('timeout:getTimeouts'),
+
+  // Obtener reporte de rendimiento
+  getReport: () => ipcRenderer.invoke('timeout:getReport')
+});
+
 // QWEN - Solo QWEN embebido
 console.log('✅ MCP Universal API expuesta');
 console.log('✅ AUTO Orchestrator API expuesta');
+console.log('✅ Audit System API expuesta');
+console.log('✅ Cache API expuesta');
+console.log('✅ Timeout Manager API expuesta');
 console.log('✅ QWEN disponible');
