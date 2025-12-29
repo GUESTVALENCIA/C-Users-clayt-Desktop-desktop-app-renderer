@@ -2912,7 +2912,7 @@
         <div class="model-selector" id="modelSelector">
           <button class="model-trigger" id="modelTrigger" type="button" aria-haspopup="menu" aria-expanded="false">
             <span class="model-trigger-main">
-              <span class="model-name" id="currentModelName">Qwen3-Omni-Flash</span>
+              <span class="model-name" id="currentModelName">Llama 3.3 70B</span>
               <span class="model-sub" id="currentModelSub">Auto OFF · 0/65K</span>
             </span>
             <span class="model-arrow">▾</span>
@@ -3222,48 +3222,7 @@
                   </div>
                 </div>
 
-                <!-- QWEN Provider -->
-                <div class="provider-btn-group">
-                  <button class="provider-btn" id="providerQwen" onclick="toggleProviderDropdown('qwen', event)" title="QWEN">
-                    <span class="provider-icon">🟡</span>
-                  </button>
-                  <div class="provider-dropdown" id="dropdown-qwen" style="display: none;">
-                    <div class="provider-models">
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen3-max" onchange="selectProviderModel('qwen', 'qwen3-max')" checked />
-                        <span>Qwen3-Max</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen3-plus" onchange="selectProviderModel('qwen', 'qwen3-plus')" />
-                        <span>Qwen3-Plus</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen3-turbo" onchange="selectProviderModel('qwen', 'qwen3-turbo')" />
-                        <span>Qwen3-Turbo</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen3-omni-flash" onchange="selectProviderModel('qwen', 'qwen3-omni-flash')" />
-                        <span>Qwen3-Omni-Flash</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen3-vl-235b" onchange="selectProviderModel('qwen', 'qwen3-vl-235b')" />
-                        <span>Qwen3-VL-235B Vision</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen3-vl-32b" onchange="selectProviderModel('qwen', 'qwen3-vl-32b')" />
-                        <span>Qwen3-VL-32B Vision</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen3-coder" onchange="selectProviderModel('qwen', 'qwen3-coder')" />
-                        <span>Qwen3-Coder</span>
-                      </label>
-                      <label class="provider-model-checkbox">
-                        <input type="radio" name="qwen-model" value="qwen3-coder-turbo" onchange="selectProviderModel('qwen', 'qwen3-coder-turbo')" />
-                        <span>Qwen3-Coder Turbo</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
+                <!-- QWEN: Solo disponible como BrowserView embebido (no como API) -->
               </div>
 
               <!-- QWEN Connect Button (Toolbar) - DISABLED PER USER REQUEST -->
@@ -3471,16 +3430,6 @@
         models: {},
         defaultModel: null,
         status: '❌ API Key expirada'
-      },
-      qwen: {
-        name: 'QWEN',
-        icon: '🟡',
-        type: 'api',
-        models: {
-          'qwen/qwen3-32b': { name: 'Qwen 3 32B (vía Groq)', context: 262144, speed: 'balanced', tested: true }
-        },
-        defaultModel: 'qwen/qwen3-32b',
-        status: '✅ Disponible vía Groq'
       }
     };
 
@@ -3493,7 +3442,6 @@
       terminalOpen: false,
       currentProvider: 'groq', // Proveedor actual
       currentModel: 'llama-3.3-70b-versatile', // Modelo actual del proveedor
-      qwen: { model: 'qwen3-omni-flash', auto: false, tokens: 0, tokensMax: 65536, models: [], connected: false, panelVisible: false },
       currentMode: 'agente',
       planModeActive: false,
       thinkingEnabled: false,
@@ -3503,7 +3451,7 @@
       primaryFeature: null,
       attachments: [],
       messages: [],
-      useAPI: true, // true = API (Groq, Anthropic, etc), false = Local (QWEN embebido)
+      useAPI: true, // true = API (Groq, Anthropic, etc)
       chatHistory: [
         { id: 1, icon: '🌐', title: 'Desarrollo Web App', preview: 'Creando componentes...', time: 'Ahora', active: true },
         { id: 2, icon: '🎬', title: 'Video Marketing', preview: 'Guión para campaña...', time: '2h' },
@@ -4052,18 +4000,13 @@
     }
 
     function getModelDescription(modelId) {
-      const map = {
-        'qwen3-max': 'El modelo de lenguaje más potente de la serie Qwen.',
-        'qwen3-vl-235b-a22b': 'Modelo fuerte de visión y lenguaje basado en Qwen3.',
-        'qwen3-vl-32b': 'Modelo denso de visión y lenguaje en la serie Qwen3-VL.',
-        'qwen3-coder': 'Agente de codificación fuerte para tareas largas.',
-        'qwen3-coder-flash': 'Codificación rápida con alta ventana de contexto.',
-        'qwen3-omni-flash': 'Modelo multimodal nativo (rápido) basado en Qwen3.',
-        'qwen3-next-80b-a3b': 'Próxima generación MoE de alto rendimiento.',
-        'qvq-max': 'Razonamiento visual (VQA) de alta capacidad.',
-        'qwq-32b': 'Razonamiento profundo con QwQ.'
-      };
-      return map[modelId] || 'Modelo QWEN disponible para esta sesión.';
+      // Las descripciones vienen del PROVIDERS config
+      for (const provider of Object.values(PROVIDERS)) {
+        if (provider.models && provider.models[modelId]) {
+          return provider.models[modelId].name;
+        }
+      }
+      return 'Modelo disponible';
     }
 
     function formatCompactNumber(num) {
@@ -4074,41 +4017,23 @@
     }
 
     function updateModelUI(metaOverride = null) {
-      const currentId = state.qwen.model || state.currentModel;
-      const meta = metaOverride || (state.qwen.models || []).find(m => m.id === currentId);
-      const name = meta?.name || currentId || 'QWEN';
-      const tokens = state.qwen.tokens || 0;
-      const max = state.qwen.tokensMax || meta?.context || 0;
+      const provider = PROVIDERS[state.currentProvider];
+      const currentModel = provider?.models?.[state.currentModel];
+      const name = currentModel?.name || state.currentModel || 'Modelo';
 
       const nameEl = document.getElementById('currentModelName');
       const subEl = document.getElementById('currentModelSub');
       if (nameEl) nameEl.textContent = name;
-      if (subEl) subEl.textContent = `Auto ${state.qwen.auto ? 'ON' : 'OFF'} | ${formatCompactNumber(tokens)}/${formatCompactNumber(max)}`;
-
-      const autoToggle = document.getElementById('modelAutoToggle');
-      autoToggle?.classList.toggle('on', !!state.qwen.auto);
-      autoToggle?.setAttribute('aria-pressed', String(!!state.qwen.auto));
+      if (subEl) {
+        const context = currentModel?.context || 0;
+        subEl.textContent = `${state.currentProvider} · ${formatCompactNumber(context)}K ctx`;
+      }
     }
 
     function renderModelLists() {
-      const primaryEl = document.getElementById('modelListPrimary');
-      const moreEl = document.getElementById('modelListMore');
-      if (!primaryEl || !moreEl) return;
-
-      const models = Array.isArray(state.qwen.models) ? state.qwen.models : [];
-      if (!models.length) return;
-
-      const primaryIds = [
-        'qwen3-max',
-        'qwen3-vl-235b-a22b',
-        'qwen3-coder',
-        'qwen3-omni-flash',
-        'qwen3-vl-32b'
-      ];
-
-      const byId = new Map(models.map(m => [m.id, m]));
-      const primary = primaryIds.map(id => byId.get(id)).filter(Boolean);
-      const more = models.filter(m => !primaryIds.includes(m.id));
+      // Las listas de modelos se renderizan desde PROVIDERS
+      // Esta función se mantiene para compatibilidad pero no es necesaria en el nuevo sistema
+      return;
 
       const render = (root, list) => {
         root.innerHTML = '';
@@ -4490,13 +4415,13 @@
 
     function applyFeature(featureId) {
       const cfg = {
-        imagen: { modeId: 'debug', modeName: 'Debug', modeIcon: '🐛', modelId: 'qwen3-vl-235b-a22b' },
-        'gen-imagen': { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'qwen3-vl-235b-a22b' },
-        video: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'qwen3-omni-flash' },
-        web: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'qwen3-coder', openCanvas: true },
-        artefactos: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'qwen3-coder', openCanvas: true },
-        aprende: { modeId: 'plan', modeName: 'Plan', modeIcon: '📋', modelId: 'qwen3-max' },
-        investigacion: { modeId: 'plan', modeName: 'Plan', modeIcon: '📋', modelId: 'qwen3-max' }
+        imagen: { modeId: 'debug', modeName: 'Debug', modeIcon: '🐛', modelId: 'meta-llama/llama-4-maverick-17b-128e-instruct' },
+        'gen-imagen': { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'meta-llama/llama-4-maverick-17b-128e-instruct' },
+        video: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'llama-3.3-70b-versatile' },
+        web: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'llama-3.1-8b-instant', openCanvas: true },
+        artefactos: { modeId: 'agente', modeName: 'Agente', modeIcon: '∞', modelId: 'llama-3.1-8b-instant', openCanvas: true },
+        aprende: { modeId: 'plan', modeName: 'Plan', modeIcon: '📋', modelId: 'llama-3.3-70b-versatile' },
+        investigacion: { modeId: 'plan', modeName: 'Plan', modeIcon: '📋', modelId: 'llama-3.3-70b-versatile' }
       }[featureId];
 
       if (!cfg) return;
@@ -5025,7 +4950,7 @@
         const requestBody = {
           message: payload.message || '',
           userId: payload.userId || 'default',
-          modelId: payload.modelId || state.currentModel || state.qwen.model || 'qwen3-omni-flash',
+          modelId: payload.modelId || state.currentModel || 'llama-3.3-70b-versatile',
           meta: {
             mode: payload.mode || state.currentMode,
             features: payload.features || Array.from(state.activeFeatures),
