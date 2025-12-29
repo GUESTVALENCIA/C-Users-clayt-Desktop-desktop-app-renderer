@@ -2619,6 +2619,10 @@
       restoreViewState();
       setupComposerDock();
       // QWEN usa BrowserView desde main.js, no necesita setup aquí
+      
+      // Inicializar botón de envío
+      updateSendButton();
+      
       document.getElementById('messageInput')?.focus();
       console.log('✅ StudioLab 8.0 Pro cargado correctamente');
       console.log(`[StudioLab] Modo inicial: ${state.useAPI ? 'API (Groq)' : 'Local (QWEN)'}`);
@@ -3820,65 +3824,95 @@
     }
 
     // SendMessage: Restaurar funcionalidad completa
-    async function sendMessage() {
+    // Función global para enviar mensajes
+    window.sendMessage = async function() {
       const input = document.getElementById('messageInput');
       const message = (input?.value || '').trim();
-      if (!message) return;
-
-      document.getElementById('welcomeScreen').style.display = 'none';
-      document.getElementById('messagesContainer').classList.add('visible');
-
-      addMessage('user', message);
-
-      input.value = '';
-      input.style.height = 'auto';
-      updateSendButton();
-
-      const assistantDiv = addMessage('assistant', 'Pensando…');
+      if (!message) {
+        console.log('[UI] Mensaje vacío, no se envía');
+        return;
+      }
 
       const sendBtn = document.getElementById('sendBtn');
-      if (sendBtn) sendBtn.disabled = true;
+      
+      // Prevenir múltiples envíos simultáneos (solo si está en estado de carga)
+      if (sendBtn && sendBtn.classList.contains('loading')) {
+        console.log('[UI] Ya hay un mensaje en proceso, esperando...');
+        return;
+      }
 
-      const meta = {
-        modelId: state.qwen.model,
-        mode: state.currentMode,
-        features: Array.from(state.activeFeatures),
-        thinking: !!state.thinkingEnabled,
-        search: !!state.searchEnabled,
-        attachments: state.attachments.map(a => ({ type: a.type, name: a.name, mime: a.mime, size: a.size }))
-      };
-
-      addTerminalLine(`→ QWEN: ${meta.modelId} | modo ${meta.mode} | features ${meta.features.join(',') || '-'}`);
+      // Deshabilitar botón inmediatamente y mostrar estado de carga
+      if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.classList.add('loading');
+        sendBtn.setAttribute('aria-busy', 'true');
+      }
 
       try {
-        const result = await callAssistant({
-          message,
-          userId: 'default',
-          modelId: meta.modelId,
-          mode: meta.mode,
-          features: meta.features,
-          thinking: meta.thinking,
-          search: meta.search,
-          attachments: meta.attachments
-        });
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('messagesContainer').classList.add('visible');
 
-        const responseText = String(result?.text || '');
-        if (responseText) {
-          await streamMessage(assistantDiv, responseText);
-          maybeApplyCanvasFromResponse(responseText);
+        addMessage('user', message);
 
-          updateModelUI();
-        } else {
-          assistantDiv.remove();
+        input.value = '';
+        input.style.height = 'auto';
+        updateSendButton();
+
+        const assistantDiv = addMessage('assistant', 'Pensando…');
+
+        const meta = {
+          modelId: state.qwen.model,
+          mode: state.currentMode,
+          features: Array.from(state.activeFeatures),
+          thinking: !!state.thinkingEnabled,
+          search: !!state.searchEnabled,
+          attachments: state.attachments.map(a => ({ type: a.type, name: a.name, mime: a.mime, size: a.size }))
+        };
+
+        addTerminalLine(`→ QWEN: ${meta.modelId} | modo ${meta.mode} | features ${meta.features.join(',') || '-'}`);
+
+        try {
+          const result = await callAssistant({
+            message,
+            userId: 'default',
+            modelId: meta.modelId,
+            mode: meta.mode,
+            features: meta.features,
+            thinking: meta.thinking,
+            search: meta.search,
+            attachments: meta.attachments
+          });
+
+          const responseText = String(result?.text || '');
+          if (responseText) {
+            await streamMessage(assistantDiv, responseText);
+            maybeApplyCanvasFromResponse(responseText);
+
+            updateModelUI();
+          } else {
+            assistantDiv.remove();
+          }
+        } catch (e) {
+          updateMessageDiv(assistantDiv, `Error: ${e.message}`);
+          addTerminalLine(`Error chat: ${e.message}`);
         }
       } catch (e) {
-        updateMessageDiv(assistantDiv, `Error: ${e.message}`);
-        addTerminalLine(`Error chat: ${e.message}`);
+        console.error('[UI] Error crítico en sendMessage:', e);
+        addTerminalLine(`Error crítico: ${e.message}`);
       } finally {
-        if (sendBtn) sendBtn.disabled = false;
+        // SIEMPRE restaurar el botón, incluso si hay errores
+        if (sendBtn) {
+          sendBtn.disabled = false;
+          sendBtn.classList.remove('loading');
+          sendBtn.removeAttribute('aria-busy');
+        }
+        // Actualizar estado del botón basado en el contenido del input
         updateSendButton();
       }
-    }
+    };
+
+    // Mantener referencia local también para compatibilidad
+    const sendMessage = window.sendMessage;
 
     // Override addMessage: safe HTML + returns DOM node for streaming
     function addMessage(role, content) {
@@ -3924,13 +3958,14 @@
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         event.stopPropagation();
-        // Llamar a sendMessage global
-        if (typeof sendMessage === 'function') {
-          sendMessage();
-        } else if (typeof window.sendMessage === 'function') {
-          window.sendMessage();
+        event.stopImmediatePropagation();
+        // Llamar a sendMessage global directamente
+        if (typeof window.sendMessage === 'function') {
+          window.sendMessage().catch(err => {
+            console.error('[UI] Error en sendMessage desde handleKeyDown:', err);
+          });
         } else {
-          console.error('[UI] sendMessage no está definida');
+          console.error('[UI] window.sendMessage no está definida');
         }
         return false;
       }
@@ -3946,6 +3981,11 @@
       const input = document.getElementById('messageInput');
       const sendBtn = document.getElementById('sendBtn');
       if (input && sendBtn) {
+        // No cambiar el estado si el botón está en proceso de envío (loading)
+        if (sendBtn.classList.contains('loading')) {
+          return; // Mantener el estado de carga
+        }
+        // Habilitar/deshabilitar basado en el contenido del input
         sendBtn.disabled = !input.value.trim();
       }
     };
