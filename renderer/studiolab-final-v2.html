@@ -2602,51 +2602,65 @@
       font-weight: 600;
     }
 
-    /* AUTO Functions - 3 Button Layout */
+    /* AUTO Functions - 3 Row Layout (Compact) */
     .auto-functions {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
     }
 
     .auto-function-btn {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 12px 16px;
-      background-color: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
+      gap: 12px;
+      padding: 10px 12px;
+      background-color: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border-color);
+      border-radius: 0;
       color: var(--text-primary);
       cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: center;
+      transition: all 0.15s ease;
+      text-align: left;
+      justify-content: flex-start;
+    }
+
+    .auto-function-btn:last-child {
+      border-bottom: none;
     }
 
     .auto-function-btn:hover {
       background-color: var(--bg-hover);
-      border-color: var(--accent-primary);
-      box-shadow: 0 0 15px var(--accent-glow);
+      border-color: var(--border-color);
     }
 
     .auto-func-icon {
-      font-size: 24px;
+      font-size: 18px;
       line-height: 1;
+      min-width: 24px;
+      text-align: center;
     }
 
     .auto-func-name {
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-primary);
+      flex: 1;
     }
 
     .auto-func-desc {
       font-size: 11px;
       color: var(--text-secondary);
-      line-height: 1.3;
+      line-height: 1.2;
+      display: none;
+    }
+
+    @media (min-width: 900px) {
+      .auto-func-desc {
+        display: inline;
+      }
     }
 
     /* Animation for dropdowns */
@@ -3522,19 +3536,19 @@
       setupKeyboardShortcuts();
       updateGreeting();
       loadSavedTheme();
-      
+
       // Cargar estado API/Local
       const savedUseAPI = loadLocal('studiolab-useAPI');
       if (savedUseAPI === 'true') {
         state.useAPI = true;
       }
-      
+
       // Aplicar estado al toggle
       const apiToggle = document.getElementById('apiToggle');
       if (apiToggle) {
         apiToggle.classList.toggle('on', state.useAPI);
       }
-      
+
       initModelSelector();
       initTerminal();
       initCanvas();
@@ -3552,11 +3566,33 @@
 
       // Inicializar botón de envío
       updateSendButton();
-      
+
+      // Cerrar dropdowns cuando se hace clic fuera de ellos
+      document.addEventListener('click', (e) => {
+        const isProviderClick = e.target.closest('.provider-btn-group');
+        const isAutoClick = e.target.closest('.auto-btn-container');
+        const isVoiceClick = e.target.closest('.voice-btn');
+
+        // Si no es click en estos elementos, cerrar todos los dropdowns
+        if (!isProviderClick && !isAutoClick && !isVoiceClick) {
+          document.querySelectorAll('.provider-dropdown, .auto-dropdown, .voice-dropdown').forEach(d => {
+            d.style.display = 'none';
+          });
+
+          // Remover .active de buttons que no son el proveedor seleccionado
+          document.querySelectorAll('.provider-btn').forEach(btn => {
+            const btnProvider = btn.id.replace('provider', '').toLowerCase();
+            if (state.selectedProvider !== btnProvider) {
+              btn.classList.remove('active');
+            }
+          });
+        }
+      });
+
       document.getElementById('messageInput')?.focus();
       console.log('✅ StudioLab 8.0 Pro cargado correctamente');
       console.log(`[StudioLab] Modo inicial: ${state.useAPI ? 'API (Groq)' : 'Local (QWEN)'}`);
-      
+
       // Verificar conexión con servidores
       checkServersHealth();
     });
@@ -4307,9 +4343,16 @@
     function toggleAutoMenu(event) {
       event.stopPropagation();
       const dropdown = document.getElementById('autoDropdown');
+
       if (dropdown) {
         const isOpen = dropdown.style.display === 'block';
-        closeAllDropdowns('autoContainer');
+
+        // Cerrar TODOS los dropdowns (providers y otros)
+        document.querySelectorAll('.provider-dropdown, .auto-dropdown, .voice-dropdown').forEach(d => {
+          d.style.display = 'none';
+        });
+
+        // Si no estaba abierto, abrirlo
         if (!isOpen) {
           dropdown.style.display = 'block';
         }
@@ -5697,43 +5740,58 @@
     /**
      * Toggle Provider Dropdown
      * Muestra/oculta el dropdown de modelos para un proveedor
+     * Solo un dropdown puede estar abierto a la vez
      */
     function toggleProviderDropdown(provider, event) {
       event.stopPropagation();
 
-      // Cerrar otros dropdowns abiertos
-      document.querySelectorAll('.provider-dropdown').forEach(dropdown => {
-        if (dropdown.id !== `dropdown-${provider}`) {
-          dropdown.style.display = 'none';
-        }
-      });
-
-      // Alternar el dropdown actual
       const dropdown = document.getElementById(`dropdown-${provider}`);
       const btn = event.currentTarget;
 
-      if (dropdown) {
-        const isOpen = dropdown.style.display === 'block';
-        dropdown.style.display = isOpen ? 'none' : 'block';
+      // Obtener estado actual del dropdown
+      const isOpen = dropdown && dropdown.style.display === 'block';
 
-        // Iluminar botón cuando dropdown está abierto
-        if (!isOpen) {
-          // Opening - add active class
-          btn.classList.add('active');
+      // Cerrar TODOS los dropdowns de proveedor
+      document.querySelectorAll('.provider-dropdown').forEach(d => {
+        d.style.display = 'none';
+      });
+
+      // Remover clase .active de todos los botones (excepto si son proveedores seleccionados)
+      document.querySelectorAll('.provider-btn').forEach(b => {
+        // Mantener .active solo si es el proveedor seleccionado actualmente
+        const btnProvider = Array.from(b.classList).some(cls => cls.includes('provider')) ?
+          b.id.replace('provider', '').toLowerCase() : null;
+
+        if (btnProvider && state.selectedProvider === btnProvider) {
+          b.classList.add('active');
         } else {
-          // Closing - check if this provider is selected
-          if (state.selectedProvider !== provider) {
-            btn.classList.remove('active');
-          }
+          b.classList.remove('active');
         }
+      });
+
+      // Si el dropdown no estaba abierto, abrirlo
+      if (!isOpen && dropdown) {
+        dropdown.style.display = 'block';
+        btn.classList.add('active');
       }
+      // Si estaba abierto, simplemente se cierra (ya lo hicimos arriba)
     }
 
     /**
      * Select Provider Model
      * Selecciona un modelo de un proveedor y cierra el dropdown
+     * Extrae automáticamente el nombre del modelo desde PROVIDERS config
      */
-    function selectProviderModel(provider, modelId, modelName) {
+    function selectProviderModel(provider, modelId) {
+      // Obtener nombre del modelo desde configuración
+      const providerConfig = PROVIDERS[provider];
+      if (!providerConfig || !providerConfig.models[modelId]) {
+        console.error(`[Provider] Modelo inválido: ${provider}/${modelId}`);
+        return;
+      }
+
+      const modelName = providerConfig.models[modelId].name;
+
       console.log(`[Provider] Seleccionado ${provider}: ${modelName} (${modelId})`);
 
       // Actualizar estado
@@ -5747,10 +5805,19 @@
       });
 
       // Actualizar UI del botón del proveedor seleccionado
-      const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
-      const btn = document.getElementById(`provider${providerName}`);
+      const providerNameMap = {
+        'openai': 'Openai',
+        'groq': 'Groq',
+        'anthropic': 'Anthropic',
+        'gemini': 'Gemini',
+        'qwen': 'Qwen'
+      };
+
+      const buttonId = `provider${providerNameMap[provider] || provider.charAt(0).toUpperCase() + provider.slice(1)}`;
+      const btn = document.getElementById(buttonId);
+
       if (btn) {
-        // Agregar clase .active para que se iluminne
+        // Agregar clase .active para que se ilumine
         btn.classList.add('active');
 
         const label = btn.querySelector('.provider-name-small');
