@@ -27,6 +27,11 @@ Thumbs.db
 .env.local
 .env.pro
 
+# Security - API keys and credentials
+VARIABLESFULL.txt
+*VARIABLES*.txt
+**/VARIABLES*.txt
+
 # Backups and temp files (but NOT our needed files)
 *.bak
 *-backup*
