@@ -3432,10 +3432,7 @@
         type: 'api',
         models: {
           'gpt-4o': { name: 'GPT-4o', context: 128000, speed: 'fast' },
-          'gpt-4o-mini': { name: 'GPT-4o Mini', context: 128000, speed: 'very-fast' },
-          'gpt-4-turbo': { name: 'GPT-4 Turbo', context: 128000, speed: 'balanced' },
-          'gpt-4': { name: 'GPT-4', context: 8192, speed: 'slow' },
-          'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', context: 4096, speed: 'very-fast' }
+          'gpt-4o-mini': { name: 'GPT-4o Mini', context: 128000, speed: 'very-fast' }
         },
         defaultModel: 'gpt-4o'
       },
@@ -3445,13 +3442,17 @@
         type: 'api',
         models: {
           'llama-3.3-70b-versatile': { name: 'Llama 3.3 70B Versatile', context: 8192, speed: 'ultra' },
-          'llama-3.1-70b-versatile': { name: 'Llama 3.1 70B Versatile', context: 131072, speed: 'ultra' },
           'llama-3.1-8b-instant': { name: 'Llama 3.1 8B Instant', context: 8192, speed: 'ultra' },
-          'mixtral-8x7b-32768': { name: 'Mixtral 8x7B 32K', context: 32768, speed: 'fast' },
-          'meta-llama/llama-4-scout-17b-16e-instruct': { name: 'Llama 4 Scout Vision', context: 131072, speed: 'fast' },
-          'meta-llama/llama-4-maverick-17b-128e-instruct': { name: 'Llama 4 Maverick Vision', context: 131072, speed: 'fast' },
           'groq/compound': { name: 'Groq Compound (Web+Code)', context: 8192, speed: 'ultra' },
-          'groq/compound-mini': { name: 'Groq Compound Mini', context: 8192, speed: 'ultra' }
+          'groq/compound-mini': { name: 'Groq Compound Mini', context: 8192, speed: 'ultra' },
+          'whisper-large-v3': { name: 'Whisper Large V3 (Audio)', context: 128000, speed: 'fast' },
+          'whisper-large-v3-turbo': { name: 'Whisper Large V3 Turbo', context: 128000, speed: 'ultra' },
+          'openai/gpt-oss-120b': { name: 'GPT-OSS 120B', context: 8192, speed: 'balanced' },
+          'openai/gpt-oss-20b': { name: 'GPT-OSS 20B', context: 8192, speed: 'fast' },
+          'meta-llama/llama-4-scout-17b-16e-instruct': { name: 'Llama 4 Scout Vision (Preview)', context: 131072, speed: 'fast' },
+          'meta-llama/llama-4-maverick-17b-128e-instruct': { name: 'Llama 4 Maverick Vision (Preview)', context: 131072, speed: 'fast' },
+          'moonshotai/kimi-k2-instruct-0905': { name: 'Kimi K2 0905 (256K)', context: 262144, speed: 'balanced' },
+          'qwen/qwen3-32b': { name: 'Qwen 3 32B (Preview)', context: 262144, speed: 'balanced' }
         },
         defaultModel: 'llama-3.3-70b-versatile'
       },
@@ -3462,9 +3463,7 @@
         models: {
           'claude-3-5-sonnet-20241022': { name: 'Claude 3.5 Sonnet', context: 200000, speed: 'balanced' },
           'claude-3-5-haiku-20241022': { name: 'Claude 3.5 Haiku', context: 200000, speed: 'very-fast' },
-          'claude-3-opus-20240229': { name: 'Claude 3 Opus', context: 200000, speed: 'slow' },
-          'claude-3-sonnet-20240229': { name: 'Claude 3 Sonnet', context: 200000, speed: 'balanced' },
-          'claude-3-haiku-20240307': { name: 'Claude 3 Haiku', context: 200000, speed: 'very-fast' }
+          'claude-3-opus-20250219': { name: 'Claude 3 Opus', context: 200000, speed: 'slow' }
         },
         defaultModel: 'claude-3-5-sonnet-20241022'
       },
@@ -3473,30 +3472,31 @@
         icon: '✨',
         type: 'api',
         models: {
-          'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', context: 1000000, speed: 'fast' },
-          'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', context: 1000000, speed: 'fast' },
-          'gemini-1.5-pro': { name: 'Gemini 1.5 Pro', context: 2000000, speed: 'balanced' },
-          'gemini-1.5-flash': { name: 'Gemini 1.5 Flash', context: 1000000, speed: 'very-fast' },
-          'gemini-1.5-flash-8b': { name: 'Gemini 1.5 Flash 8B', context: 1000000, speed: 'ultra' },
-          'gemini-1-pro': { name: 'Gemini 1.0 Pro', context: 32768, speed: 'slow' }
+          'gemini-3-pro-preview': { name: 'Gemini 3 Pro', context: 1000000, speed: 'balanced' },
+          'gemini-3-flash-preview': { name: 'Gemini 3 Flash', context: 1000000, speed: 'fast' },
+          'gemini-2-5-flash': { name: 'Gemini 2.5 Flash', context: 1000000, speed: 'fast' },
+          'gemini-2-5-flash-lite': { name: 'Gemini 2.5 Flash-Lite', context: 1000000, speed: 'very-fast' },
+          'gemini-2-5-pro': { name: 'Gemini 2.5 Pro', context: 1000000, speed: 'slow' },
+          'gemini-2-0-flash': { name: 'Gemini 2.0 Flash', context: 1000000, speed: 'balanced' },
+          'gemini-2-0-flash-lite': { name: 'Gemini 2.0 Flash-Lite', context: 1000000, speed: 'very-fast' }
         },
-        defaultModel: 'gemini-2.5-flash'
+        defaultModel: 'gemini-3-flash-preview'
       },
       qwen: {
         name: 'QWEN',
         icon: '🟡',
         type: 'api',
         models: {
-          'qwen3-max': { name: 'Qwen3-Max', context: 262144, speed: 'slow' },
-          'qwen3-plus': { name: 'Qwen3-Plus', context: 262144, speed: 'balanced' },
-          'qwen3-turbo': { name: 'Qwen3-Turbo', context: 262144, speed: 'fast' },
-          'qwen3-omni-flash': { name: 'Qwen3-Omni-Flash', context: 65536, speed: 'ultra' },
-          'qwen3-vl-235b': { name: 'Qwen3-VL-235B Vision', context: 262144, speed: 'balanced' },
-          'qwen3-vl-32b': { name: 'Qwen3-VL-32B Vision', context: 131072, speed: 'fast' },
-          'qwen3-coder': { name: 'Qwen3-Coder', context: 1048576, speed: 'slow' },
-          'qwen3-coder-turbo': { name: 'Qwen3-Coder Turbo', context: 262144, speed: 'balanced' }
+          'qwen-max': { name: 'Qwen3 Max', context: 262144, speed: 'slow' },
+          'qwen-plus': { name: 'Qwen3 Plus', context: 262144, speed: 'balanced' },
+          'qwen-turbo': { name: 'Qwen3 Turbo', context: 262144, speed: 'fast' },
+          'qwen-long': { name: 'Qwen3 Long (1M tokens)', context: 1048576, speed: 'slow' },
+          'qwen3-32b': { name: 'Qwen3 32B', context: 262144, speed: 'balanced' },
+          'qwen3-coder-plus': { name: 'Qwen3 Coder Plus', context: 262144, speed: 'balanced' },
+          'qwen-vl-max': { name: 'Qwen VL Max (Vision)', context: 262144, speed: 'slow' },
+          'qwen-vl-plus': { name: 'Qwen VL Plus (Vision)', context: 262144, speed: 'balanced' }
         },
-        defaultModel: 'qwen3-max'
+        defaultModel: 'qwen-max'
       }
     };
 
