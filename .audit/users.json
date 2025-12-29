@@ -1,0 +1,11 @@
+[
+  {
+    "userId": "c7c4185b-3662-4a72-9af0-0dea43c8acfd",
+    "username": "admin",
+    "passwordHash": "98e8fcf89bb24bb9d46505429bba84996e231ca7331a5c33b100057ba118dd87cd2846f7ad30eea33ca38a4d17872eef0e5741c05e97a25685c119e6fb06984d",
+    "role": "admin",
+    "createdAt": "2025-12-29T07:17:15.161Z",
+    "lastLogin": null,
+    "loginCount": 0
+  }
+]
