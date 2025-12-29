@@ -5,14 +5,15 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { existsSync } = require('fs');
 
-// ============ CARGAR VARIABLES DE ENTORNO (.env.pro) ============
+// ============ CARGAR VARIABLES DE ENTORNO (.env) ============
 try {
-  require('dotenv').config({
-    path: path.join(__dirname, '..', 'IA-SANDRA', '.env.pro')
-  });
-  console.log('[Main] ✅ Variables de entorno cargadas desde .env.pro');
+  require('dotenv').config();
+  console.log('[Main] ✅ Variables de entorno cargadas desde .env');
+  console.log(`   - GROQ_API_KEY: ${process.env.GROQ_API_KEY ? '✅ Configurada' : '❌ No configurada'}`);
+  console.log(`   - ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? '✅ Configurada' : '❌ No configurada'}`);
+  console.log(`   - DATABASE_URL: ${process.env.DATABASE_URL ? '✅ Configurada' : '❌ No configurada'}`);
 } catch (e) {
-  console.warn('[Main] Advertencia: No se pudo cargar .env.pro:', e.message);
+  console.warn('[Main] Advertencia: No se pudo cargar .env:', e.message);
 }
 
 // ============ MCP SERVER - HERRAMIENTAS GENÉRICAS ============
