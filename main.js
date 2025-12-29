@@ -2600,55 +2600,8 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     `;
 
     try {
-      // #region agent log
-      try {
-        fs.appendFileSync(logPath, JSON.stringify({timestamp:Date.now(),location:'main.js:2621',message:'Executing inject code',data:{codeLength:injectCode.length},sessionId:'debug-session',runId:'run1',hypothesisId:'H5'}) + '\n');
-      } catch (e) {
-        console.error('[DEBUG] Error writing log:', e.message);
-      }
-      // #endregion
-      
       // Ejecutar código de inyección (ahora es async/await, así que espera correctamente)
       const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
-      
-      // #region agent log - Log detailed diagnostics
-      const logEntry = {
-        timestamp: Date.now(),
-        location: 'main.js:2608',
-        message: 'Inject code result with diagnostics',
-        data: {
-          success: result?.success,
-          strategy: result?.strategy,
-          error: result?.error,
-          diagnostics: result?.diagnostics || {}
-        },
-        sessionId: 'debug-session',
-        runId: 'run1',
-        hypothesisId: 'ALL'
-      };
-      try {
-        // Asegurar que el directorio existe
-        if (!fs.existsSync(logDir)) {
-          fs.mkdirSync(logDir, { recursive: true });
-        }
-        fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
-        console.log(`[DEBUG] Log escrito en: ${logPath}`);
-      } catch (e) {
-        console.error('[DEBUG] Failed to write log:', e.message, e.stack);
-      }
-      // #endregion
-      
-      // Log diagnostics to console for immediate visibility
-      if (result?.diagnostics) {
-        console.log('[QWEN DEBUG] Input Search:', JSON.stringify(result.diagnostics.inputSearch, null, 2));
-        console.log('[QWEN DEBUG] Value Set:', JSON.stringify(result.diagnostics.valueSet, null, 2));
-        console.log('[QWEN DEBUG] Events:', JSON.stringify(result.diagnostics.events, null, 2));
-        console.log('[QWEN DEBUG] Button Search:', JSON.stringify(result.diagnostics.buttonSearch, null, 2));
-        console.log('[QWEN DEBUG] Enter Key:', JSON.stringify(result.diagnostics.enterKey, null, 2));
-        if (result.diagnostics.errors.length > 0) {
-          console.log('[QWEN DEBUG] Errors:', JSON.stringify(result.diagnostics.errors, null, 2));
-        }
-      }
       
       if (result && result.success) {
         console.log(`[QWEN] ✅ Mensaje enviado usando estrategia: ${result.strategy}`);
@@ -2657,16 +2610,10 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
         return { success: true, message: `Mensaje enviado usando ${result.strategy}`, strategy: result.strategy };
       } else {
         const errorMsg = result?.error || 'Error desconocido al inyectar mensaje';
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/384a89b5-1c7d-48d1-a183-a0cb0bba5c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:2538',message:'Inject failed',data:{error:errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
-        // #endregion
         console.error(`[QWEN] ❌ Error al inyectar:`, errorMsg);
         return { success: false, error: errorMsg };
       }
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/384a89b5-1c7d-48d1-a183-a0cb0bba5c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:2541',message:'ExecuteJavaScript exception',data:{error:error.message,isDisposed:error.message.includes('disposed'),isDestroyed:error.message.includes('destroyed')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
-      // #endregion
       // Capturar error específico si el frame fue destruido
       if (error.message.includes('disposed') || error.message.includes('destroyed')) {
         return { success: false, error: 'El panel de Qwen se cerró durante el envío. Vuelve a abrirlo.' };
@@ -2674,9 +2621,6 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       throw error;
     }
   } catch (error) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/384a89b5-1c7d-48d1-a183-a0cb0bba5c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:2548',message:'Outer catch block',data:{error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
-    // #endregion
     console.error(`[QWEN] ❌ Error en sendMessage:`, error.message);
     return { success: false, error: error.message };
   }
