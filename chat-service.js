@@ -3,7 +3,7 @@
 // ============================================================================
 
 const Anthropic = require('@anthropic-ai/sdk');
-const OpenAI = require('openai');
+// OpenAI removido - usar QWEN3 embebido en su lugar
 
 // Groq
 async function callGroq(message, role, apiKey) {
@@ -94,50 +94,8 @@ async function callAnthropic(message, role, apiKey) {
 }
 
 // OpenAI (ChatGPT)
-async function callOpenAI(message, role, apiKey) {
-  try {
-    if (!apiKey || apiKey.trim() === '') {
-      return {
-        success: false,
-        provider: 'openai',
-        error: 'OpenAI API Key no configurada'
-      };
-    }
-
-    const openai = new OpenAI({
-      apiKey: apiKey
-    });
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'user',
-          content: `[${role}] ${message}`
-        }
-      ],
-      max_tokens: 1024,
-      temperature: 0.7
-    });
-
-    return {
-      success: true,
-      provider: 'openai',
-      response: response.choices[0].message.content,
-      usage: {
-        prompt_tokens: response.usage.prompt_tokens,
-        completion_tokens: response.usage.completion_tokens,
-        total_tokens: response.usage.total_tokens
-      }
-    };
-  } catch (error) {
-    return {
-      success: false,
-      provider: 'openai',
-      error: error.message || 'Error desconocido'
-    };
-  }
-}
+// callOpenAI() REMOVIDO - Usar QWEN3 embebido mediante el webview
+// OpenAI ya no es soportado en favor de una integración QWEN3 completamente embebida
 
 // QWEN (Alibaba - usando API HTTP)
 async function callQWEN(message, role, apiKey, options = {}) {
@@ -208,7 +166,7 @@ async function sendMessage(provider, message, role, apiKeys) {
     case 'anthropic':
       return await callAnthropic(message, role, apiKeys.anthropic);
     case 'openai':
-      return await callOpenAI(message, role, apiKeys.openai);
+      return { success: false, error: 'OpenAI removido - usar QWEN3 embebido' };
     case 'qwen':
       return await callQWEN(message, role, apiKeys.qwen);
     default:
@@ -223,6 +181,5 @@ module.exports = {
   sendMessage,
   callGroq,
   callAnthropic,
-  callOpenAI,
   callQWEN
 };
