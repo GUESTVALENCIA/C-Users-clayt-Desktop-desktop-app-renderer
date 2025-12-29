@@ -5,6 +5,9 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { existsSync } = require('fs');
 
+// ============ QWEN HEALTH CHECK - SISTEMA DE VERIFICACIÓN ============
+const { verifyQWENReady, sendMessageWithRetry } = require('./qwen-health-check');
+
 // ============ CARGAR VARIABLES DE ENTORNO (.env) ============
 try {
   require('dotenv').config();
@@ -1649,204 +1652,110 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
   }
 });
 
-// ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW ============
+// ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW (MEJORADO) ============
 ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
-  // Verificar que el BrowserView existe y no está destruido
-  if (!qwenBrowserView) {
-    console.log('[QWEN] BrowserView no existe, debe abrirse primero');
-    return { success: false, error: 'QWEN BrowserView no disponible. Abre QWEN primero con el botón verde en la sidebar izquierda.' };
-  }
-
-  if (qwenBrowserView.webContents.isDestroyed()) {
-    console.log('[QWEN] BrowserView fue destruido');
-    return { success: false, error: 'QWEN BrowserView fue destruido. Abre QWEN nuevamente.' };
-  }
-
   try {
-    // Verificar que el frame aún existe antes de ejecutar JavaScript
-    if (!qwenBrowserView.webContents.mainFrame) {
-      return { success: false, error: 'Frame no disponible' };
+    // Verificar precondiciones
+    if (!qwenBrowserView) {
+      console.log('[QWEN] BrowserView no existe');
+      return { success: false, error: 'QWEN BrowserView no disponible. Abre QWEN primero con el botón verde.' };
     }
-    
-    // Verificar que la página haya cargado completamente Y el DOM esté listo
-    // Para SPAs como React, solo isLoading() no es suficiente - necesitamos dom-ready
-    const isLoading = qwenBrowserView.webContents.isLoading();
-    if (isLoading) {
-      console.log('[QWEN] ⏳ Página aún cargando, esperando...');
-      // Esperar hasta que la página termine de cargar
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Timeout esperando carga de página')), 15000);
-        const checkLoaded = () => {
-          if (!qwenBrowserView.webContents.isLoading()) {
-            clearTimeout(timeout);
-            qwenBrowserView.webContents.removeListener('did-finish-load', checkLoaded);
-            resolve();
-          }
-        };
-        qwenBrowserView.webContents.once('did-finish-load', checkLoaded);
-        // Si ya está cargado, resolver inmediatamente
-        if (!qwenBrowserView.webContents.isLoading()) {
-          clearTimeout(timeout);
-          resolve();
-        }
-      });
+
+    if (qwenBrowserView.webContents.isDestroyed()) {
+      console.log('[QWEN] BrowserView fue destruido');
+      return { success: false, error: 'QWEN BrowserView fue destruido. Abre QWEN nuevamente.' };
     }
-    
-    // Esperar adicional para que el DOM esté completamente listo (SPAs necesitan esto)
-    console.log('[QWEN] ⏳ Esperando a que el DOM esté completamente listo...');
-    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 segundos adicionales para renderizado de React/Vue
-    
-    // Script mejorado para inyectar mensaje en el input de Qwen y enviarlo
-    // ESPERA ACTIVA de elementos DOM (necesario para SPAs como React)
-    const injectCode = `
-      (async function() {
-        const messageText = ${JSON.stringify(message)};
-        const maxAttempts = 50; // Máximo 5 segundos de espera (50 * 100ms)
-        
-        // Función helper para esperar a que un elemento exista
-        async function waitForElement(selectors, maxAttempts = 50) {
-          for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            for (let selector of selectors) {
-              try {
-                const element = document.querySelector(selector);
-                if (element && element.offsetHeight > 0 && element.offsetWidth > 0) {
-                  console.log('[QWEN Inject] Elemento encontrado:', selector, 'intento:', attempt + 1);
-                  return element;
-                }
-              } catch (e) {
-                // Continuar con siguiente selector
-              }
-            }
-            // Esperar 100ms antes del siguiente intento
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-          return null;
-        }
 
-        // ESPERAR ACTIVAMENTE al input de chat
-        const inputSelectors = [
-          'textarea[placeholder*="Message"]',
-          'textarea[placeholder*="message"]',
-          'textarea[placeholder*="Ask"]',
-          'textarea[placeholder*="ask"]',
-          'textarea[placeholder*="提问"]',
-          'textarea[name="prompt"]',
-          'textarea.chat-input',
-          'textarea#chat-input',
-          'div[contenteditable="true"][role="textbox"]',
-          'div[contenteditable="true"]',
-          'textarea',
-          'input[type="text"]'
-        ];
-        
-        console.log('[QWEN Inject] Buscando input de chat...');
-        const input = await waitForElement(inputSelectors, maxAttempts);
-        
-        if (!input) {
-          console.error('[QWEN Inject] Input no encontrado después de', maxAttempts, 'intentos');
-          return { success: false, error: 'Input de chat no encontrado en la página después de esperar' };
-        }
+    if (!message || typeof message !== 'string') {
+      return { success: false, error: 'Mensaje inválido' };
+    }
 
-        console.log('[QWEN Inject] Input encontrado, estableciendo mensaje:', messageText.substring(0, 50) + '...');
-        
-        // Establecer el valor del mensaje según el tipo de elemento
-        if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-          input.value = messageText;
-          input.focus();
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        } else if (input.contentEditable === 'true') {
-          input.innerText = messageText;
-          input.textContent = messageText;
-          input.focus();
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          const inputEvent = new InputEvent('input', { bubbles: true, cancelable: true, data: messageText });
-          input.dispatchEvent(inputEvent);
-        }
+    console.log(`[QWEN] Enviando mensaje: "${message.substring(0, 50)}..."`);
 
-        // Esperar a que el input se actualice
-        await new Promise(resolve => setTimeout(resolve, 300));
+    // ✅ USAR NUEVO SISTEMA CON REINTENTOS Y HEALTH CHECK
+    const result = await sendMessageWithRetry(qwenBrowserView, message, 3);
 
-        // ESPERAR ACTIVAMENTE al botón de envío
-        const submitSelectors = [
-          'button[type="submit"]',
-          'button[aria-label*="Send"]',
-          'button[aria-label*="send"]',
-          'button[aria-label*="Enviar"]',
-          'button[aria-label*="发送"]',
-          'button.send-button',
-          'button.submit-button',
-          'button[data-testid*="send"]',
-          '[role="button"][aria-label*="send"]',
-          'button:has(svg[class*="send"])',
-          'button:has(svg[aria-label*="send"])',
-          'button:has(svg[class*="Send"])'
-        ];
-
-        console.log('[QWEN Inject] Buscando botón de envío...');
-        const submitButton = await waitForElement(submitSelectors, 30); // 3 segundos máximo para el botón
-        
-        let sent = false;
-        if (submitButton && !submitButton.disabled) {
-          try {
-            submitButton.click();
-            console.log('[QWEN Inject] ✅ Mensaje enviado con botón');
-            sent = true;
-          } catch (e) {
-            console.error('[QWEN Inject] Error al hacer click en botón:', e);
-          }
-        }
-
-        // Si no hay botón o falló el click, intentar Enter
-        if (!sent) {
-          console.log('[QWEN Inject] Intentando enviar con Enter...');
-          const keyEvent = new KeyboardEvent('keydown', {
-            key: 'Enter',
-            code: 'Enter',
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true
-          });
-          input.dispatchEvent(keyEvent);
-          
-          // También intentar keypress y keyup para máxima compatibilidad
-          input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-          input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-          
-          console.log('[QWEN Inject] ✅ Mensaje enviado con Enter');
-          sent = true;
-        }
-
-        return { success: sent, message: 'Mensaje inyectado y enviado correctamente' };
-      })();
-    `;
-
-    // Ejecutar JavaScript con timeout más largo (15 segundos para permitir espera de elementos)
-    console.log('[QWEN] 🚀 Ejecutando script de inyección...');
-    const result = await Promise.race([
-      qwenBrowserView.webContents.executeJavaScript(injectCode),
-      new Promise((_, reject) => setTimeout(() => {
-        console.error('[QWEN] ❌ Timeout ejecutando script de inyección');
-        reject(new Error('Timeout ejecutando script (15s)'));
-      }, 15000))
-    ]);
-    
-    if (result && result.success) {
-      console.log('[QWEN] ✅ Mensaje enviado al BrowserView:', message.substring(0, 50));
-      return { success: true, message: 'Mensaje enviado a QWEN' };
+    if (result.success) {
+      console.log(`[QWEN] ✅ Mensaje enviado exitosamente`);
+      return { success: true, message: result.message };
     } else {
-      console.error('[QWEN] ❌ Error enviando mensaje:', result?.error);
-      return { success: false, error: result?.error || 'Error desconocido al enviar mensaje' };
+      console.error(`[QWEN] ❌ Error al enviar:`, result.error);
+      return { success: false, error: result.error };
     }
   } catch (error) {
-    console.error('[QWEN] ❌ Error en sendMessage:', error.message);
-    
-    // Si el error es porque el frame fue destruido, no es crítico
+    console.error(`[QWEN] ❌ Error en sendMessage:`, error.message);
+
+    // Si el error es porque el frame fue destruido
     if (error.message.includes('disposed') || error.message.includes('destroyed')) {
       return { success: false, error: 'El panel de Qwen se cerró durante el envío. Vuelve a abrirlo.' };
     }
-    
+
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ QWEN: CAMBIAR MODELO EN BROWSERVIEW (NUEVO) ============
+ipcMain.handle('qwen:changeModel', async (_e, { model, provider }) => {
+  try {
+    if (provider !== 'qwen' || !qwenBrowserView) {
+      return { success: false, error: 'QWEN not available' };
+    }
+
+    console.log(`[QWEN] Cambiando modelo a: ${model}`);
+
+    // Verificar disponibilidad
+    await verifyQWENReady(qwenBrowserView, 15000);
+
+    // Inyectar cambio de modelo
+    const changeCode = `
+      (function() {
+        try {
+          console.log('[QWEN Model Change] Buscando selector de modelo...');
+
+          // Múltiples selectores posibles para el selector de modelo
+          const modelSelectors = [
+            '.model-selector',
+            '[data-testid="model-selector"]',
+            '.qwen-model-selector',
+            'select.model',
+            '[data-model-selector]',
+            'button[data-model]',
+            '.model-dropdown',
+            '[role="combobox"][aria-label*="model"]'
+          ];
+
+          for (const selector of modelSelectors) {
+            const elem = document.querySelector(selector);
+            if (elem) {
+              console.log('[QWEN Model Change] Elemento encontrado:', selector);
+              elem.value = "${model}";
+              elem.dispatchEvent(new Event('change', { bubbles: true }));
+              console.log('[QWEN Model Change] ✅ Modelo cambiado');
+              return { success: true };
+            }
+          }
+
+          // Si no hay selector directo, intentar encontrar botones de modelo
+          const modelButtons = document.querySelectorAll('button[data-model], [role="option"][data-model]');
+          for (const btn of modelButtons) {
+            if (btn.textContent.includes("${model}") || btn.getAttribute('data-model') === "${model}") {
+              btn.click();
+              console.log('[QWEN Model Change] ✅ Modelo cambiado (botón)');
+              return { success: true };
+            }
+          }
+
+          return { success: false, error: 'Model selector not found' };
+        } catch (err) {
+          return { success: false, error: err.message };
+        }
+      })();
+    `;
+
+    const result = await qwenBrowserView.webContents.executeJavaScript(changeCode);
+    return result.success ? { success: true, model } : { success: false, error: result.error || 'Failed to change model' };
+  } catch (error) {
+    console.error(`[QWEN] Error al cambiar modelo:`, error.message);
     return { success: false, error: error.message };
   }
 });
