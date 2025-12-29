@@ -1760,6 +1760,62 @@ ipcMain.handle('qwen:changeModel', async (_e, { model, provider }) => {
   }
 });
 
+// ============ LOAD MODEL HANDLER ============
+ipcMain.on('load-model', (event, model) => {
+  try {
+    console.log(`[IPC] Solicitud para cargar modelo: ${model}`);
+    if (qwenBrowserView && qwenBrowserView.webContents) {
+      const code = `
+        (function() {
+          try {
+            // Buscar botón del modelo
+            const buttons = document.querySelectorAll('button');
+            let modelButton = null;
+
+            for (const btn of buttons) {
+              if (btn.textContent.includes('${model}') || btn.textContent.toLowerCase().includes('${model.toLowerCase()}')) {
+                modelButton = btn;
+                break;
+              }
+            }
+
+            if (modelButton) {
+              modelButton.click();
+              return { success: true, message: 'Modelo cargado: ${model}' };
+            }
+
+            return { success: false, error: 'Botón del modelo no encontrado' };
+          } catch (err) {
+            return { success: false, error: err.message };
+          }
+        })();
+      `;
+
+      qwenBrowserView.webContents.executeJavaScript(code).then(result => {
+        console.log(`[IPC] Resultado de cargar modelo:`, result);
+      }).catch(err => {
+        console.error(`[IPC] Error al cargar modelo:`, err);
+      });
+    }
+  } catch (error) {
+    console.error(`[IPC] Error en load-model handler:`, error.message);
+  }
+});
+
+// ============ RESIZE SIDEBAR HANDLER ============
+ipcMain.on('resize-sidebar', (event, width) => {
+  try {
+    console.log(`[IPC] Solicitud para redimensionar sidebar a ${width}px`);
+    if (qwenBrowserView && mainWindow) {
+      const [_, height] = mainWindow.getContentSize();
+      qwenBrowserView.setBounds({ x: 0, y: 0, width: parseInt(width), height });
+      console.log(`[IPC] Sidebar redimensionado: ${width}x${height}`);
+    }
+  } catch (error) {
+    console.error(`[IPC] Error en resize-sidebar handler:`, error.message);
+  }
+});
+
 ipcMain.handle('qwen:voiceChat', async (_e, { audioBase64, userId = 'default', text = '' }) => {
   try {
     const res = await fetch('http://localhost:8085/api/voice-chat', {
