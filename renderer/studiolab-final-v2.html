@@ -3421,8 +3421,8 @@
       historyPanelOpen: false,
       canvasPanelOpen: false,
       terminalOpen: false,
-      currentProvider: 'groq', // Proveedor actual
-      currentModel: 'llama-3.3-70b-versatile', // Modelo actual del proveedor
+      currentProvider: null, // Proveedor actual (null = ninguno seleccionado por defecto)
+      currentModel: null, // Modelo actual del proveedor
       currentMode: 'agente',
       planModeActive: false,
       thinkingEnabled: false,
@@ -3501,18 +3501,21 @@
           });
 
           // IMPORTANTE: Restaurar estado correcto de botones activos
-          // Limpiar todos primero
+          // Limpiar TODOS los botones primero
           document.querySelectorAll('.provider-btn').forEach(btn => {
             btn.classList.remove('active');
           });
           
-          // Luego marcar solo el proveedor actual como activo
+          // Luego marcar SOLO el proveedor actual como activo (si existe)
           if (state.currentProvider) {
             const currentBtnId = `provider${state.currentProvider.charAt(0).toUpperCase() + state.currentProvider.slice(1)}`;
             const currentBtn = document.getElementById(currentBtnId);
             if (currentBtn) {
               currentBtn.classList.add('active');
+              console.log(`[Click Outside] Restaurado estado: ${state.currentProvider} activo`);
             }
+          } else {
+            console.log(`[Click Outside] Ningún proveedor seleccionado - todos los botones limpios`);
           }
         }
       });
@@ -5635,25 +5638,22 @@
      * Configura el estado inicial de los botones de proveedores (Groq por defecto)
      */
     function initProviderButtons() {
-      // Establecer Groq como proveedor por defecto si no hay nada seleccionado
-      if (!state.currentProvider) {
-        state.currentProvider = 'groq';
-        state.currentModel = 'llama-3.3-70b-versatile';
-      }
-
-      // PASO 1: Limpiar TODOS los botones primero
+      // NO establecer ningún proveedor por defecto - el usuario debe seleccionar uno
+      // PASO 1: Limpiar TODOS los botones (NINGUNO activo por defecto)
       document.querySelectorAll('.provider-btn').forEach(btn => {
         btn.classList.remove('active');
       });
 
-      // PASO 2: Marcar SOLO el proveedor actual como activo
-      const currentBtnId = `provider${state.currentProvider.charAt(0).toUpperCase() + state.currentProvider.slice(1)}`;
-      const currentBtn = document.getElementById(currentBtnId);
-      if (currentBtn) {
-        currentBtn.classList.add('active');
-        console.log(`[Provider Init] ${state.currentProvider.toUpperCase()} está activo (${state.currentModel})`);
+      // PASO 2: Si hay un proveedor seleccionado, marcarlo como activo
+      if (state.currentProvider) {
+        const currentBtnId = `provider${state.currentProvider.charAt(0).toUpperCase() + state.currentProvider.slice(1)}`;
+        const currentBtn = document.getElementById(currentBtnId);
+        if (currentBtn) {
+          currentBtn.classList.add('active');
+          console.log(`[Provider Init] ${state.currentProvider.toUpperCase()} está activo (${state.currentModel})`);
+        }
       } else {
-        console.log(`[Provider Init] Proveedor ${state.currentProvider} no tiene botón correspondiente`);
+        console.log(`[Provider Init] Ningún proveedor seleccionado - el usuario debe seleccionar uno`);
       }
     }
 
@@ -5709,7 +5709,13 @@
       const oldProvider = state.currentProvider;
       const oldModel = state.currentModel;
 
-      // Actualizar estado
+      // PASO 1: Limpiar TODOS los botones PRIMERO (ANTES de cambiar el estado)
+      document.querySelectorAll('.provider-btn').forEach(btn => {
+        btn.classList.remove('active');
+        console.log(`[Select] Removido .active de: ${btn.id}`);
+      });
+
+      // PASO 2: Actualizar estado DESPUÉS de limpiar
       state.currentProvider = provider;
       state.currentModel = modelId;
 
@@ -5718,21 +5724,16 @@
       console.log(`   DESPUÉS: ${provider}/${modelId}`);
       console.log(`   NOMBRE: ${modelName}`);
 
-      // PASO 1: Limpiar TODOS los botones (remover .active de todos)
-      document.querySelectorAll('.provider-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-
-      // PASO 2: Marcar SOLO el botón del proveedor actual como activo
+      // PASO 3: Marcar SOLO el botón del proveedor seleccionado como activo
       const currentBtnId = `provider${provider.charAt(0).toUpperCase() + provider.slice(1)}`;
       const currentBtn = document.getElementById(currentBtnId);
       if (currentBtn) {
         currentBtn.classList.add('active');
         const label = currentBtn.querySelector('.provider-name-small');
         if (label) label.textContent = modelName;
-        console.log(`   ✅ Botón iluminado: ${provider}`);
+        console.log(`   ✅ Botón iluminado: ${provider} (ID: ${currentBtnId})`);
       } else {
-        console.warn(`   ⚠️ Botón no encontrado: ${currentBtnId}`);
+        console.error(`   ❌ Botón no encontrado: ${currentBtnId}`);
       }
 
       // Cerrar dropdown
