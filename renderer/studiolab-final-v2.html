@@ -2569,10 +2569,15 @@
     }
 
     .provider-models {
-      padding: 8px 0;
+      padding: 8px 4px;
+      max-height: 300px;
+      overflow-y: auto;
     }
 
-    .provider-model-item {
+    .provider-model-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       padding: 8px 12px;
       color: var(--text-primary);
       cursor: pointer;
@@ -2581,8 +2586,20 @@
       white-space: nowrap;
     }
 
-    .provider-model-item:hover {
+    .provider-model-checkbox:hover {
       background-color: var(--bg-tertiary);
+    }
+
+    .provider-model-checkbox input[type="radio"] {
+      cursor: pointer;
+      accent-color: var(--accent-primary);
+      width: 14px;
+      height: 14px;
+    }
+
+    .provider-model-checkbox input[type="radio"]:checked + span {
+      color: var(--accent-primary);
+      font-weight: 600;
     }
 
     /* AUTO Functions - 3 Button Layout */
@@ -3049,19 +3066,35 @@
                 </div>
               </div>
 
-              <!-- PROVIDER SELECTOR (New: Small buttons for ChatGPT, Groq, Anthropic, Gemini, QWEN) -->
+              <!-- PROVIDER SELECTOR - Real modelos con checkboxes -->
               <div class="provider-selector" id="providerSelector">
                 <!-- ChatGPT Provider -->
                 <div class="provider-btn-group">
-                  <button class="provider-btn" id="providerChatGPT" onclick="toggleProviderDropdown('chatgpt', event)" title="ChatGPT">
+                  <button class="provider-btn" id="providerOpenai" onclick="toggleProviderDropdown('openai', event)" title="ChatGPT">
                     <span class="provider-icon">💬</span>
-                    <span class="provider-name-small">ChatGPT</span>
                   </button>
-                  <div class="provider-dropdown" id="dropdown-chatgpt" style="display: none;">
+                  <div class="provider-dropdown" id="dropdown-openai" style="display: none;">
                     <div class="provider-models">
-                      <div class="provider-model-item" onclick="selectProviderModel('chatgpt', 'gpt4-turbo', 'GPT-4 Turbo')">GPT-4 Turbo</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('chatgpt', 'gpt4', 'GPT-4')">GPT-4</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('chatgpt', 'gpt35', 'GPT-3.5')">GPT-3.5</div>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="openai-model" value="gpt-4o" onchange="selectProviderModel('openai', 'gpt-4o')" checked />
+                        <span>GPT-4o</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="openai-model" value="gpt-4o-mini" onchange="selectProviderModel('openai', 'gpt-4o-mini')" />
+                        <span>GPT-4o Mini</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="openai-model" value="gpt-4-turbo" onchange="selectProviderModel('openai', 'gpt-4-turbo')" />
+                        <span>GPT-4 Turbo</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="openai-model" value="gpt-4" onchange="selectProviderModel('openai', 'gpt-4')" />
+                        <span>GPT-4</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="openai-model" value="gpt-3.5-turbo" onchange="selectProviderModel('openai', 'gpt-3.5-turbo')" />
+                        <span>GPT-3.5 Turbo</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -3070,14 +3103,41 @@
                 <div class="provider-btn-group">
                   <button class="provider-btn" id="providerGroq" onclick="toggleProviderDropdown('groq', event)" title="Groq">
                     <span class="provider-icon">⚡</span>
-                    <span class="provider-name-small">Groq</span>
                   </button>
                   <div class="provider-dropdown" id="dropdown-groq" style="display: none;">
                     <div class="provider-models">
-                      <div class="provider-model-item" onclick="selectProviderModel('groq', 'llama-3-3-70b', 'Llama 3.3 70B')">Llama 3.3 70B</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('groq', 'llama-3-1-8b', 'Llama 3.1 8B')">Llama 3.1 8B Instant</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('groq', 'llama-4-scout', 'Llama 4 Scout')">Llama 4 Scout (Vision)</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('groq', 'llama-4-maverick', 'Llama 4 Maverick')">Llama 4 Maverick (Vision)</div>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="llama-3.3-70b-versatile" onchange="selectProviderModel('groq', 'llama-3.3-70b-versatile')" checked />
+                        <span>Llama 3.3 70B</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="llama-3.1-70b-versatile" onchange="selectProviderModel('groq', 'llama-3.1-70b-versatile')" />
+                        <span>Llama 3.1 70B</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="llama-3.1-8b-instant" onchange="selectProviderModel('groq', 'llama-3.1-8b-instant')" />
+                        <span>Llama 3.1 8B</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="mixtral-8x7b-32768" onchange="selectProviderModel('groq', 'mixtral-8x7b-32768')" />
+                        <span>Mixtral 8x7B</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="meta-llama/llama-4-scout-17b-16e-instruct" onchange="selectProviderModel('groq', 'meta-llama/llama-4-scout-17b-16e-instruct')" />
+                        <span>Llama 4 Scout Vision</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="meta-llama/llama-4-maverick-17b-128e-instruct" onchange="selectProviderModel('groq', 'meta-llama/llama-4-maverick-17b-128e-instruct')" />
+                        <span>Llama 4 Maverick Vision</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="groq/compound" onchange="selectProviderModel('groq', 'groq/compound')" />
+                        <span>Groq Compound (Web+Code)</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="groq-model" value="groq/compound-mini" onchange="selectProviderModel('groq', 'groq/compound-mini')" />
+                        <span>Groq Compound Mini</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -3086,13 +3146,29 @@
                 <div class="provider-btn-group">
                   <button class="provider-btn" id="providerAnthropic" onclick="toggleProviderDropdown('anthropic', event)" title="Anthropic">
                     <span class="provider-icon">🧠</span>
-                    <span class="provider-name-small">Anthropic</span>
                   </button>
                   <div class="provider-dropdown" id="dropdown-anthropic" style="display: none;">
                     <div class="provider-models">
-                      <div class="provider-model-item" onclick="selectProviderModel('anthropic', 'claude-opus', 'Claude Opus 4.5')">Claude Opus 4.5</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('anthropic', 'claude-sonnet', 'Claude Sonnet 4.5')">Claude Sonnet 4.5</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('anthropic', 'claude-haiku', 'Claude Haiku')">Claude Haiku 4.5</div>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="anthropic-model" value="claude-3-5-sonnet-20241022" onchange="selectProviderModel('anthropic', 'claude-3-5-sonnet-20241022')" checked />
+                        <span>Claude 3.5 Sonnet</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="anthropic-model" value="claude-3-5-haiku-20241022" onchange="selectProviderModel('anthropic', 'claude-3-5-haiku-20241022')" />
+                        <span>Claude 3.5 Haiku</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="anthropic-model" value="claude-3-opus-20240229" onchange="selectProviderModel('anthropic', 'claude-3-opus-20240229')" />
+                        <span>Claude 3 Opus</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="anthropic-model" value="claude-3-sonnet-20240229" onchange="selectProviderModel('anthropic', 'claude-3-sonnet-20240229')" />
+                        <span>Claude 3 Sonnet</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="anthropic-model" value="claude-3-haiku-20240307" onchange="selectProviderModel('anthropic', 'claude-3-haiku-20240307')" />
+                        <span>Claude 3 Haiku</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -3101,28 +3177,76 @@
                 <div class="provider-btn-group">
                   <button class="provider-btn" id="providerGemini" onclick="toggleProviderDropdown('gemini', event)" title="Gemini">
                     <span class="provider-icon">✨</span>
-                    <span class="provider-name-small">Gemini</span>
                   </button>
                   <div class="provider-dropdown" id="dropdown-gemini" style="display: none;">
                     <div class="provider-models">
-                      <div class="provider-model-item" onclick="selectProviderModel('gemini', 'gemini-2.5', 'Gemini 2.5 Flash')">Gemini 2.5 Flash</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('gemini', 'gemini-pro', 'Gemini 1.5 Pro')">Gemini 1.5 Pro</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('gemini', 'gemini-flash', 'Gemini 1.5 Flash')">Gemini 1.5 Flash</div>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="gemini-model" value="gemini-2.5-flash" onchange="selectProviderModel('gemini', 'gemini-2.5-flash')" checked />
+                        <span>Gemini 2.5 Flash</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="gemini-model" value="gemini-2.0-flash" onchange="selectProviderModel('gemini', 'gemini-2.0-flash')" />
+                        <span>Gemini 2.0 Flash</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="gemini-model" value="gemini-1.5-pro" onchange="selectProviderModel('gemini', 'gemini-1.5-pro')" />
+                        <span>Gemini 1.5 Pro</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="gemini-model" value="gemini-1.5-flash" onchange="selectProviderModel('gemini', 'gemini-1.5-flash')" />
+                        <span>Gemini 1.5 Flash</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="gemini-model" value="gemini-1.5-flash-8b" onchange="selectProviderModel('gemini', 'gemini-1.5-flash-8b')" />
+                        <span>Gemini 1.5 Flash 8B</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="gemini-model" value="gemini-1-pro" onchange="selectProviderModel('gemini', 'gemini-1-pro')" />
+                        <span>Gemini 1.0 Pro</span>
+                      </label>
                     </div>
                   </div>
                 </div>
 
                 <!-- QWEN Provider -->
                 <div class="provider-btn-group">
-                  <button class="provider-btn" id="providerQWEN" onclick="toggleProviderDropdown('qwen', event)" title="QWEN">
+                  <button class="provider-btn" id="providerQwen" onclick="toggleProviderDropdown('qwen', event)" title="QWEN">
                     <span class="provider-icon">🟡</span>
-                    <span class="provider-name-small">QWEN</span>
                   </button>
                   <div class="provider-dropdown" id="dropdown-qwen" style="display: none;">
                     <div class="provider-models">
-                      <div class="provider-model-item" onclick="selectProviderModel('qwen', 'qwen-max', 'QWEN Max')">QWEN Max</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('qwen', 'qwen-plus', 'QWEN Plus')">QWEN Plus</div>
-                      <div class="provider-model-item" onclick="selectProviderModel('qwen', 'qwen-turbo', 'QWEN Turbo')">QWEN Turbo</div>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen3-max" onchange="selectProviderModel('qwen', 'qwen3-max')" checked />
+                        <span>Qwen3-Max</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen3-plus" onchange="selectProviderModel('qwen', 'qwen3-plus')" />
+                        <span>Qwen3-Plus</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen3-turbo" onchange="selectProviderModel('qwen', 'qwen3-turbo')" />
+                        <span>Qwen3-Turbo</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen3-omni-flash" onchange="selectProviderModel('qwen', 'qwen3-omni-flash')" />
+                        <span>Qwen3-Omni-Flash</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen3-vl-235b" onchange="selectProviderModel('qwen', 'qwen3-vl-235b')" />
+                        <span>Qwen3-VL-235B Vision</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen3-vl-32b" onchange="selectProviderModel('qwen', 'qwen3-vl-32b')" />
+                        <span>Qwen3-VL-32B Vision</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen3-coder" onchange="selectProviderModel('qwen', 'qwen3-coder')" />
+                        <span>Qwen3-Coder</span>
+                      </label>
+                      <label class="provider-model-checkbox">
+                        <input type="radio" name="qwen-model" value="qwen3-coder-turbo" onchange="selectProviderModel('qwen', 'qwen3-coder-turbo')" />
+                        <span>Qwen3-Coder Turbo</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -3285,59 +3409,80 @@
     };
 
     // ============================================
-    // PROVIDERS & MODELS CONFIGURATION
+    // PROVIDERS & MODELS CONFIGURATION - REAL MODELS 2025
     // ============================================
     const PROVIDERS = {
+      openai: {
+        name: 'ChatGPT',
+        icon: '💬',
+        type: 'api',
+        models: {
+          'gpt-4o': { name: 'GPT-4o', context: 128000, speed: 'fast' },
+          'gpt-4o-mini': { name: 'GPT-4o Mini', context: 128000, speed: 'very-fast' },
+          'gpt-4-turbo': { name: 'GPT-4 Turbo', context: 128000, speed: 'balanced' },
+          'gpt-4': { name: 'GPT-4', context: 8192, speed: 'slow' },
+          'gpt-3.5-turbo': { name: 'GPT-3.5 Turbo', context: 4096, speed: 'very-fast' }
+        },
+        defaultModel: 'gpt-4o'
+      },
       groq: {
         name: 'Groq',
         icon: '⚡',
         type: 'api',
         models: {
-          'llama-3.3-70b-versatile': { name: 'Llama 3.3 70B', context: 8192 },
-          'llama-3.1-8b-instant': { name: 'Llama 3.1 8B Instant', context: 8192 },
-          'openai/gpt-oss-120b': { name: 'GPT-OSS 120B', context: 8192 },
-          'openai/gpt-oss-20b': { name: 'GPT-OSS 20B', context: 8192 },
-          'meta-llama/llama-4-scout-17b-16e-instruct': { name: 'Llama 4 Scout (Visión)', context: 131072 },
-          'meta-llama/llama-4-maverick-17b-128e-instruct': { name: 'Llama 4 Maverick (Visión)', context: 131072 },
-          'groq/compound': { name: 'Groq Compound', context: 8192 },
-          'groq/compound-mini': { name: 'Groq Compound Mini', context: 8192 }
+          'llama-3.3-70b-versatile': { name: 'Llama 3.3 70B Versatile', context: 8192, speed: 'ultra' },
+          'llama-3.1-70b-versatile': { name: 'Llama 3.1 70B Versatile', context: 131072, speed: 'ultra' },
+          'llama-3.1-8b-instant': { name: 'Llama 3.1 8B Instant', context: 8192, speed: 'ultra' },
+          'mixtral-8x7b-32768': { name: 'Mixtral 8x7B 32K', context: 32768, speed: 'fast' },
+          'meta-llama/llama-4-scout-17b-16e-instruct': { name: 'Llama 4 Scout Vision', context: 131072, speed: 'fast' },
+          'meta-llama/llama-4-maverick-17b-128e-instruct': { name: 'Llama 4 Maverick Vision', context: 131072, speed: 'fast' },
+          'groq/compound': { name: 'Groq Compound (Web+Code)', context: 8192, speed: 'ultra' },
+          'groq/compound-mini': { name: 'Groq Compound Mini', context: 8192, speed: 'ultra' }
         },
         defaultModel: 'llama-3.3-70b-versatile'
       },
-      qwen: {
-        name: 'QWEN3',
-        icon: '🟡',
-        type: 'local', // Solo modo local (Ollama)
-        models: {
-          'qwen3-omni-flash': { name: 'Qwen3-Omni-Flash', context: 65536 },
-          'qwen3-max': { name: 'Qwen3-Max', context: 262144 },
-          'qwen3-vl-235b-a22b': { name: 'Qwen3-VL-235B', context: 262144 },
-          'qwen3-coder': { name: 'Qwen3-Coder', context: 1048576 },
-          'qwen3-vl-32b': { name: 'Qwen3-VL-32B', context: 131072 }
-        },
-        defaultModel: 'qwen3-omni-flash'
-      },
       anthropic: {
-        name: 'Claude',
+        name: 'Anthropic',
         icon: '🧠',
         type: 'api',
         models: {
-          'claude-opus-4-5': { name: 'Claude Opus 4.5', context: 200000 },
-          'claude-sonnet-4': { name: 'Claude Sonnet 4', context: 200000 },
-          'claude-haiku-4': { name: 'Claude Haiku 4', context: 200000 }
+          'claude-3-5-sonnet-20241022': { name: 'Claude 3.5 Sonnet', context: 200000, speed: 'balanced' },
+          'claude-3-5-haiku-20241022': { name: 'Claude 3.5 Haiku', context: 200000, speed: 'very-fast' },
+          'claude-3-opus-20240229': { name: 'Claude 3 Opus', context: 200000, speed: 'slow' },
+          'claude-3-sonnet-20240229': { name: 'Claude 3 Sonnet', context: 200000, speed: 'balanced' },
+          'claude-3-haiku-20240307': { name: 'Claude 3 Haiku', context: 200000, speed: 'very-fast' }
         },
-        defaultModel: 'claude-sonnet-4'
+        defaultModel: 'claude-3-5-sonnet-20241022'
       },
-      openai: {
-        name: 'ChatGPT',
-        icon: '🟢',
+      gemini: {
+        name: 'Gemini',
+        icon: '✨',
         type: 'api',
         models: {
-          'gpt-4o': { name: 'GPT-4o', context: 128000 },
-          'gpt-4o-mini': { name: 'GPT-4o Mini', context: 128000 },
-          'gpt-4-turbo': { name: 'GPT-4 Turbo', context: 128000 }
+          'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', context: 1000000, speed: 'fast' },
+          'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', context: 1000000, speed: 'fast' },
+          'gemini-1.5-pro': { name: 'Gemini 1.5 Pro', context: 2000000, speed: 'balanced' },
+          'gemini-1.5-flash': { name: 'Gemini 1.5 Flash', context: 1000000, speed: 'very-fast' },
+          'gemini-1.5-flash-8b': { name: 'Gemini 1.5 Flash 8B', context: 1000000, speed: 'ultra' },
+          'gemini-1-pro': { name: 'Gemini 1.0 Pro', context: 32768, speed: 'slow' }
         },
-        defaultModel: 'gpt-4o'
+        defaultModel: 'gemini-2.5-flash'
+      },
+      qwen: {
+        name: 'QWEN',
+        icon: '🟡',
+        type: 'api',
+        models: {
+          'qwen3-max': { name: 'Qwen3-Max', context: 262144, speed: 'slow' },
+          'qwen3-plus': { name: 'Qwen3-Plus', context: 262144, speed: 'balanced' },
+          'qwen3-turbo': { name: 'Qwen3-Turbo', context: 262144, speed: 'fast' },
+          'qwen3-omni-flash': { name: 'Qwen3-Omni-Flash', context: 65536, speed: 'ultra' },
+          'qwen3-vl-235b': { name: 'Qwen3-VL-235B Vision', context: 262144, speed: 'balanced' },
+          'qwen3-vl-32b': { name: 'Qwen3-VL-32B Vision', context: 131072, speed: 'fast' },
+          'qwen3-coder': { name: 'Qwen3-Coder', context: 1048576, speed: 'slow' },
+          'qwen3-coder-turbo': { name: 'Qwen3-Coder Turbo', context: 262144, speed: 'balanced' }
+        },
+        defaultModel: 'qwen3-max'
       }
     };
 
