@@ -51,7 +51,7 @@ api-rotation-state.json
 *.bak
 *-backup*
 *-alternative*
-*-simple*
+# *-simple* # COMENTADO: Permitir mcp-server-neon-simple.py limpio de credenciales
 *-clean*
 *-old*
 *-backup.js
