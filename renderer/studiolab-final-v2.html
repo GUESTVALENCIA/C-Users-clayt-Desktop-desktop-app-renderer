@@ -3587,111 +3587,34 @@
     // QWEN PANEL TOGGLE (Embedded)
     // ============================================
     // ============================================
-    // QWEN3 TOGGLE - USANDO WEBVIEW TAG (como VS Code)
+    // QWEN3 TOGGLE - USANDO BROWSERVIEW (Solución correcta para X-Frame-Options)
     // ============================================
     function toggleQwen() {
-      console.log('[UI] toggleQwen - usando webview tag (como VS Code)');
-      
+      console.log('[UI] toggleQwen - usando BrowserView (evita X-Frame-Options)');
+
       const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
       const label = document.getElementById('qwenLabel');
-      let webview = document.getElementById('qwenWebview');
-      
-      // Si no existe el webview, crearlo
-      if (!webview) {
-        webview = document.createElement('webview');
-        webview.id = 'qwenWebview';
-        webview.src = 'https://chat.qwenlm.ai/';
-        // IMPORTANTE: Usar partición persistente para guardar cookies y sesión (como VS Code)
-        webview.partition = 'persist:qwen3';
-        // Atributos de seguridad para permitir contenido externo
-        webview.setAttribute('allowpopups', 'true');
-        webview.setAttribute('allowmodals', 'true');
-        webview.setAttribute('enableRemoteModule', 'false');
-        webview.style.cssText = `
-          position: fixed;
-          top: 44px;
-          left: 52px;
-          right: 0;
-          bottom: 0;
-          z-index: 9999;
-          display: none;
-          border: none;
-          background: white;
-        `;
 
-        // Listeners para diagnosticar carga
-        webview.addEventListener('did-start-loading', () => {
-          console.log('[UI] QWEN3 iniciando carga de https://chat.qwenlm.ai/');
+      // Actualizar state
+      state.qwen.panelVisible = !state.qwen.panelVisible;
+
+      // Actualizar UI
+      if (btn) btn.classList.toggle('active', state.qwen.panelVisible);
+      if (label) label.textContent = state.qwen.panelVisible ? 'QWEN3 ON' : 'QWEN3';
+
+      // Llamar IPC para controlar BrowserView en main process
+      window.sandraAPI.qwenToggle(state.qwen.panelVisible)
+        .then(() => {
+          if (state.qwen.panelVisible) {
+            addTerminalLine('✅ QWEN3 abierto');
+          } else {
+            addTerminalLine('QWEN3 cerrado');
+          }
+        })
+        .catch(err => {
+          console.error('[UI] Error toggling QWEN3:', err);
+          addTerminalLine(`❌ Error: ${err.message}`);
         });
-
-        webview.addEventListener('did-finish-load', () => {
-          console.log('[UI] ✅ QWEN3 cargó exitosamente');
-        });
-
-        webview.addEventListener('did-fail-load', (event) => {
-          console.error('[UI] ❌ QWEN3 falló al cargar:', event.errorCode, event.errorDescription);
-          addTerminalLine(`❌ Error cargando QWEN3: ${event.errorDescription}`);
-        });
-
-        webview.addEventListener('crashed', () => {
-          console.error('[UI] ❌ QWEN3 webview crashed');
-          addTerminalLine('❌ QWEN3 webview crashed');
-        });
-
-        document.body.appendChild(webview);
-
-        // Agregar botón de cierre en la esquina superior del webview
-        const closeBtn = document.createElement('button');
-        closeBtn.id = 'qwenCloseBtn';
-        closeBtn.textContent = '✕';
-        closeBtn.style.cssText = `
-          position: fixed;
-          top: 50px;
-          right: 10px;
-          z-index: 10000;
-          background: rgba(255, 0, 0, 0.7);
-          color: white;
-          border: none;
-          border-radius: 50%;
-          width: 30px;
-          height: 30px;
-          font-size: 20px;
-          cursor: pointer;
-          display: none;
-          padding: 0;
-          line-height: 1;
-        `;
-        closeBtn.onclick = (e) => {
-          e.stopPropagation();
-          toggleQwen(); // Llamar toggleQwen para cerrar
-        };
-        document.body.appendChild(closeBtn);
-      }
-
-      // Invertir estado
-      const isVisible = webview.style.display !== 'none';
-      const newState = !isVisible;
-      const closeBtn = document.getElementById('qwenCloseBtn');
-
-      if (newState) {
-        // Mostrar webview
-        webview.style.display = 'block';
-        if (closeBtn) closeBtn.style.display = 'block';
-        if (btn) btn.classList.add('active');
-        if (label) label.textContent = 'QWEN3 ON';
-        state.qwen.panelVisible = true;
-        state.qwen.connected = true;
-        addTerminalLine('✅ QWEN3 abierto - Presiona ESC o haz click en ✕ para cerrar');
-      } else {
-        // Ocultar webview
-        webview.style.display = 'none';
-        if (closeBtn) closeBtn.style.display = 'none';
-        if (btn) btn.classList.remove('active');
-        if (label) label.textContent = 'QWEN3';
-        state.qwen.panelVisible = false;
-        state.qwen.connected = false;
-        addTerminalLine('QWEN3 cerrado');
-      }
 
       // Permitir cerrar con ESC
       if (!window.qwenEscHandler) {

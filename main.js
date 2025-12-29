@@ -1198,14 +1198,79 @@ ipcMain.handle('qwen:login', async () => {
   return { success: true, message: 'QWEN se muestra embebido en la interfaz' };
 });
 
-// ============ QWEN3 EMBEDDED - USANDO WEBVIEW TAG (como VS Code) ============
-// Ya no necesitamos BrowserView - el HTML usa <webview> tag directamente
-// Esto es mucho más simple y no bloquea la UI
+// ============ QWEN3 EMBEDDED - USANDO BROWSERVIEW ============
+// RAZÓN: chat.qwenlm.ai tiene X-Frame-Options: DENY
+// Webview tags respetan X-Frame-Options, BrowserView no
+// BrowserView es lo que usa VS Code internamente
 
-ipcMain.handle('qwen:toggle', async (_e, { show }) => {
-  // El webview tag se maneja directamente en el HTML, no necesitamos IPC
-  console.log('[QWEN3] Webview tag se maneja en el HTML (como VS Code)');
-  return { success: true, message: 'Webview tag manejado en HTML' };
+ipcMain.handle('qwen:toggle', async (_e, show) => {
+  console.log('[QWEN3] Toggle BrowserView:', show ? 'SHOW' : 'HIDE');
+
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    console.error('[QWEN3] Ventana principal no disponible');
+    return { success: false, error: 'Ventana no disponible' };
+  }
+
+  if (show) {
+    // MOSTRAR QWEN3 BrowserView
+    if (!qwenBrowserView) {
+      console.log('[QWEN3] Creando BrowserView para QWEN3...');
+      qwenBrowserView = new BrowserView({
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: false,
+          webSecurity: false,  // Permite cargar QWEN3
+          allowRunningInsecureContent: true,
+          enableRemoteModule: false
+        }
+      });
+
+      // Cargar QWEN3 con partición persistente
+      qwenBrowserView.webContents.session.defaultSession.webRequest.onBeforeSendHeaders(
+        (details, callback) => {
+          details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124';
+          callback({ requestHeaders: details.requestHeaders });
+        }
+      );
+
+      // Usar partición persistente para guardar cookies/sesión
+      const session = require('electron').session.fromPartition('persist:qwen3');
+      qwenBrowserView.webContents.session = session;
+
+      qwenBrowserView.webContents.loadURL('https://chat.qwenlm.ai/');
+
+      qwenBrowserView.webContents.on('did-finish-load', () => {
+        console.log('[QWEN3] ✅ QWEN3 cargado en BrowserView');
+      });
+
+      qwenBrowserView.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        console.error('[QWEN3] ❌ Error cargando QWEN3:', errorCode, errorDescription);
+      });
+    }
+
+    // Asignar al mainWindow
+    mainWindow.setBrowserView(qwenBrowserView);
+
+    // Configurar posición y tamaño (igual que sidebar)
+    const { width, height } = mainWindow.getContentBounds();
+    qwenBrowserView.setBounds({
+      x: 52,        // Ancho del sidebar
+      y: 44,        // Alto del menubar
+      width: width - 52,
+      height: height - 44
+    });
+
+    console.log('[QWEN3] ✅ BrowserView visible');
+    return { success: true, message: 'QWEN3 visible' };
+
+  } else {
+    // OCULTAR QWEN3 BrowserView
+    if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+      mainWindow.setBrowserView(null);
+      console.log('[QWEN3] ✅ BrowserView oculto');
+    }
+    return { success: true, message: 'QWEN3 oculto' };
+  }
 });
 
 ipcMain.handle('qwen:voiceChat', async (_e, { audioBase64, userId = 'default', text = '' }) => {
