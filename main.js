@@ -777,7 +777,41 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', function () {
+// Función auxiliar para guardar cookies de Qwen
+async function saveQwenCookies(qwenSession, cookiesPath) {
+  try {
+    const cookies = await qwenSession.cookies.get({});
+    const cookiesData = cookies.map(cookie => ({
+      url: cookie.url || `https://${cookie.domain}`,
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path,
+      secure: cookie.secure,
+      httpOnly: cookie.httpOnly,
+      expirationDate: cookie.expirationDate
+    }));
+    
+    await fs.promises.writeFile(cookiesPath, JSON.stringify(cookiesData, null, 2));
+    console.log(`[QWEN3] 💾 ${cookies.length} cookies guardadas en ${cookiesPath}`);
+  } catch (e) {
+    console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
+  }
+}
+
+app.on('window-all-closed', async function () {
+  // Guardar cookies de Qwen antes de cerrar
+  if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+    try {
+      const qwenSession = qwenBrowserView.webContents.session;
+      const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
+      await saveQwenCookies(qwenSession, cookiesPath);
+      console.log('[QWEN3] 💾 Cookies guardadas antes de cerrar');
+    } catch (e) {
+      console.warn('[QWEN3] ⚠️ Error guardando cookies al cerrar:', e.message);
+    }
+  }
+
   // Limpiar CUALQUIER BrowserView antes de cerrar
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
@@ -1392,7 +1426,31 @@ ipcMain.handle('qwen:login', async () => {
 // Webview tags respetan X-Frame-Options, BrowserView no
 // BrowserView es lo que usa VS Code internamente
 
-ipcMain.handle('qwen:toggle', async (_e, show) => {
+// Función auxiliar para guardar cookies de Qwen
+async function saveQwenCookies(qwenSession, cookiesPath) {
+  try {
+    const cookies = await qwenSession.cookies.get({});
+    const cookiesData = cookies.map(cookie => ({
+      url: cookie.url || `https://${cookie.domain}`,
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path,
+      secure: cookie.secure,
+      httpOnly: cookie.httpOnly,
+      expirationDate: cookie.expirationDate
+    }));
+    
+    await fs.promises.writeFile(cookiesPath, JSON.stringify(cookiesData, null, 2));
+    console.log(`[QWEN3] 💾 ${cookies.length} cookies guardadas en ${cookiesPath}`);
+  } catch (e) {
+    console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
+  }
+}
+
+ipcMain.handle('qwen:toggle', async (_e, params) => {
+  // Compatibilidad: puede recibir { show: boolean } o directamente boolean
+  const show = typeof params === 'object' ? params.show : params;
   console.log('[QWEN3] Toggle BrowserView:', show ? 'SHOW' : 'HIDE');
 
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -1401,9 +1459,9 @@ ipcMain.handle('qwen:toggle', async (_e, show) => {
   }
 
   if (show) {
-    // MOSTRAR QWEN3 BrowserView
+    // MOSTRAR QWEN3 BrowserView con SESIÓN PERSISTENTE
     if (!qwenBrowserView) {
-      console.log('[QWEN3] Creando BrowserView para QWEN3...');
+      console.log('[QWEN3] Creando BrowserView para QWEN con sesión persistente...');
 
       // Obtener sesión persistente ANTES de crear BrowserView
       const { session } = require('electron');
@@ -1412,22 +1470,84 @@ ipcMain.handle('qwen:toggle', async (_e, show) => {
       qwenBrowserView = new BrowserView({
         webPreferences: {
           nodeIntegration: false,
-          contextIsolation: false,
-          webSecurity: false,  // Permite cargar QWEN3
-          allowRunningInsecureContent: true,
+          contextIsolation: true,
+          webSecurity: true,  // Seguridad habilitada
+          allowRunningInsecureContent: false,
           enableRemoteModule: false,
-          session: qwenSession  // Asignar partición persistente
+          sandbox: true,  // Sandbox habilitado para seguridad
+          session: qwenSession  // Asignar partición persistente (guarda cookies automáticamente)
         }
       });
 
-      qwenBrowserView.webContents.loadURL('https://chat.qwenlm.ai/');
+      // Cargar cookies guardadas si existen
+      const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
+      try {
+        if (fs.existsSync(cookiesPath)) {
+          const cookiesData = await fs.promises.readFile(cookiesPath, 'utf8');
+          const cookies = JSON.parse(cookiesData);
+          console.log(`[QWEN3] 📦 Cargando ${cookies.length} cookies guardadas...`);
+          
+          for (const cookie of cookies) {
+            try {
+              await qwenSession.cookies.set({
+                url: cookie.url || 'https://qwenlm.ai',
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain,
+                path: cookie.path || '/',
+                secure: cookie.secure !== false,
+                httpOnly: cookie.httpOnly !== false,
+                expirationDate: cookie.expirationDate
+              });
+            } catch (e) {
+              // Ignorar errores de cookies inválidas
+            }
+          }
+          console.log('[QWEN3] ✅ Cookies cargadas correctamente');
+        }
+      } catch (e) {
+        console.warn('[QWEN3] ⚠️ Error cargando cookies:', e.message);
+      }
+
+      // URL CORRECTA según pipeline: https://qwenlm.ai
+      const qwenUrl = 'https://qwenlm.ai';
+      qwenBrowserView.webContents.loadURL(qwenUrl);
+      console.log(`[QWEN3] 🔄 Cargando ${qwenUrl}...`);
 
       qwenBrowserView.webContents.on('did-finish-load', () => {
-        console.log('[QWEN3] ✅ QWEN3 cargado en BrowserView');
+        console.log('[QWEN3] ✅ QWEN cargado exitosamente en BrowserView');
+        
+        // Guardar cookies después de cargar (por si hay nuevas)
+        saveQwenCookies(qwenSession, cookiesPath).catch(e => {
+          console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
+        });
       });
 
-      qwenBrowserView.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-        console.error('[QWEN3] ❌ Error cargando QWEN3:', errorCode, errorDescription);
+      qwenBrowserView.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+        console.error('[QWEN3] ❌ Error cargando QWEN:', errorCode, errorDescription);
+        console.error('[QWEN3] URL intentada:', validatedURL);
+      });
+
+      // Guardar cookies periódicamente (cada 30 segundos)
+      setInterval(() => {
+        if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+          saveQwenCookies(qwenSession, cookiesPath).catch(e => {
+            // Silenciar errores en guardado automático
+          });
+        }
+      }, 30000);
+
+      // Guardar cookies al navegar (después de login/verificación)
+      qwenBrowserView.webContents.on('did-navigate', async (event, url) => {
+        console.log('[QWEN3] 🧭 Navegado a:', url);
+        
+        // Si se redirige a login o verificación, esperar a que termine
+        if (url.includes('/auth/login') || url.includes('/verify')) {
+          console.log('[QWEN3] ⚠️ Redirección a login/verificación detectada');
+        } else {
+          // Guardar cookies después de navegar
+          await saveQwenCookies(qwenSession, cookiesPath).catch(() => {});
+        }
       });
     }
 
@@ -1437,7 +1557,7 @@ ipcMain.handle('qwen:toggle', async (_e, show) => {
     // Configurar posición y tamaño como PANEL LATERAL (no overlay completo)
     // Panel lateral derecho ocupando 40% del ancho
     const { width, height } = mainWindow.getContentBounds();
-    const panelWidth = Math.floor(width * 0.4);  // 40% del ancho para QWEN3
+    const panelWidth = Math.floor(width * 0.4);  // 40% del ancho para QWEN
 
     qwenBrowserView.setBounds({
       x: width - panelWidth,  // Colocar en la derecha
@@ -1447,15 +1567,149 @@ ipcMain.handle('qwen:toggle', async (_e, show) => {
     });
 
     console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
-    return { success: true, message: 'QWEN3 visible (panel lateral)' };
+    return { success: true, message: 'QWEN visible (panel lateral)' };
 
   } else {
-    // OCULTAR QWEN3 BrowserView
+    // OCULTAR QWEN3 BrowserView y guardar cookies antes de ocultar
     if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+      const qwenSession = qwenBrowserView.webContents.session;
+      const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
+      
+      // Guardar cookies antes de ocultar
+      await saveQwenCookies(qwenSession, cookiesPath).catch(e => {
+        console.warn('[QWEN3] ⚠️ Error guardando cookies al ocultar:', e.message);
+      });
+      
       mainWindow.setBrowserView(null);
-      console.log('[QWEN3] ✅ BrowserView oculto');
+      console.log('[QWEN3] ✅ BrowserView oculto (cookies guardadas)');
     }
-    return { success: true, message: 'QWEN3 oculto' };
+    return { success: true, message: 'QWEN oculto' };
+  }
+});
+
+// ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW ============
+ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
+  if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
+    // Si no hay BrowserView, no podemos enviar mensajes
+    // El usuario debe abrir QWEN primero con el botón verde
+    console.log('[QWEN] BrowserView no existe, debe abrirse primero');
+    return { success: false, error: 'QWEN BrowserView no disponible. Abre QWEN primero con el botón verde en la sidebar izquierda.' };
+  }
+
+  if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
+    return { success: false, error: 'QWEN BrowserView no disponible. Abre QWEN primero con el botón verde.' };
+  }
+
+  try {
+    // Script para inyectar mensaje en el input de Qwen y enviarlo
+    const injectCode = `
+      (async function() {
+        // Buscar input de chat de Qwen
+        const inputSelectors = [
+          'textarea[placeholder*="Message"]',
+          'textarea[placeholder*="message"]',
+          'textarea[placeholder*="Ask"]',
+          'textarea[placeholder*="ask"]',
+          'textarea[name="prompt"]',
+          'textarea.chat-input',
+          'textarea#chat-input',
+          'div[contenteditable="true"][role="textbox"]',
+          'div[contenteditable="true"]'
+        ];
+
+        let input = null;
+        for (let selector of inputSelectors) {
+          input = document.querySelector(selector);
+          if (input && input.offsetHeight > 0 && input.offsetWidth > 0) {
+            console.log('[QWEN Inject] Input encontrado:', selector);
+            break;
+          }
+        }
+
+        if (!input) {
+          console.error('[QWEN Inject] Input no encontrado');
+          return { success: false, error: 'Input de chat no encontrado en la página' };
+        }
+
+        // Establecer el valor del mensaje
+        const messageText = ${JSON.stringify(message)};
+        
+        if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+          input.value = messageText;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        } else if (input.contentEditable === 'true') {
+          input.innerText = messageText;
+          input.textContent = messageText;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          // También disparar eventos para frameworks modernos
+          const inputEvent = new InputEvent('input', { bubbles: true, cancelable: true, data: messageText });
+          input.dispatchEvent(inputEvent);
+        }
+
+        // Esperar un poco para que el input se actualice
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Buscar botón de envío
+        const submitSelectors = [
+          'button[type="submit"]',
+          'button[aria-label*="Send"]',
+          'button[aria-label*="send"]',
+          'button[aria-label*="Enviar"]',
+          'button.send-button',
+          'button.submit-button',
+          'button[data-testid*="send"]',
+          '[role="button"][aria-label*="send"]',
+          'button:has(svg[class*="send"])',
+          'button:has(svg[aria-label*="send"])'
+        ];
+
+        let sent = false;
+        for (let selector of submitSelectors) {
+          try {
+            const btn = document.querySelector(selector);
+            if (btn && btn.offsetHeight > 0 && !btn.disabled) {
+              btn.click();
+              console.log('[QWEN Inject] Mensaje enviado con botón:', selector);
+              sent = true;
+              break;
+            }
+          } catch (e) {
+            // Continuar con siguiente selector
+          }
+        }
+
+        // Si no hay botón, intentar Enter
+        if (!sent) {
+          const keyEvent = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true
+          });
+          input.dispatchEvent(keyEvent);
+          console.log('[QWEN Inject] Mensaje enviado con Enter');
+          sent = true;
+        }
+
+        return { success: sent, message: 'Mensaje inyectado y enviado' };
+      })();
+    `;
+
+    const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
+    
+    if (result && result.success) {
+      console.log('[QWEN] ✅ Mensaje enviado al BrowserView:', message.substring(0, 50));
+      return { success: true, message: 'Mensaje enviado a QWEN' };
+    } else {
+      console.error('[QWEN] ❌ Error enviando mensaje:', result?.error);
+      return { success: false, error: result?.error || 'Error desconocido al enviar mensaje' };
+    }
+  } catch (error) {
+    console.error('[QWEN] ❌ Error en sendMessage:', error);
+    return { success: false, error: error.message };
   }
 });
 
