@@ -266,7 +266,7 @@ contextBridge.exposeInMainWorld('mcpAPI', {
 // ============================================================================
 contextBridge.exposeInMainWorld('autoAPI', {
   // Ejecutar consulta multi-modelo (AUTO button)
-  query: (message) => ipcRenderer.invoke('auto:query', { message }),
+  query: (message, selectedModels = []) => ipcRenderer.invoke('auto:query', { message, selectedModels }),
 
   // Obtener consultas activas
   getActiveQueries: () => ipcRenderer.invoke('auto:getActiveQueries'),
