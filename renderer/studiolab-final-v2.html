@@ -3407,9 +3407,27 @@
         icon: '🟡',
         type: 'embedded',
         models: {
-          'qwen-embedded': { name: 'QWEN (Embebido)', context: 65536, speed: 'balanced', tested: true }
+          'qwen3-max': { name: 'Qwen3-Max', context: 262144, speed: 'balanced', tested: true },
+          'qwen3-vl-235b-a22b': { name: 'Qwen3-VL-235B-A22B', context: 262144, speed: 'balanced', tested: true },
+          'qwen3-235b-a22b-2507': { name: 'Qwen3-235B-A22B-2507', context: 131072, speed: 'balanced', tested: true },
+          'qwen3-vl-30b-a3b': { name: 'Qwen3-VL-30B-A3B', context: 131072, speed: 'balanced', tested: true },
+          'qwen3-vl-32b': { name: 'Qwen3-VL-32B', context: 131072, speed: 'balanced', tested: true },
+          'qwen3-30b-a3b-2507': { name: 'Qwen3-30B-A3B-2507', context: 131072, speed: 'balanced', tested: true },
+          'qwen3-next-80b-a3b': { name: 'Qwen3-Next-80B-A3B', context: 262144, speed: 'balanced', tested: true },
+          'qwen3-omni-flash': { name: 'Qwen3-Omni-Flash', context: 65536, speed: 'ultra', tested: true },
+          'qwen3-coder': { name: 'Qwen3-Coder', context: 1048576, speed: 'balanced', tested: true },
+          'qwen3-coder-flash': { name: 'Qwen3-Coder-Flash', context: 262144, speed: 'fast', tested: true },
+          'qvq-max': { name: 'QVQ-Max', context: 131072, speed: 'balanced', tested: true },
+          'qwq-32b': { name: 'QwQ-32B', context: 131072, speed: 'balanced', tested: true },
+          'qwen25-plus': { name: 'Qwen2.5-Plus', context: 131072, speed: 'balanced', tested: true },
+          'qwen25-72b-instruct': { name: 'Qwen2.5-72B-Instruct', context: 131072, speed: 'balanced', tested: true },
+          'qwen25-coder-32b-instruct': { name: 'Qwen2.5-Coder-32B-Instruct', context: 131072, speed: 'balanced', tested: true },
+          'qwen25-14b-instruct-1m': { name: 'Qwen2.5-14B-Instruct-1M', context: 1000000, speed: 'balanced', tested: true },
+          'qwen25-turbo': { name: 'Qwen2.5-Turbo', context: 1000000, speed: 'fast', tested: true },
+          'qwen25-vl-32b-instruct': { name: 'Qwen2.5-VL-32B-Instruct', context: 131072, speed: 'balanced', tested: true },
+          'qwen25-omni-7b': { name: 'Qwen2.5-Omni-7B', context: 30720, speed: 'ultra', tested: true }
         },
-        defaultModel: 'qwen-embedded',
+        defaultModel: 'qwen3-omni-flash',
         status: '✅ Panel embebido disponible (clic en botón verde)'
       }
     };
@@ -3436,7 +3454,7 @@
       qwen: {
         panelVisible: false,
         auto: false,
-        model: 'qwen-embedded',
+        model: 'qwen3-omni-flash',
         tokens: 0,
         tokensMax: 65536,
         models: []
@@ -3481,6 +3499,37 @@
 
       // Inicializar buttons de proveedores (Groq por defecto)
       initProviderButtons();
+
+      // Inicializar selector de modelos superior
+      const modelTrigger = document.getElementById('modelTrigger');
+      if (modelTrigger) {
+        modelTrigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const selector = document.getElementById('modelSelector');
+          if (selector) {
+            selector.classList.toggle('active');
+            const isOpen = selector.classList.contains('active');
+            modelTrigger.setAttribute('aria-expanded', String(isOpen));
+            
+            // Si se abre y es Qwen, renderizar modelos
+            if (isOpen && state.currentProvider === 'qwen') {
+              renderModelLists();
+            }
+          }
+        });
+      }
+
+      // Inicializar botón "más modelos"
+      const modelMoreBtn = document.getElementById('modelMoreBtn');
+      if (modelMoreBtn) {
+        modelMoreBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const selector = document.getElementById('modelSelector');
+          if (selector) {
+            selector.classList.toggle('more-open');
+          }
+        });
+      }
 
       // Inicializar preview de adjuntos multimodal
       updateAttachmentsPreview();
@@ -3904,6 +3953,12 @@
         e.stopPropagation();
         closeAllDropdowns('modelSelector');
         toggleModelDropdown();
+        
+        // Si se abre y es Qwen, renderizar modelos
+        const selector = document.getElementById('modelSelector');
+        if (selector && selector.classList.contains('active') && state.currentProvider === 'qwen') {
+          renderModelLists();
+        }
       });
 
       moreBtn?.addEventListener('click', (e) => {
@@ -4016,7 +4071,17 @@
     }
 
     function updateModelUI(metaOverride = null) {
+      if (!state.currentProvider) {
+        const nameEl = document.getElementById('currentModelName');
+        const subEl = document.getElementById('currentModelSub');
+        if (nameEl) nameEl.textContent = 'Selecciona un modelo';
+        if (subEl) subEl.textContent = 'No hay modelo seleccionado';
+        return;
+      }
+
       const provider = PROVIDERS[state.currentProvider];
+      if (!provider) return;
+
       const currentModel = provider?.models?.[state.currentModel];
       const name = currentModel?.name || state.currentModel || 'Modelo';
 
@@ -4025,47 +4090,77 @@
       if (nameEl) nameEl.textContent = name;
       if (subEl) {
         const context = currentModel?.context || 0;
-        subEl.textContent = `${state.currentProvider} · ${formatCompactNumber(context)}K ctx`;
+        const contextStr = formatCompactNumber(context);
+        subEl.textContent = `${state.currentProvider.toUpperCase()} · ${contextStr} ctx`;
+      }
+
+      // Si es Qwen, renderizar la lista de modelos también
+      if (state.currentProvider === 'qwen') {
+        renderModelLists();
       }
     }
 
     function renderModelLists() {
-      // Las listas de modelos se renderizan desde PROVIDERS
-      // Esta función se mantiene para compatibilidad pero no es necesaria en el nuevo sistema
-      return;
+      // Si el proveedor actual es Qwen, renderizar sus modelos en el selector superior
+      if (state.currentProvider === 'qwen') {
+        const provider = PROVIDERS.qwen;
+        if (!provider || !provider.models) return;
 
-      const render = (root, list) => {
-        root.innerHTML = '';
-        list.forEach((m) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'model-option' + (m.id === state.qwen.model ? ' selected' : '');
-          btn.dataset.modelId = m.id;
-          btn.disabled = !!state.qwen.auto;
+        const primaryEl = document.getElementById('modelListPrimary');
+        const moreEl = document.getElementById('modelListMore');
+        if (!primaryEl || !moreEl) return;
 
-          const ctx = formatCompactNumber(m.context || 0);
-          btn.innerHTML = `
-            <div class="model-option-left">
-              <div class="model-option-name">${m.name || m.id}</div>
-              <div class="model-option-desc">${getModelDescription(m.id)}</div>
-            </div>
-            <div class="model-option-right">
-              <div class="model-option-context">${ctx}</div>
-              <div class="model-option-check">✓</div>
-            </div>
-          `;
+        // Convertir modelos de PROVIDERS a formato de lista
+        const modelsList = Object.entries(provider.models).map(([id, config]) => ({
+          id,
+          name: config.name,
+          context: config.context
+        }));
 
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            setModel(m.id).catch(() => {});
+        // Separar en primarios (primeros 6) y más (resto)
+        const primary = modelsList.slice(0, 6);
+        const more = modelsList.slice(6);
+
+        const render = (root, list) => {
+          if (!root) return;
+          root.innerHTML = '';
+          
+          list.forEach((m) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const isSelected = m.id === state.currentModel;
+            btn.className = 'model-option' + (isSelected ? ' selected' : '');
+            btn.dataset.modelId = m.id;
+
+            const ctx = formatCompactNumber(m.context || 0);
+            btn.innerHTML = `
+              <div class="model-option-left">
+                <div class="model-option-name">${m.name || m.id}</div>
+              </div>
+              <div class="model-option-right">
+                <div class="model-option-context">${ctx}</div>
+                ${isSelected ? '<div class="model-option-check">✓</div>' : ''}
+              </div>
+            `;
+
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              selectProviderModel('qwen', m.id);
+            });
+
+            root.appendChild(btn);
           });
+        };
 
-          root.appendChild(btn);
-        });
-      };
+        render(primaryEl, primary);
+        render(moreEl, more);
 
-      render(primaryEl, primary);
-      render(moreEl, more);
+        // Mostrar/ocultar botón "más" según si hay modelos adicionales
+        const moreBtn = document.getElementById('modelMoreBtn');
+        if (moreBtn) {
+          moreBtn.style.display = more.length > 0 ? 'flex' : 'none';
+        }
+      }
     }
 
     // ============================================
@@ -5741,6 +5836,9 @@
       if (dropdown) {
         dropdown.style.display = 'none';
       }
+
+      // Actualizar UI del modelo superior
+      updateModelUI();
 
       // Añadir a terminal
       addTerminalLine(`✅ MODELO ACTIVO: ${provider.toUpperCase()} → ${modelName}`);
