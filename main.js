@@ -568,13 +568,12 @@ app.on('window-all-closed', function () {
       }
     } catch (e) {
       // mainWindow ya fue destruida, ignorar
-        console.log('[Main] Error limpiando BrowserView al cerrar:', e.message);
-      }
+      console.log('[Main] Error limpiando BrowserView al cerrar:', e.message);
     }
   }
   // Limpiar referencia
   qwenBrowserView = null;
-  
+
   if (process.platform !== 'darwin') app.quit();
 });
 
