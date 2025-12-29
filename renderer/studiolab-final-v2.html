@@ -2526,6 +2526,15 @@
       box-shadow: 0 0 10px var(--accent-glow);
     }
 
+    /* Provider Button - ACTIVE/SELECTED STATE */
+    .provider-btn.active {
+      background-color: rgba(0, 212, 170, 0.15);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
+      font-weight: 600;
+    }
+
     .provider-icon {
       font-size: 14px;
       display: flex;
@@ -3376,6 +3385,9 @@
       restoreViewState();
       setupComposerDock();
       // QWEN usa BrowserView desde main.js, no necesita setup aquí
+
+      // Inicializar buttons de proveedores (Groq por defecto)
+      initProviderButtons();
 
       // Inicializar preview de adjuntos multimodal
       updateAttachmentsPreview();
@@ -5506,6 +5518,25 @@
     // ============================================
 
     /**
+     * Initialize Provider Buttons
+     * Configura el estado inicial de los botones de proveedores (Groq por defecto)
+     */
+    function initProviderButtons() {
+      // Establecer Groq como proveedor por defecto
+      const groqBtn = document.getElementById('providerGroq');
+      if (groqBtn && !state.selectedProvider) {
+        state.selectedProvider = 'groq';
+        state.selectedModel = 'llama-3.3-70b-versatile';
+        state.selectedModelName = 'Llama 3.3 70B';
+
+        // Iluminar botón de Groq
+        groqBtn.classList.add('active');
+
+        console.log('[Provider Init] Groq seleccionado por defecto');
+      }
+    }
+
+    /**
      * Toggle Provider Dropdown
      * Muestra/oculta el dropdown de modelos para un proveedor
      */
@@ -5521,8 +5552,22 @@
 
       // Alternar el dropdown actual
       const dropdown = document.getElementById(`dropdown-${provider}`);
+      const btn = event.currentTarget;
+
       if (dropdown) {
-        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        const isOpen = dropdown.style.display === 'block';
+        dropdown.style.display = isOpen ? 'none' : 'block';
+
+        // Iluminar botón cuando dropdown está abierto
+        if (!isOpen) {
+          // Opening - add active class
+          btn.classList.add('active');
+        } else {
+          // Closing - check if this provider is selected
+          if (state.selectedProvider !== provider) {
+            btn.classList.remove('active');
+          }
+        }
       }
     }
 
@@ -5538,9 +5583,18 @@
       state.selectedModel = modelId;
       state.selectedModelName = modelName;
 
-      // Actualizar UI del botón del proveedor
-      const btn = document.getElementById(`provider${provider.charAt(0).toUpperCase() + provider.slice(1)}`);
+      // Remover clase .active de TODOS los botones de proveedores
+      document.querySelectorAll('.provider-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Actualizar UI del botón del proveedor seleccionado
+      const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
+      const btn = document.getElementById(`provider${providerName}`);
       if (btn) {
+        // Agregar clase .active para que se iluminne
+        btn.classList.add('active');
+
         const label = btn.querySelector('.provider-name-small');
         if (label) label.textContent = modelName;
       }
