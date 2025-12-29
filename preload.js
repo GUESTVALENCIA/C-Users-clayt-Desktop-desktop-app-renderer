@@ -179,6 +179,7 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   onAutoModeChanged: (callback) => ipcRenderer.on('qwen:autoModeChanged', (event, data) => callback(data)),
   onModelSwitched: (callback) => ipcRenderer.on('qwen:modelSwitched', (event, data) => callback(data)),
   onAppStatus: (callback) => ipcRenderer.on('app-status', (_event, data) => callback(data)),
+  onQwenResponse: (callback) => ipcRenderer.on('qwen:response', (_event, data) => callback(data)),
 
   // ==================== AUTENTICACIÓN ====================
   authStartGoogle: () => ipcRenderer.invoke('auth:startGoogle'),
