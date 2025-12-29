@@ -1529,6 +1529,50 @@
       box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
     }
 
+    /* AUTO Orchestrator Button */
+    .auto-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      position: relative;
+      color: var(--accent-blue);
+      transition: all 0.3s ease;
+    }
+
+    .auto-btn:hover {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+    }
+
+    .auto-btn.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.5);
+    }
+
+    .auto-btn.querying {
+      opacity: 0.8;
+      cursor: not-allowed;
+    }
+
+    /* AUTO Spinner Animation */
+    .auto-spinner {
+      position: absolute;
+      right: -4px;
+      top: -4px;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--accent-blue);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     /* API/Local Toggle Wrapper */
     .api-toggle-wrapper {
       display: flex;
@@ -2445,6 +2489,13 @@
               <button class="toolbar-btn qwen-btn" id="qwenBtnToolbar" onclick="toggleQwen()">
                 <span class="toolbar-btn-icon">🤖</span>
                 <span id="qwenLabel">QWEN</span>
+              </button>
+
+              <!-- AUTO Orchestrator Button - Multi-Model Consensus -->
+              <button class="toolbar-btn auto-btn" id="autoBtn" onclick="triggerAutoOrchestrator()" title="AUTO: Orquesta múltiples modelos de IA en paralelo y sintetiza la mejor respuesta">
+                <span class="toolbar-btn-icon">⚡</span>
+                <span id="autoLabel">AUTO</span>
+                <div class="auto-spinner" id="autoSpinner" style="display: none;"></div>
               </button>
 
               <!-- API/Local Toggle Switch -->
@@ -3656,6 +3707,81 @@
       addTerminalLine(`Modo cambiado a: ${mode}`);
       console.log(`[StudioLab] Modo: ${mode}`);
     }
+
+    // ============================================
+    // AUTO ORCHESTRATOR - Multi-Model Consensus
+    // ============================================
+    async function triggerAutoOrchestrator() {
+      const messageInput = document.getElementById('messageInput');
+      const message = messageInput ? messageInput.value.trim() : '';
+
+      if (!message) {
+        addTerminalLine('⚠️ Escribe un mensaje para usar AUTO');
+        return;
+      }
+
+      if (!window.autoAPI) {
+        addTerminalLine('❌ AUTO Orchestrator no está disponible');
+        return;
+      }
+
+      const autoBtn = document.getElementById('autoBtn');
+      const autoSpinner = document.getElementById('autoSpinner');
+
+      try {
+        // UI feedback: show loading state
+        if (autoBtn) {
+          autoBtn.classList.add('querying');
+          autoBtn.disabled = true;
+        }
+        if (autoSpinner) {
+          autoSpinner.style.display = 'block';
+        }
+
+        addTerminalLine('🚀 [AUTO] Iniciando consulta multi-modelo en paralelo...');
+        addTerminalLine('  └─ Consultando: ChatGPT, QWEN, Gemini, DeepSeek, Groq, Kimi...');
+
+        // Execute multi-model query
+        const result = await window.autoAPI.query(message);
+
+        if (!result.success) {
+          addTerminalLine(`❌ [AUTO] Error: ${result.error}`);
+          return;
+        }
+
+        // Display synthesis results
+        addTerminalLine(`✅ [AUTO] Síntesis completada en ${result.duration}ms`);
+        addTerminalLine(`📊 Modelos activos: ${result.validResponseCount}/6`);
+        addTerminalLine(`🎯 Confianza: ${(result.confidence * 100).toFixed(1)}%`);
+
+        // Show synthesized response
+        addChatMessage('assistant', `[AUTO SYNTHESIS]\n\n${result.synthesized}`);
+
+        // Log individual model responses for debugging
+        console.log('[AUTO] Respuestas de modelos:', result.modelResponses);
+
+        // Clear input
+        if (messageInput) {
+          messageInput.value = '';
+        }
+
+      } catch (error) {
+        console.error('[AUTO] Error:', error);
+        addTerminalLine(`❌ [AUTO] Error fatal: ${error.message}`);
+      } finally {
+        // Remove loading state
+        if (autoBtn) {
+          autoBtn.classList.remove('querying');
+          autoBtn.disabled = false;
+        }
+        if (autoSpinner) {
+          autoSpinner.style.display = 'none';
+        }
+      }
+    }
+
+    // Exponer globalmente
+    window.triggerAutoOrchestrator = triggerAutoOrchestrator;
 
     // ============================================
     // CHAT PIPELINE (QWEN embebido + streaming + canvas)
