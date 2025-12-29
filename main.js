@@ -1668,13 +1668,14 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: 'Frame no disponible' };
     }
     
-    // Verificar que la página haya cargado completamente antes de intentar enviar
+    // Verificar que la página haya cargado completamente Y el DOM esté listo
+    // Para SPAs como React, solo isLoading() no es suficiente - necesitamos dom-ready
     const isLoading = qwenBrowserView.webContents.isLoading();
     if (isLoading) {
       console.log('[QWEN] ⏳ Página aún cargando, esperando...');
-      // Esperar hasta que la página termine de cargar (máximo 10 segundos)
+      // Esperar hasta que la página termine de cargar
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Timeout esperando carga de página')), 10000);
+        const timeout = setTimeout(() => reject(new Error('Timeout esperando carga de página')), 15000);
         const checkLoaded = () => {
           if (!qwenBrowserView.webContents.isLoading()) {
             clearTimeout(timeout);
@@ -1691,86 +1692,114 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       });
     }
     
-    // Script para inyectar mensaje en el input de Qwen y enviarlo
+    // Esperar adicional para que el DOM esté completamente listo (SPAs necesitan esto)
+    console.log('[QWEN] ⏳ Esperando a que el DOM esté completamente listo...');
+    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 segundos adicionales para renderizado de React/Vue
+    
+    // Script mejorado para inyectar mensaje en el input de Qwen y enviarlo
+    // ESPERA ACTIVA de elementos DOM (necesario para SPAs como React)
     const injectCode = `
       (async function() {
-        // Buscar input de chat de Qwen
+        const messageText = ${JSON.stringify(message)};
+        const maxAttempts = 50; // Máximo 5 segundos de espera (50 * 100ms)
+        
+        // Función helper para esperar a que un elemento exista
+        async function waitForElement(selectors, maxAttempts = 50) {
+          for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            for (let selector of selectors) {
+              try {
+                const element = document.querySelector(selector);
+                if (element && element.offsetHeight > 0 && element.offsetWidth > 0) {
+                  console.log('[QWEN Inject] Elemento encontrado:', selector, 'intento:', attempt + 1);
+                  return element;
+                }
+              } catch (e) {
+                // Continuar con siguiente selector
+              }
+            }
+            // Esperar 100ms antes del siguiente intento
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          return null;
+        }
+
+        // ESPERAR ACTIVAMENTE al input de chat
         const inputSelectors = [
           'textarea[placeholder*="Message"]',
           'textarea[placeholder*="message"]',
           'textarea[placeholder*="Ask"]',
           'textarea[placeholder*="ask"]',
+          'textarea[placeholder*="提问"]',
           'textarea[name="prompt"]',
           'textarea.chat-input',
           'textarea#chat-input',
           'div[contenteditable="true"][role="textbox"]',
-          'div[contenteditable="true"]'
+          'div[contenteditable="true"]',
+          'textarea',
+          'input[type="text"]'
         ];
-
-        let input = null;
-        for (let selector of inputSelectors) {
-          input = document.querySelector(selector);
-          if (input && input.offsetHeight > 0 && input.offsetWidth > 0) {
-            console.log('[QWEN Inject] Input encontrado:', selector);
-            break;
-          }
-        }
-
-        if (!input) {
-          console.error('[QWEN Inject] Input no encontrado');
-          return { success: false, error: 'Input de chat no encontrado en la página' };
-        }
-
-        // Establecer el valor del mensaje
-        const messageText = ${JSON.stringify(message)};
         
+        console.log('[QWEN Inject] Buscando input de chat...');
+        const input = await waitForElement(inputSelectors, maxAttempts);
+        
+        if (!input) {
+          console.error('[QWEN Inject] Input no encontrado después de', maxAttempts, 'intentos');
+          return { success: false, error: 'Input de chat no encontrado en la página después de esperar' };
+        }
+
+        console.log('[QWEN Inject] Input encontrado, estableciendo mensaje:', messageText.substring(0, 50) + '...');
+        
+        // Establecer el valor del mensaje según el tipo de elemento
         if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
           input.value = messageText;
+          input.focus();
           input.dispatchEvent(new Event('input', { bubbles: true }));
           input.dispatchEvent(new Event('change', { bubbles: true }));
         } else if (input.contentEditable === 'true') {
           input.innerText = messageText;
           input.textContent = messageText;
+          input.focus();
           input.dispatchEvent(new Event('input', { bubbles: true }));
-          // También disparar eventos para frameworks modernos
           const inputEvent = new InputEvent('input', { bubbles: true, cancelable: true, data: messageText });
           input.dispatchEvent(inputEvent);
         }
 
-        // Esperar un poco para que el input se actualice
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Esperar a que el input se actualice
+        await new Promise(resolve => setTimeout(resolve, 300));
 
-        // Buscar botón de envío
+        // ESPERAR ACTIVAMENTE al botón de envío
         const submitSelectors = [
           'button[type="submit"]',
           'button[aria-label*="Send"]',
           'button[aria-label*="send"]',
           'button[aria-label*="Enviar"]',
+          'button[aria-label*="发送"]',
           'button.send-button',
           'button.submit-button',
           'button[data-testid*="send"]',
           '[role="button"][aria-label*="send"]',
           'button:has(svg[class*="send"])',
-          'button:has(svg[aria-label*="send"])'
+          'button:has(svg[aria-label*="send"])',
+          'button:has(svg[class*="Send"])'
         ];
 
+        console.log('[QWEN Inject] Buscando botón de envío...');
+        const submitButton = await waitForElement(submitSelectors, 30); // 3 segundos máximo para el botón
+        
         let sent = false;
-        for (let selector of submitSelectors) {
+        if (submitButton && !submitButton.disabled) {
           try {
-            const btn = document.querySelector(selector);
-            if (btn && btn.offsetHeight > 0 && !btn.disabled) {
-              btn.click();
-              console.log('[QWEN Inject] Mensaje enviado con botón:', selector);
-              sent = true;
-              break;
-            }
+            submitButton.click();
+            console.log('[QWEN Inject] ✅ Mensaje enviado con botón');
+            sent = true;
           } catch (e) {
-            // Continuar con siguiente selector
+            console.error('[QWEN Inject] Error al hacer click en botón:', e);
           }
         }
 
-        // Si no hay botón, intentar Enter
+        // Si no hay botón o falló el click, intentar Enter
         if (!sent) {
+          console.log('[QWEN Inject] Intentando enviar con Enter...');
           const keyEvent = new KeyboardEvent('keydown', {
             key: 'Enter',
             code: 'Enter',
@@ -1780,18 +1809,27 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
             cancelable: true
           });
           input.dispatchEvent(keyEvent);
-          console.log('[QWEN Inject] Mensaje enviado con Enter');
+          
+          // También intentar keypress y keyup para máxima compatibilidad
+          input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          
+          console.log('[QWEN Inject] ✅ Mensaje enviado con Enter');
           sent = true;
         }
 
-        return { success: sent, message: 'Mensaje inyectado y enviado' };
+        return { success: sent, message: 'Mensaje inyectado y enviado correctamente' };
       })();
     `;
 
-    // Ejecutar JavaScript con timeout más largo para evitar bloqueos (10 segundos)
+    // Ejecutar JavaScript con timeout más largo (15 segundos para permitir espera de elementos)
+    console.log('[QWEN] 🚀 Ejecutando script de inyección...');
     const result = await Promise.race([
       qwenBrowserView.webContents.executeJavaScript(injectCode),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout ejecutando script')), 10000))
+      new Promise((_, reject) => setTimeout(() => {
+        console.error('[QWEN] ❌ Timeout ejecutando script de inyección');
+        reject(new Error('Timeout ejecutando script (15s)'));
+      }, 15000))
     ]);
     
     if (result && result.success) {
