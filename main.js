@@ -1533,21 +1533,27 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
         });
 
-        // Inyectar script de captura de respuestas después de que el DOM esté listo
-        // Esperar más tiempo para asegurar que la página esté completamente cargada
+        // Inyectar scripts de comunicación de forma más simple y robusta
+        // Esperar a que el DOM esté completamente listo
         setTimeout(() => {
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-            // Configurar comunicación bidireccional primero
-            setupQwenBidirectionalCommunication(qwenBrowserView);
-            injectQwenResponseObserver(qwenBrowserView);
-            // Esperar un poco más antes de iniciar la captura
-            setTimeout(() => {
-              if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-                startQwenResponseCapture(); // Iniciar captura de respuestas
-              }
-            }, 3000); // Esperar 3 segundos adicionales
+            try {
+              // Configurar comunicación bidireccional
+              setupQwenBidirectionalCommunication(qwenBrowserView);
+              // Inyectar observador de respuestas
+              injectQwenResponseObserver(qwenBrowserView);
+              // Iniciar captura de respuestas después de un delay adicional
+              setTimeout(() => {
+                if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+                  startQwenResponseCapture();
+                }
+              }, 2000);
+            } catch (error) {
+              console.error('[QWEN3] ⚠️ Error configurando scripts:', error.message);
+              // Continuar aunque falle la inyección de scripts
+            }
           }
-        }, 2000);
+        }, 3000); // Esperar 3 segundos para que la página esté completamente cargada
       });
 
       qwenBrowserView.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
@@ -2402,282 +2408,131 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: `QWEN no está listo: ${error.message}` };
     }
 
-    // Con la nueva técnica de waitForElement, no necesitamos diagnóstico previo
-    // El código inyectado esperará dinámicamente a que los elementos estén disponibles
-    console.log(`[QWEN] 🔍 Usando técnica de inyección dinámica con waitForElement...`);
+    // Técnica simplificada: buscar elementos directamente con reintentos
+    console.log(`[QWEN] 🔍 Buscando elementos del DOM para enviar mensaje...`);
 
-    // Código de inyección dinámica con waitForElement (nueva técnica)
     const messageEscaped = JSON.stringify(message);
+    
+    // Función simplificada que busca y envía el mensaje
     const injectCode = `
-      (function() {
-        const result = { strategy: null, success: false, error: null };
+      (async function() {
         const messageText = ${messageEscaped};
+        const maxRetries = 10;
+        const retryDelay = 500;
         
-        // Función para esperar a que un elemento exista en el DOM
-        function waitForElement(selector, callback, timeout = 5000) {
-          const start = Date.now();
-          const check = () => {
-            const element = document.querySelector(selector);
-            if (element && element.offsetParent !== null) {
-              callback(element);
-            } else if (Date.now() - start < timeout) {
-              setTimeout(check, 100);
-            } else {
-              callback(null);
-            }
-          };
-          check();
-        }
-        
-        // Función para buscar elemento con múltiples selectores
-        function findElementWithSelectors(selectors, callback, timeout = 5000) {
-          const start = Date.now();
-          const check = () => {
-            for (const selector of selectors) {
-              try {
-                const element = document.querySelector(selector);
-                if (element && element.offsetParent !== null) {
-                  callback(element);
-                  return;
-                }
-              } catch (e) {}
-            }
-            if (Date.now() - start < timeout) {
-              setTimeout(check, 100);
-            } else {
-              callback(null);
-            }
-          };
-          check();
-        }
-        
-        try {
-          // Lista de selectores para el input (en orden de prioridad)
-          const inputSelectors = [
+        // Función para buscar input con reintentos
+        async function findInput() {
+          const selectors = [
             'textarea[placeholder*="ayuda" i]',
             'textarea[placeholder*="mensaje" i]',
             'textarea[placeholder*="pregunta" i]',
             'textarea[placeholder*="Cuéntame" i]',
             '#chat-input',
-            'textarea:not([disabled]):not([readonly])',
-            'input[type="text"]:not([disabled]):not([readonly])',
+            'textarea:not([disabled])',
+            'input[type="text"]:not([disabled])',
             'div[contenteditable="true"]',
             'textarea',
             'input[type="text"]'
           ];
           
-          // Esperar a que el input esté disponible
-          findElementWithSelectors(inputSelectors, (input) => {
-            if (!input) {
-              result.error = 'Input no encontrado después de esperar';
-              return;
+          for (let i = 0; i < maxRetries; i++) {
+            for (const selector of selectors) {
+              try {
+                const input = document.querySelector(selector);
+                if (input && input.offsetParent !== null) {
+                  return input;
+                }
+              } catch (e) {}
             }
-            
-            // Limpiar input y establecer valor
-            if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-              input.value = '';
-              input.value = messageText;
-            } else {
-              input.textContent = '';
-              input.textContent = messageText;
-            }
-            
-            // Enfocar el input
-            input.focus();
-            
-            // Disparar evento de cambio con InputEvent
-            try {
-              const inputEvent = new InputEvent('input', {
-                inputType: 'insertText',
-                data: messageText,
-                bubbles: true,
-                cancelable: true,
-                composed: true
-              });
-              input.dispatchEvent(inputEvent);
-            } catch (e) {
-              // Fallback si InputEvent no está disponible
-              input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-              input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-            }
-            
-            // Lista de selectores para el botón de envío (en orden de prioridad)
-            const sendButtonSelectors = [
-              'button[type="submit"]:not([disabled])',
-              'button[aria-label*="enviar" i]:not([disabled])',
-              'button[aria-label*="send" i]:not([disabled])',
-              'button[data-testid="send-button"]:not([disabled])',
-              'button[class*="send" i]:not([disabled])',
-              'button[class*="submit" i]:not([disabled])',
-              'button[title*="enviar" i]:not([disabled])',
-              'button[title*="send" i]:not([disabled])',
-              '.send-button:not([disabled])',
-              '.submit-button:not([disabled])',
-              'button:not([disabled]):has(svg)',
-              'button:not([disabled])'
-            ];
-            
-            // Esperar a que el botón de envío esté disponible (con timeout más corto)
-            findElementWithSelectors(sendButtonSelectors, (sendButton) => {
-              if (sendButton && !sendButton.disabled && sendButton.offsetParent !== null) {
-                // Hacer click en el botón de enviar
-                setTimeout(() => {
-                  sendButton.click();
-                  result.strategy = 'button-click';
-                  result.success = true;
-                  console.log('[QWEN] ✅ Mensaje enviado usando botón de envío');
-                }, 200);
-              } else {
-                // Si no encuentra botón, intentar con Enter
-                setTimeout(() => {
-                  input.focus();
-                  input.dispatchEvent(new KeyboardEvent('keydown', {
-                    key: 'Enter',
-                    code: 'Enter',
-                    keyCode: 13,
-                    which: 13,
-                    bubbles: true,
-                    cancelable: true
-                  }));
-                  input.dispatchEvent(new KeyboardEvent('keyup', {
-                    key: 'Enter',
-                    code: 'Enter',
-                    keyCode: 13,
-                    which: 13,
-                    bubbles: true,
-                    cancelable: true
-                  }));
-                  result.strategy = 'enter-key';
-                  result.success = true;
-                  console.log('[QWEN] ✅ Mensaje enviado usando Enter');
-                }, 200);
-              }
-            }, 3000); // Timeout de 3 segundos para el botón
-          }, 5000); // Timeout de 5 segundos para el input
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
+          return null;
+        }
+        
+        // Función para buscar botón de envío
+        async function findSendButton() {
+          const selectors = [
+            'button[type="submit"]:not([disabled])',
+            'button[aria-label*="enviar" i]:not([disabled])',
+            'button[aria-label*="send" i]:not([disabled])',
+            'button[class*="send" i]:not([disabled])',
+            'button[class*="submit" i]:not([disabled])',
+            'button:not([disabled])'
+          ];
           
-          // Retornar resultado inmediatamente (las callbacks se ejecutarán de forma asíncrona)
-          // El resultado se actualizará en las callbacks, pero retornamos inmediatamente para no bloquear
-          return result;
+          for (let i = 0; i < 6; i++) {
+            for (const selector of selectors) {
+              try {
+                const btn = document.querySelector(selector);
+                if (btn && !btn.disabled && btn.offsetParent !== null) {
+                  return btn;
+                }
+              } catch (e) {}
+            }
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
+          return null;
+        }
+        
+        try {
+          // Buscar input
+          const input = await findInput();
+          if (!input) {
+            return { success: false, error: 'Input no encontrado después de reintentos' };
+          }
+          
+          // Establecer valor
+          if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+            input.value = messageText;
+          } else {
+            input.textContent = messageText;
+          }
+          
+          // Enfocar y disparar eventos
+          input.focus();
+          input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+          
+          // Intentar encontrar y hacer click en botón de envío
+          const sendButton = await findSendButton();
+          if (sendButton) {
+            setTimeout(() => sendButton.click(), 300);
+            return { success: true, strategy: 'button-click' };
+          } else {
+            // Fallback: usar Enter
+            setTimeout(() => {
+              input.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                bubbles: true,
+                cancelable: true
+              }));
+              input.dispatchEvent(new KeyboardEvent('keyup', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                bubbles: true,
+                cancelable: true
+              }));
+            }, 300);
+            return { success: true, strategy: 'enter-key' };
+          }
         } catch (err) {
-          result.error = err.message;
-          return result;
+          return { success: false, error: err.message };
         }
       })();
     `;
 
     try {
-      // Ejecutar el código de inyección dinámica
-      // Nota: El código usa waitForElement con callbacks asíncronos
+      // Ejecutar código de inyección (ahora es async/await, así que espera correctamente)
       const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
-      
-      // Esperar tiempo suficiente para que waitForElement complete (5s input + 3s button + buffer)
-      await new Promise(resolve => setTimeout(resolve, 4000));
       
       if (result && result.success) {
         console.log(`[QWEN] ✅ Mensaje enviado usando estrategia: ${result.strategy}`);
         
-        // Verificación post-envío adicional (esperar 1.5 segundos más para dar tiempo al envío)
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        const verification = await qwenBrowserView.webContents.executeJavaScript(`
-          (function() {
-            try {
-              // Buscar input con múltiples selectores (compatible con técnica dinámica)
-              const inputSelectors = [
-                'textarea[placeholder*="ayuda" i]',
-                'textarea[placeholder*="mensaje" i]',
-                'textarea[placeholder*="pregunta" i]',
-                '#chat-input',
-                'textarea:not([disabled])',
-                'input[type="text"]:not([disabled])',
-                'div[contenteditable="true"]',
-                'textarea',
-                'input[type="text"]'
-              ];
-              
-              let input = null;
-              for (const selector of inputSelectors) {
-                input = document.querySelector(selector);
-                if (input && input.offsetParent !== null) break;
-              }
-              
-              if (!input) return { verified: false, reason: 'Input no encontrado' };
-              
-              const currentValue = input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' 
-                ? input.value 
-                : (input.textContent || input.innerText || '');
-              
-              // Verificar que el input se limpió (indica envío exitoso)
-              const inputCleared = !currentValue || currentValue.trim() === '';
-              
-              // Verificar indicadores de "pensando" o "escribiendo" (múltiples métodos)
-              const bodyText = document.body.innerText || document.body.textContent || '';
-              const isThinking = 
-                bodyText.toLowerCase().includes('pensando') ||
-                bodyText.toLowerCase().includes('escribiendo') ||
-                bodyText.toLowerCase().includes('typing') ||
-                bodyText.toLowerCase().includes('thinking') ||
-                document.querySelector('[class*="thinking" i]') !== null ||
-                document.querySelector('[class*="typing" i]') !== null ||
-                document.querySelector('[class*="loading" i]') !== null ||
-                document.querySelector('[aria-label*="pensando" i]') !== null ||
-                document.querySelector('[aria-label*="escribiendo" i]') !== null ||
-                document.querySelector('[class*="spinner" i]') !== null ||
-                document.querySelector('[class*="pulse" i]') !== null;
-              
-              // Verificar que el mensaje apareció en el historial (buscar en diferentes lugares)
-              const messagePreview = ${messageEscaped}.substring(0, 20).toLowerCase();
-              const messageInHistory = bodyText.toLowerCase().includes(messagePreview);
-              
-              // Verificar cambios en el DOM (nuevos mensajes añadidos)
-              const messageContainers = document.querySelectorAll('[class*="message" i], [class*="chat" i], [data-role="user"]');
-              const hasNewMessages = messageContainers.length > 0;
-              
-              // Verificar estado de botón (si estaba deshabilitado y ahora está habilitado, indica envío)
-              const sendButtons = document.querySelectorAll('button:not([disabled])');
-              const buttonStateChanged = sendButtons.length > 0;
-              
-              const verified = inputCleared || isThinking || messageInHistory;
-              
-              return {
-                verified,
-                inputCleared,
-                isThinking,
-                messageInHistory,
-                hasNewMessages,
-                buttonStateChanged,
-                currentValue: currentValue.substring(0, 50),
-                bodyTextLength: bodyText.length,
-                messageContainersCount: messageContainers.length
-              };
-            } catch (e) {
-              return { verified: false, reason: e.message };
-            }
-          })();
-        `).catch(() => ({ verified: false, reason: 'Error en verificación' }));
-        
-        if (verification.verified) {
-          console.log(`[QWEN] ✅ Verificación exitosa:`);
-          console.log(`   - Input limpiado: ${verification.inputCleared}`);
-          console.log(`   - Qwen pensando: ${verification.isThinking}`);
-          console.log(`   - Mensaje en historial: ${verification.messageInHistory}`);
-          console.log(`   - Estrategia usada: ${result.strategy}`);
-          return { success: true, message: `Mensaje enviado usando ${result.strategy}`, strategy: result.strategy, verification };
-        } else {
-          console.warn(`[QWEN] ⚠️ Envío ejecutado pero verificación falló:`);
-          console.warn(`   - Input limpiado: ${verification.inputCleared}`);
-          console.warn(`   - Qwen pensando: ${verification.isThinking}`);
-          console.warn(`   - Mensaje en historial: ${verification.messageInHistory}`);
-          console.warn(`   - Valor actual del input: "${verification.currentValue}"`);
-          console.warn(`   - Estrategia usada: ${result.strategy}`);
-          return { 
-            success: true, 
-            message: `Mensaje enviado usando ${result.strategy} (verificación pendiente)`, 
-            strategy: result.strategy, 
-            warning: 'Verificación no confirmada - verifica manualmente en el panel de Qwen',
-            verification 
-          };
-        }
+        // Retornar éxito inmediatamente (el código async/await ya esperó)
+        return { success: true, message: `Mensaje enviado usando ${result.strategy}`, strategy: result.strategy };
       } else {
         const errorMsg = result?.error || 'Error desconocido al inyectar mensaje';
         console.error(`[QWEN] ❌ Error al inyectar:`, errorMsg);
@@ -2695,6 +2550,8 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     return { success: false, error: error.message };
   }
 });
+
+// Código de verificación eliminado - simplificado para mejor rendimiento
 
 // ============ QWEN: CAMBIAR MODELO EN BROWSERVIEW (NUEVO) ============
 ipcMain.handle('qwen:changeModel', async (_e, { model, provider }) => {
