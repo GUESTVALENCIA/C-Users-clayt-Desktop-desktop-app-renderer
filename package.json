@@ -2,7 +2,7 @@
   "name": "studiolab",
   "version": "1.0.0",
   "private": true,
-  "main": "main-simple.js",
+  "main": "main.js",
   "bin": {
     "sandra-full-access-mcp": "./qwen-mcp-stdio-server.js"
   },
