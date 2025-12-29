@@ -2464,6 +2464,20 @@
       height: 32px !important;
       min-width: 32px !important;
       font-size: 12px !important;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+    }
+
+    .thinking-btn-small:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .thinking-btn-small.active {
+      background: rgba(139, 92, 246, 0.2);
+      border-color: var(--accent-purple);
+      color: var(--accent-purple);
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
     }
 
     .thinking-btn-small .toolbar-btn-icon {
@@ -2926,9 +2940,6 @@
       <!-- Input Section -->
       <div class="input-section">
         <div class="composer" id="composer">
-        <!-- Feature Chips - REMOVED PER USER REQUEST -->
-
-        <div class="template-tray" id="templateTray" aria-label="Plantillas"></div>
 
         <!-- Input Container -->
         <div class="input-container">
@@ -2980,6 +2991,7 @@
               <!-- Pensamiento Toggle (Small) -->
               <button class="toolbar-btn thinking-btn-small" id="thinkingBtn" onclick="toggleThinking()" title="Pensamiento">
                 <span class="toolbar-btn-icon">🧠</span>
+                <span id="thinkingLabel" style="display: none;"></span>
               </button>
 
               <!-- Mode Button - Agente/Plan/Debug -->
@@ -5544,19 +5556,6 @@
     }
 
     /**
-     * Toggle AUTO Menu
-     * Muestra/oculta el menú de funciones AUTO
-     */
-    function toggleAutoMenu(event) {
-      event.stopPropagation();
-
-      const autoDropdown = document.getElementById('autoDropdown');
-      if (autoDropdown) {
-        autoDropdown.style.display = autoDropdown.style.display === 'none' ? 'block' : 'none';
-      }
-    }
-
-    /**
      * Execute AUTO Function
      * Ejecuta una de las 3 funciones AUTO: auto, maximum, multiple
      */
@@ -5692,14 +5691,6 @@
         document.querySelectorAll('.provider-dropdown').forEach(dropdown => {
           dropdown.style.display = 'none';
         });
-      }
-
-      // Cerrar AUTO dropdown
-      if (!event.target.closest('.auto-btn-container')) {
-        const autoDropdown = document.getElementById('autoDropdown');
-        if (autoDropdown) {
-          autoDropdown.style.display = 'none';
-        }
       }
     });
 
