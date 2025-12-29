@@ -154,7 +154,8 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   qwenGetStateFull: () => ipcRenderer.invoke('qwen:getState'),
   qwenReportUsage: (tokens) => ipcRenderer.invoke('qwen:contextUsage', { tokens }),
   // QWEN - BrowserView
-  qwenToggle: (show) => ipcRenderer.invoke('qwen:toggle', { show }),
+  qwenToggle: (show) => ipcRenderer.invoke('qwen:toggle', show),
+  qwenSendMessage: (message) => ipcRenderer.invoke('qwen:sendMessage', { message }),
   qwenOpenPortal: () => Promise.resolve({ success: true }),
   qwenVoiceChat: (audioBase64, userId, text) => ipcRenderer.invoke('qwen:voiceChat', { audioBase64, userId, text }),
   qwenLogin: () => Promise.resolve({ success: true }),
