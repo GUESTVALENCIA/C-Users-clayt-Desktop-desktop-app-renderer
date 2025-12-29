@@ -200,8 +200,8 @@ function getModelMeta(id) {
 }
 
 let qwenState = loadQwenState();
-let qwenBrowserView = null; // BrowserView para QWEN embebido (único sistema - como VS Code)
-let qwenBrowserViewReady = false; // Flag para saber si el BrowserView está completamente cargado
+// Sistema QWEN embebido - NUEVO (basado en VS Code extension)
+let qwenWebview = null; // BrowserView simple para QWEN (como VS Code)
 
 function emitStatus() {
   try {
@@ -274,7 +274,7 @@ function openOpera(url) {
 
 // ==================== QWEN - Sistema Embebido (como VS Code) ====================
 // Código muerto eliminado: createQwenMonitor, qwenMonitorWindow, qwenAuthWindow
-// Ahora solo se usa BrowserView embebido (qwenBrowserView)
+// Sistema QWEN embebido - NUEVO (basado en VS Code extension)
 
 // ==================== QWEN STREAMING SUPPORT ====================
 
@@ -483,17 +483,7 @@ app.whenReady().then(() => {
 
   createWindow();
   
-  // ============ INICIALIZAR QWEN BROWSERVIEW (SOLO crear, NO mostrar) ============
-  // El BrowserView se crea pero NO se adjunta - solo se muestra cuando el usuario hace clic en el botón
-  // CRÍTICO: Asegurar que NO hay BrowserView adjuntado al iniciar (el HTML principal debe ser visible)
-  mainWindow.setBrowserView(null);
-  setTimeout(() => {
-    initializeQwenBrowserView();
-    // Garantizar que sigue sin adjuntar después de inicializar
-    if (mainWindow) {
-      mainWindow.setBrowserView(null);
-    }
-  }, 1000); // Esperar 1 segundo para que la ventana esté lista
+  // Sistema QWEN embebido - se inicializa cuando el usuario hace clic (no precargar)
   // Arrancar vigilancia y eventos de API al inicializar
   try { watchCritical(); } catch (e) { console.warn('watchCritical failed:', e.message); }
   try { tapServiceApiEvents(); } catch (e) { console.warn('tapServiceApiEvents failed:', e.message); }
@@ -1084,9 +1074,9 @@ ipcMain.on('qwen-message', async (event, { message, context = {} }) => {
       console.log('[QWEN→MCP] ✅ Propuesta enviada exitosamente');
       console.log('[QWEN→MCP] Respuesta:', result);
 
-      // Enviar confirmación de vuelta al BrowserView QWEN (si está visible)
-      if (qwenBrowserView && qwenBrowserViewReady) {
-        qwenBrowserView.webContents.send('mcp-response', {
+      // Enviar confirmación de vuelta al Webview QWEN (si está visible)
+      if (qwenWebview && qwenWebview.webContents) {
+        qwenWebview.webContents.send('mcp-response', {
           success: true,
           message: 'Propuesta enviada al servidor MCP',
           result
@@ -1098,9 +1088,9 @@ ipcMain.on('qwen-message', async (event, { message, context = {} }) => {
   } catch (error) {
     console.error('[QWEN→MCP] ❌ Error enviando propuesta:', error.message);
 
-    // Enviar error de vuelta al BrowserView QWEN (si está visible)
-    if (qwenBrowserView && qwenBrowserViewReady) {
-      qwenBrowserView.webContents.send('mcp-response', {
+    // Enviar error de vuelta al Webview QWEN (si está visible)
+    if (qwenWebview && qwenWebview.webContents) {
+      qwenWebview.webContents.send('mcp-response', {
         success: false,
         error: error.message
       });
@@ -1113,210 +1103,80 @@ ipcMain.handle('qwen:login', async () => {
   return { success: true, message: 'QWEN se muestra embebido en la interfaz' };
 });
 
-// ============ INICIALIZAR QWEN BROWSERVIEW (en background, NO se muestra hasta que el usuario haga clic) ============
-function initializeQwenBrowserView() {
-  if (qwenBrowserView) {
-    console.log('[QWEN] BrowserView ya está inicializado');
-    return; // Ya está inicializado
-  }
-  
-  qwenBrowserViewReady = false; // Reset flag al inicializar
-  
-  if (!mainWindow) {
-    console.warn('[QWEN] mainWindow no existe aún, reintentando en 500ms...');
-    setTimeout(initializeQwenBrowserView, 500);
-    return;
-  }
-  
-  try {
-    console.log('[QWEN] ========================================');
-    console.log('[QWEN] Inicializando BrowserView (NO se carga hasta que el usuario haga clic)');
-    console.log('[QWEN] Esto evita background throttling y problemas de viewport');
-    console.log('[QWEN] ========================================');
-    
-    qwenBrowserView = new BrowserView({
-      webPreferences: {
-        partition: 'persist:qwen-app', // CRÍTICO: Cookies persistentes de Google/GitHub
-        contextIsolation: true,
-        nodeIntegration: false,
-        webSecurity: false,
-        allowRunningInsecureContent: true,
-        backgroundThrottling: false, // CRÍTICO: Evitar throttling cuando está en background
-        preload: path.join(__dirname, 'qwen-mcp-preload.js')
-      }
-    });
-    
-    // User-Agent estándar de Chrome (evitar UA inventado que causa inconsistencias con client hints)
-    qwenBrowserView.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
-    
-    // CRÍTICO: Manejar OAuth popups dentro del mismo BrowserView con misma partition
-    // Este handler DEBE estar configurado ANTES de cargar cualquier URL
-    qwenBrowserView.webContents.setWindowOpenHandler(({ url, frameName, features }) => {
-      console.log('[QWEN] ⚠️  Interceptando intento de abrir ventana:', url);
-      console.log('[QWEN] Frame name:', frameName, 'Features:', features);
-      
-      // SIEMPRE negar la creación de nuevas ventanas
-      // Navegar en el mismo BrowserView para mantener la misma partition y cookies
-      if (url && url !== 'about:blank') {
-        console.log('[QWEN] ➡️  Navegando en el mismo BrowserView:', url);
-        // Usar setTimeout para evitar conflictos
-        setTimeout(() => {
-          qwenBrowserView.webContents.loadURL(url).catch(err => {
-            console.error('[QWEN] Error cargando URL en BrowserView:', err);
-          });
-        }, 100);
-      }
-      
-      // SIEMPRE denegar - nunca permitir ventanas externas
-      return { action: 'deny' };
-    });
-    
-    // CRÍTICO: También interceptar navegaciones que puedan abrir ventanas
-    qwenBrowserView.webContents.on('will-navigate', (event, navigationUrl) => {
-      // Permitir navegaciones normales dentro del mismo dominio
-      if (navigationUrl.includes('qwenlm.ai') || navigationUrl.includes('google.com') || navigationUrl.includes('github.com')) {
-        console.log('[QWEN] ✅ Navegación permitida:', navigationUrl);
-        return; // Permitir navegación
-      }
-      // Bloquear otras navegaciones sospechosas
-      console.log('[QWEN] ⚠️  Bloqueando navegación sospechosa:', navigationUrl);
-      event.preventDefault();
-    });
-    
-    // Logs de diagnóstico para detectar problemas
-    qwenBrowserView.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-      console.error('[QWEN] ❌ Error cargando:', errorCode, errorDescription, validatedURL, 'isMainFrame:', isMainFrame);
-    });
-    
-    qwenBrowserView.webContents.on('did-get-response-details', (event, status, newURL, originalURL, httpResponseCode, requestMethod, referrer, headers) => {
-      if (httpResponseCode >= 300) {
-        console.warn('[QWEN] ⚠️  Response:', httpResponseCode, 'URL:', newURL || originalURL);
-      }
-    });
-    
-    // Logs de consola de la página para ver si hay errores de "Current System does not Support"
-    qwenBrowserView.webContents.on('console-message', (event, level, message, line, sourceId) => {
-      if (message.includes('not Support') || message.includes('verification') || message.includes('challenge')) {
-        console.warn('[QWEN] ⚠️  Console:', level, message);
-      }
-    });
-    
-    console.log('[QWEN] ✅ BrowserView inicializado (NO cargado aún - se cargará al mostrar para evitar background throttling)');
-  } catch (e) {
-    console.error('[QWEN] ❌ Error inicializando BrowserView:', e);
-  }
-}
+// ============ QWEN WEBVIEW - Sistema NUEVO (basado en VS Code extension) ============
+// Sistema simple: crear BrowserView solo cuando se necesita, como VS Code hace con WebviewPanel
 
-// Toggle QWEN BrowserView (solo mostrar/ocultar - el BrowserView ya está cargado en background)
 ipcMain.handle('qwen:toggle', async (_e, { show }) => {
-  console.log('[QWEN] ========================================');
-  console.log('[QWEN] qwen:toggle llamado con show:', show);
-  console.log('[QWEN] ========================================');
-  
   if (!mainWindow) {
-    console.error('[QWEN] ❌ mainWindow no existe');
     return { success: false, error: 'Ventana principal no existe' };
   }
   
   try {
-    // Asegurar que el BrowserView esté inicializado (debería estar desde app.whenReady)
-    if (!qwenBrowserView) {
-      console.log('[QWEN] BrowserView no existe, inicializando...');
-      qwenBrowserViewReady = false; // Reset flag
-      initializeQwenBrowserView();
-      // Esperar un momento para que se inicialice
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
     if (show) {
-      // CARGAR Y MOSTRAR el BrowserView (NO precargar invisible para evitar background throttling)
-      const bounds = mainWindow.getBounds();
+      // Crear BrowserView solo cuando se necesita (como VS Code)
+      if (!qwenWebview) {
+        qwenWebview = new BrowserView({
+          webPreferences: {
+            partition: 'persist:qwen-app', // Cookies persistentes
+            contextIsolation: true,
+            nodeIntegration: false
+          }
+        });
+        
+        // Interceptar popups - navegar en el mismo BrowserView
+        qwenWebview.webContents.setWindowOpenHandler(({ url }) => {
+          if (url && url !== 'about:blank') {
+            qwenWebview.webContents.loadURL(url);
+          }
+          return { action: 'deny' }; // Nunca abrir ventanas externas
+        });
+      }
       
-      // IMPORTANTE: NO cubrir sidebar ni header - solo el área de contenido (como VS Code)
-      // Sidebar width: 52px (definido en CSS)
-      // Top bar height: 44px (definido en CSS)
+      // Calcular bounds (respeta sidebar y top bar)
+      const bounds = mainWindow.getBounds();
       const sidebarWidth = 52;
       const topBarHeight = 44;
       
-      // PRIMERO: Establecer bounds ANTES de adjuntar (evita problemas de renderizado)
-      const browserViewBounds = { 
-        x: sidebarWidth, // Empezar DESPUÉS de la sidebar
-        y: topBarHeight, // Empezar DESPUÉS del top bar
-        width: bounds.width - sidebarWidth, // Ancho reducido (sin sidebar)
-        height: bounds.height - topBarHeight // Altura reducida (sin top bar)
-      };
-      
-      qwenBrowserView.setBounds(browserViewBounds);
-      console.log('[QWEN] BrowserView bounds establecidos:', browserViewBounds);
-      
-      // Adjuntar DESPUÉS de establecer bounds
-      mainWindow.setBrowserView(qwenBrowserView);
-      
-      // Cargar la URL oficial de la web
-      const QWEN_WEB_URL = 'https://chat.qwenlm.ai/';
-      console.log('[QWEN] 🌐 Cargando URL oficial de la WEB:', QWEN_WEB_URL);
-      qwenBrowserView.webContents.loadURL(QWEN_WEB_URL).catch(err => {
-        console.error('[QWEN] ❌ Error loadURL:', err.message);
+      qwenWebview.setBounds({
+        x: sidebarWidth,
+        y: topBarHeight,
+        width: bounds.width - sidebarWidth,
+        height: bounds.height - topBarHeight
       });
       
-      // Inyectar código MCP cuando la página cargue (solo la primera vez que se muestra)
-      const handleLoad = () => {
-        console.log('[QWEN] ✅ Página cargada, inyectando MCP bridge...');
-        injectMCPBridge(qwenBrowserView);
-        injectSystemPromptAndMemory(qwenBrowserView);
-        qwenBrowserViewReady = true;
-        qwenBrowserView.webContents.removeListener('did-finish-load', handleLoad);
-      };
-      qwenBrowserView.webContents.on('did-finish-load', handleLoad);
+      // Adjuntar y cargar URL
+      mainWindow.setBrowserView(qwenWebview);
+      qwenWebview.webContents.loadURL('https://chat.qwenlm.ai/');
       
-      // Actualizar bounds cuando la ventana cambie de tamaño
+      // Actualizar bounds al redimensionar
       const updateBounds = () => {
-        if (qwenBrowserView && mainWindow) {
+        if (qwenWebview && mainWindow) {
           const newBounds = mainWindow.getBounds();
-          // Mantener mismo cálculo que al mostrar inicialmente
-          const sidebarWidth = 52;
-          const topBarHeight = 44;
-          qwenBrowserView.setBounds({ 
-            x: sidebarWidth, 
+          qwenWebview.setBounds({
+            x: sidebarWidth,
             y: topBarHeight,
-            width: newBounds.width - sidebarWidth, 
+            width: newBounds.width - sidebarWidth,
             height: newBounds.height - topBarHeight
           });
         }
       };
-      
-      // Remover listeners anteriores si existen
-      mainWindow.removeAllListeners('resize');
       mainWindow.on('resize', updateBounds);
-      
-      // CRÍTICO: NO hacer focus automático - permite que el usuario interactúe con la UI
-      // El BrowserView recibirá focus cuando el usuario haga clic dentro de él
-      // Si hacemos focus aquí, bloquea la UI principal
-      console.log('[QWEN] ✅ BrowserView MOSTRADO con bounds reales, cargando URL...');
-      console.log('[QWEN] Bounds:', browserViewBounds);
-      console.log('[QWEN] ⚠️  IMPORTANTE: BrowserView NO tiene focus automático - usuario puede interactuar con UI');
       
       return { success: true };
     } else {
-      // OCULTAR BrowserView (desadjuntar de la ventana, pero mantenerlo cargado en background)
-      if (qwenBrowserView && mainWindow) {
-        console.log('[QWEN] Ocultando BrowserView...');
+      // Ocultar: desadjuntar BrowserView
+      if (qwenWebview && mainWindow) {
         mainWindow.setBrowserView(null);
-        console.log('[QWEN] ✅ BrowserView OCULTADO (sigue cargado en background, mantiene cookies)');
-        
-        // CRÍTICO: Restaurar focus a la ventana principal para que la UI responda
         mainWindow.focus();
         mainWindow.webContents.focus();
-        
-        // Notificar al renderer para que muestre su contenido HTML de nuevo
-        if (mainWindow && mainWindow.webContents) {
+        if (mainWindow.webContents) {
           mainWindow.webContents.send('qwen:view-hidden');
         }
       }
       return { success: true };
     }
   } catch (e) {
-    console.error('[QWEN] Error toggle BrowserView:', e);
+    console.error('[QWEN] Error:', e);
     return { success: false, error: e.message };
   }
 });
@@ -1335,9 +1195,9 @@ ipcMain.handle('qwen:voiceChat', async (_e, { audioBase64, userId = 'default', t
   }
 });
 
-// ============ QWEN MCP BRIDGE - Conectar BrowserView con servidor MCP (puerto 19875) ============
-// Función para inyectar código JavaScript en el BrowserView de QWEN
-function injectMCPBridge(browserView) {
+// ============ QWEN MCP BRIDGE - ELIMINADO (código corrupto) ============
+// Función eliminada - sistema nuevo no la necesita
+function injectMCPBridge_DELETED(browserView) {
   if (!browserView || !browserView.webContents) return;
   
   const bridgeCode = `
@@ -1502,8 +1362,8 @@ try {
   console.warn('[Main] QWEN Memory manager no disponible:', e.message);
 }
 
-// Función para inyectar prompt del sistema y memoria en QWEN (con soporte NEON)
-function injectSystemPromptAndMemory(browserView) {
+// Función eliminada - sistema nuevo no la necesita
+function injectSystemPromptAndMemory_DELETED(browserView) {
   if (!browserView || !browserView.webContents) return;
   if (!QwenMemoryManager || !QwenAutoInjector) {
     console.warn('[QWEN] Memory manager no disponible, saltando inyección de prompt');
