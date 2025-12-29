@@ -4921,73 +4921,37 @@
     }
 
     async function callAssistant(payload) {
-      // Si está en modo API, usar el proveedor seleccionado (Groq, Anthropic, etc.)
-      if (state.useAPI && state.currentProvider !== 'qwen') {
-        const provider = state.currentProvider;
-        const model = state.currentModel;
-        
+      const provider = state.currentProvider || 'groq';
+      const model = state.currentModel || PROVIDERS[provider]?.defaultModel || 'llama-3.3-70b-versatile';
+
+      console.log(`[callAssistant] Llamando a ${provider}/${model}`);
+
+      // MODO API: Usar Groq, OpenAI, etc.
+      if (state.useAPI) {
         if (window.sandraAPI?.chatSend) {
           try {
+            console.log(`[callAssistant] Enviando a sandraAPI: ${provider}/${model}`);
             const result = await window.sandraAPI.chatSend(provider, payload.message || '', payload.mode || 'user', model);
             if (result.success) {
-              return { text: result.response || result.message || '', provider: provider, model: model };
+              console.log(`[callAssistant] ✅ Respuesta recibida de ${provider}`);
+              return {
+                text: result.response || result.message || '',
+                provider: provider,
+                model: model
+              };
             } else {
               throw new Error(result.error || `Error en ${PROVIDERS[provider]?.name || provider} API`);
             }
           } catch (e) {
-            throw new Error(`Error conectando con ${PROVIDERS[provider]?.name || provider} API: ${e.message}`);
+            console.error(`[callAssistant] ❌ Error:`, e);
+            throw new Error(`Error en ${PROVIDERS[provider]?.name || provider}: ${e.message}`);
           }
         }
-        throw new Error(`${PROVIDERS[provider]?.name || provider} API no está disponible. Configura la API key correspondiente o cambia a modo Local.`);
+        throw new Error(`${PROVIDERS[provider]?.name || provider} API no disponible`);
       }
-      
-      // Modo Local: Solo QWEN (Ollama) - Conectar con el servidor QWEN Gateway (puerto 8085)
-      if (state.currentProvider !== 'qwen') {
-        throw new Error('QWEN solo funciona en modo local. Selecciona el proveedor QWEN3 para usar modelos locales.');
-      }
-      
-      try {
-        const requestBody = {
-          message: payload.message || '',
-          userId: payload.userId || 'default',
-          modelId: payload.modelId || state.currentModel || 'llama-3.3-70b-versatile',
-          meta: {
-            mode: payload.mode || state.currentMode,
-            features: payload.features || Array.from(state.activeFeatures),
-            thinking: payload.thinking || state.thinkingEnabled,
-            search: payload.search || state.searchEnabled
-          },
-          attachments: payload.attachments || []
-        };
 
-        const response = await fetch(CONFIG.chatUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const responseText = data.response || data.text || data.message || '';
-        
-        return { 
-          text: responseText, 
-          provider: 'qwen-gateway', 
-          model: requestBody.modelId 
-        };
-      } catch (error) {
-        console.error('[callAssistant] Error conectando con QWEN Gateway:', error);
-        
-        // Fallback: Si QWEN está conectado en BrowserView
-        if (state.qwen.connected) {
-          return { text: '', provider: 'qwen', model: payload?.modelId || '' };
-        }
-        
-        throw new Error(`Error conectando con QWEN Gateway (${CONFIG.chatUrl}): ${error.message}`);
-      }
+      // MODO LOCAL: QWEN Gateway (por ahora, para futuro embebido)
+      throw new Error('Modo local no implementado aún. Usa API mode con Groq u OpenAI.');
     }
 
     function getChatScrollContainer() {
@@ -5111,8 +5075,13 @@
 
         const assistantDiv = addMessage('assistant', 'Pensando…');
 
+        // Obtener modelo actual del proveedor actual
+        const provider = PROVIDERS[state.currentProvider];
+        const modelId = state.currentModel || provider?.defaultModel || 'llama-3.3-70b-versatile';
+
         const meta = {
-          modelId: state.qwen.model,
+          modelId: modelId,
+          provider: state.currentProvider,
           mode: state.currentMode,
           features: Array.from(state.activeFeatures),
           thinking: !!state.thinkingEnabled,
@@ -5120,7 +5089,7 @@
           attachments: state.attachments.map(a => ({ type: a.type, name: a.name, mime: a.mime, size: a.size }))
         };
 
-        addTerminalLine(`→ QWEN: ${meta.modelId} | modo ${meta.mode} | features ${meta.features.join(',') || '-'}`);
+        addTerminalLine(`→ ${state.currentProvider.toUpperCase()}: ${modelId} | modo ${meta.mode}`);
 
         try {
           const result = await callAssistant({
@@ -5704,9 +5673,8 @@
       console.log(`[Provider] Seleccionado ${provider}: ${modelName} (${modelId})`);
 
       // Actualizar estado
-      state.selectedProvider = provider;
-      state.selectedModel = modelId;
-      state.selectedModelName = modelName;
+      state.currentProvider = provider;
+      state.currentModel = modelId;
 
       // Remover clase .active de TODOS los botones de proveedores
       document.querySelectorAll('.provider-btn').forEach(btn => {
