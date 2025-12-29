@@ -4744,11 +4744,8 @@
         .then(() => {
           if (state.qwen.panelVisible) {
             addTerminalLine('✅ QWEN3 abierto');
-            // Renderizar modelos cuando se abre Qwen
+            // Actualizar UI - renderModelLists se llamará automáticamente si es necesario
             updateModelUI();
-            renderModelLists();
-            setTimeout(() => renderModelLists(), 300);
-            setTimeout(() => renderModelLists(), 300);
           } else {
             addTerminalLine('QWEN3 cerrado');
           }
