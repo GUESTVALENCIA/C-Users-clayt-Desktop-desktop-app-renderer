@@ -30,9 +30,9 @@ except ImportError:
 # Obtener DATABASE_URL - URL real de NEON
 DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
-    # URL directa de NEON desde VARIABLESFULL.txt
-    DATABASE_URL = 'postgresql://neondb_owner:npg_G2baKCg4FlyN@ep-fragrant-meadow-ah27lbiy-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
-    print("[WARN] DATABASE_URL no encontrado en .env, usando URL directa de NEON")
+    print("[ERROR] DATABASE_URL no encontrado en variables de entorno")
+    print("   Por favor configura DATABASE_URL en tu archivo .env")
+    sys.exit(1)
 
 MCP_PORT = int(os.getenv('MCP_NEON_PORT', 8765))
 
