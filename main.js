@@ -58,6 +58,10 @@ let timeoutManager = null;
 
 // ============ AUDIT SYSTEM - Auditoría con login ============
 const { AuditSystem } = require('./audit-system');
+
+// ============ API DISCOVERY SERVICE - Descubrimiento de APIs gratuitas ============
+const { APIDiscoveryService } = require('./api-discovery-service');
+let apiDiscoveryService = null;
 let auditSystem = null;
 
 // Manejo de errores no capturados
@@ -690,6 +694,19 @@ app.whenReady().then(() => {
   } else {
     console.warn('⚠️ CallCenter no disponible (módulo no encontrado)');
   }
+
+  // ============ API DISCOVERY SERVICE INITIALIZATION ============
+  try {
+    apiDiscoveryService = new APIDiscoveryService();
+    global.apiDiscoveryService = apiDiscoveryService;
+    const stats = apiDiscoveryService.getStats();
+    console.log(`✅ API Discovery cargado: ${stats.total} APIs en ${stats.categories} categorías`);
+    console.log(`   - ${stats.freeAPIs} APIs completamente gratuitas`);
+    console.log(`   - ${stats.https} APIs con HTTPS`);
+  } catch (e) {
+    console.warn('⚠️ API Discovery Service no disponible:', e.message);
+  }
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -2019,6 +2036,98 @@ ipcMain.handle('auto:cancelQuery', async (_, { queryId }) => {
   try {
     const cancelled = global.autoOrchestrator.cancelQuery(queryId);
     return { success: cancelled };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ API DISCOVERY IPC HANDLERS ============
+ipcMain.handle('api:search', async (_, query) => {
+  if (!global.apiDiscoveryService) {
+    return { success: false, error: 'API Discovery no inicializado' };
+  }
+
+  try {
+    const results = global.apiDiscoveryService.search(query);
+    return { success: true, count: results.length, apis: results };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('api:getCategory', async (_, category) => {
+  if (!global.apiDiscoveryService) {
+    return { success: false, error: 'API Discovery no inicializado' };
+  }
+
+  try {
+    const apis = global.apiDiscoveryService.getByCategory(category);
+    return { success: true, category, count: apis.length, apis };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('api:recommend', async (_, task) => {
+  if (!global.apiDiscoveryService) {
+    return { success: false, error: 'API Discovery no inicializado' };
+  }
+
+  try {
+    const recommendations = global.apiDiscoveryService.getRecommendations(task);
+    return { success: true, task, count: recommendations.length, apis: recommendations };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('api:free', async () => {
+  if (!global.apiDiscoveryService) {
+    return { success: false, error: 'API Discovery no inicializado' };
+  }
+
+  try {
+    const freeAPIs = global.apiDiscoveryService.getFreeAPIs();
+    return { success: true, count: freeAPIs.length, apis: freeAPIs };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('api:stats', async () => {
+  if (!global.apiDiscoveryService) {
+    return { success: false, error: 'API Discovery no inicializado' };
+  }
+
+  try {
+    const stats = global.apiDiscoveryService.getStats();
+    return { success: true, stats };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('api:allCategories', async () => {
+  if (!global.apiDiscoveryService) {
+    return { success: false, error: 'API Discovery no inicializado' };
+  }
+
+  try {
+    const categories = global.apiDiscoveryService.getAllCategories();
+    return { success: true, count: categories.length, categories };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('api:systemInstruction', async () => {
+  if (!global.apiDiscoveryService) {
+    return { success: false, error: 'API Discovery no inicializado' };
+  }
+
+  try {
+    const instruction = global.apiDiscoveryService.getSystemInstruction();
+    return { success: true, instruction };
   } catch (error) {
     return { success: false, error: error.message };
   }
