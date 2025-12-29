@@ -4212,28 +4212,9 @@
      * Envía IPC signal a main.js para crear la ventana
      */
     function openQwenEmbedded() {
-      try {
-        const { ipcRenderer } = require('electron');
-
-        console.log('[UI] 🤖 Abriendo panel QWEN embebido...');
-
-        // Highlight the QWEN button
-        const qwenBtn = document.getElementById('qwenBtn');
-        if (qwenBtn) {
-          qwenBtn.style.filter = 'brightness(1.3)';
-          setTimeout(() => {
-            qwenBtn.style.filter = 'brightness(1)';
-          }, 500);
-        }
-
-        // Enviar IPC signal al main process
-        ipcRenderer.send('open-qwen-embedded');
-
-        addTerminalLine('📤 Panel QWEN embebido abierto');
-      } catch (error) {
-        console.error('[UI] Error abriendo QWEN:', error);
-        addTerminalLine(`❌ Error abriendo QWEN: ${error.message}`);
-      }
+      // Usar el sistema del MCP Universal - BrowserView embebido (como VS Code extension)
+      // No abre ventanas externas, simplemente muestra/oculta el panel embebido
+      toggleQwen();
     }
 
     /**
