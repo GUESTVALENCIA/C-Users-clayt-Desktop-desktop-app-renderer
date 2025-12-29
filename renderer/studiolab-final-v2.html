@@ -3107,11 +3107,7 @@
                 <!-- QWEN Provider - ELIMINADO: Solo se usa el botón verde de la sidebar -->
               </div>
 
-              <!-- QWEN Connect Button (Toolbar) - DISABLED PER USER REQUEST -->
-              <!-- <button class="toolbar-btn qwen-btn" id="qwenBtnToolbar" onclick="toggleQwen()">
-                <span class="toolbar-btn-icon">🤖</span>
-                <span id="qwenLabel">QWEN</span>
-              </button> -->
+              <!-- QWEN Connect Button (Toolbar) - ELIMINADO: Solo se usa el botón de la sidebar izquierda -->
 
               <!-- AUTO Orchestrator Button - 3 Functions: Auto, Máximo, Múltiple -->
               <div class="toolbar-btn auto-btn-container" id="autoContainer">
@@ -4757,37 +4753,43 @@
     // QWEN3 TOGGLE - USANDO BROWSERVIEW (Solución correcta para X-Frame-Options)
     // ============================================
     function toggleQwen() {
-      console.log('[UI] toggleQwen - usando BrowserView (evita X-Frame-Options)');
+      console.log('[UI] toggleQwen - usando BrowserView (estilo VS Code extension)');
 
       // IMPORTANTE: Seleccionar Qwen como proveedor antes de abrir el panel
       if (state.currentProvider !== 'qwen') {
         selectProviderModel('qwen', PROVIDERS.qwen.defaultModel);
       }
 
-      const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
-      const label = document.getElementById('qwenLabel');
+      // Obtener botón de la sidebar
+      const btnSidebar = document.getElementById('qwenBtn');
 
       // Actualizar state
       state.qwen.panelVisible = !state.qwen.panelVisible;
 
-      // Actualizar UI
-      if (btn) btn.classList.toggle('active', state.qwen.panelVisible);
-      if (label) label.textContent = state.qwen.panelVisible ? 'QWEN3 ON' : 'QWEN3';
+      // Actualizar UI del botón
+      if (btnSidebar) btnSidebar.classList.toggle('active', state.qwen.panelVisible);
 
       // Llamar IPC para controlar BrowserView en main process
       window.sandraAPI.qwenToggle(state.qwen.panelVisible)
-        .then(() => {
+        .then((result) => {
           if (state.qwen.panelVisible) {
-            addTerminalLine('✅ QWEN3 abierto');
+            addTerminalLine('✅ QWEN abierto en panel lateral (estilo VS Code)');
+            state.qwen.connected = true;
             // Actualizar UI - renderModelLists se llamará automáticamente si es necesario
             updateModelUI();
           } else {
-            addTerminalLine('QWEN3 cerrado');
+            addTerminalLine('QWEN cerrado');
+            state.qwen.connected = false;
           }
+          // Asegurar que el botón refleje el estado correcto
+          if (btnSidebar) btnSidebar.classList.toggle('active', state.qwen.panelVisible);
         })
         .catch(err => {
-          console.error('[UI] Error toggling QWEN3:', err);
-          addTerminalLine(`❌ Error: ${err.message}`);
+          console.error('[UI] Error toggling QWEN:', err);
+          addTerminalLine(`❌ Error: ${err.message || 'Error desconocido'}`);
+          // Revertir estado en caso de error
+          state.qwen.panelVisible = !state.qwen.panelVisible;
+          if (btnSidebar) btnSidebar.classList.toggle('active', state.qwen.panelVisible);
         });
 
       // Permitir cerrar con ESC
@@ -5213,8 +5215,24 @@
           if (result?.qwenStreaming) {
             let accumulatedText = '';
             let timeoutId = null;
+            let responseReceived = false;
+            let checkInterval = null;
+            
+            // Verificar periódicamente si Qwen está procesando (cada 2 segundos)
+            checkInterval = setInterval(() => {
+              if (!responseReceived && accumulatedText === '') {
+                // Si después de 10 segundos no hay respuesta, verificar si el mensaje se envió
+                console.log('[QWEN] Verificando estado del envío...');
+              }
+            }, 2000);
             
             const qwenResponseHandler = (data) => {
+              responseReceived = true;
+              if (checkInterval) {
+                clearInterval(checkInterval);
+                checkInterval = null;
+              }
+              
               if (data.type === 'text' && data.content) {
                 accumulatedText += data.content;
                 
@@ -5243,14 +5261,27 @@
             if (window.sandraAPI?.on) {
               window.sandraAPI.on('qwen:response', qwenResponseHandler);
               
+              // Timeout inicial más corto (15 segundos) para detectar si el mensaje no se envió
+              setTimeout(() => {
+                if (!responseReceived && accumulatedText === '') {
+                  updateMessageDiv(assistantDiv, '⚠️ El mensaje puede no haberse enviado. Verifica el panel lateral de Qwen y envía manualmente si es necesario.');
+                  addTerminalLine('⚠️ QWEN: Posible fallo en envío automático - verifica panel lateral');
+                }
+              }, 15000);
+              
               // Timeout de seguridad (60 segundos) para limpiar listener
               setTimeout(() => {
+                if (checkInterval) {
+                  clearInterval(checkInterval);
+                  checkInterval = null;
+                }
                 if (window.sandraAPI?.off) {
                   window.sandraAPI.off('qwen:response', qwenResponseHandler);
                 }
                 if (timeoutId) clearTimeout(timeoutId);
-                if (!accumulatedText) {
-                  updateMessageDiv(assistantDiv, '⏱️ Timeout esperando respuesta de Qwen. Verifica el panel lateral.');
+                if (!accumulatedText && !responseReceived) {
+                  updateMessageDiv(assistantDiv, '⏱️ Timeout esperando respuesta de Qwen. Verifica el panel lateral y que el mensaje se haya enviado correctamente.');
+                  addTerminalLine('⏱️ QWEN: Timeout - el mensaje puede no haberse enviado');
                 }
               }, 60000);
             }
@@ -5714,29 +5745,40 @@
     // Usar window.addEventListener para eventos personalizados desde el preload
     // El preload debe exponer un método para escuchar eventos IPC
     function setupQwenHiddenListener() {
+      // Función auxiliar para actualizar UI cuando cambia el estado
+      function updateQwenUI(visible) {
+        state.qwen.panelVisible = visible;
+        state.qwen.connected = visible;
+        const btnSidebar = document.getElementById('qwenBtn');
+        
+        if (btnSidebar) btnSidebar.classList.toggle('active', visible);
+      }
+
       // Intentar usar el sistema de eventos expuesto por el preload
       if (window.sandraAPI && typeof window.sandraAPI.on === 'function') {
         window.sandraAPI.on('qwen:view-hidden', () => {
-          console.log('[UI] QWEN3 BrowserView ocultado - restaurando UI');
-          state.qwen.panelVisible = false;
-          state.qwen.connected = false;
-          const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
-          if (btn) btn.classList.remove('active');
-          const label = document.getElementById('qwenLabel');
-          if (label) label.textContent = 'QWEN3';
-          addTerminalLine('QWEN3 cerrado - UI restaurada');
+          console.log('[UI] QWEN BrowserView ocultado - restaurando UI');
+          updateQwenUI(false);
+          addTerminalLine('QWEN cerrado - UI restaurada');
+        });
+        
+        window.sandraAPI.on('qwen:view-shown', () => {
+          console.log('[UI] QWEN BrowserView mostrado - actualizando UI');
+          updateQwenUI(true);
+          addTerminalLine('QWEN abierto - panel visible');
         });
       } else {
         // Fallback: usar window.addEventListener para eventos personalizados
         window.addEventListener('qwen:view-hidden', () => {
-          console.log('[UI] QWEN3 BrowserView ocultado - restaurando UI (fallback)');
-          state.qwen.panelVisible = false;
-          state.qwen.connected = false;
-          const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
-          if (btn) btn.classList.remove('active');
-          const label = document.getElementById('qwenLabel');
-          if (label) label.textContent = 'QWEN3';
-          addTerminalLine('QWEN3 cerrado - UI restaurada');
+          console.log('[UI] QWEN BrowserView ocultado - restaurando UI (fallback)');
+          updateQwenUI(false);
+          addTerminalLine('QWEN cerrado - UI restaurada');
+        });
+        
+        window.addEventListener('qwen:view-shown', () => {
+          console.log('[UI] QWEN BrowserView mostrado - actualizando UI (fallback)');
+          updateQwenUI(true);
+          addTerminalLine('QWEN abierto - panel visible');
         });
       }
     }
