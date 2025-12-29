@@ -201,5 +201,89 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   }
 });
 
+// ============================================================================
+// AI MODELS API - Controlar modelos embebidos
+// ============================================================================
+contextBridge.exposeInMainWorld('aiModels', {
+  // Mostrar un modelo específico como panel lateral
+  show: (modelId, width) => ipcRenderer.invoke('ai-models:show', { modelId, width }),
+
+  // Ocultar todos los modelos
+  hide: () => ipcRenderer.invoke('ai-models:hide'),
+
+  // Enviar mensaje a un modelo
+  send: (modelId, message) => ipcRenderer.invoke('ai-models:send', { modelId, message }),
+
+  // Obtener lista de modelos disponibles
+  list: () => ipcRenderer.invoke('ai-models:list'),
+
+  // Escuchar respuestas interceptadas de modelos
+  onResponse: (callback) =>
+    ipcRenderer.on('ai-models:response', (_, data) => callback(data))
+});
+
+// ============================================================================
+// MCP UNIVERSAL API - Sincronización Multi-Agente
+// ============================================================================
+contextBridge.exposeInMainWorld('mcpAPI', {
+  // Enviar propuesta de cambios al MCP Universal
+  sendProposal: (data) => ipcRenderer.invoke('mcp:sendProposal', {
+    title: data.title,
+    description: data.description,
+    changes: data.changes,
+    project: data.project || 'default'
+  }),
+
+  // Enviar review de una propuesta
+  sendReview: (proposalId, rating, feedback) =>
+    ipcRenderer.invoke('mcp:sendReview', { proposalId, rating, feedback }),
+
+  // Transmitir progreso de implementación en tiempo real
+  streamProgress: (data) => ipcRenderer.send('mcp:streamProgress', data),
+
+  // Verificar estado de conexión MCP
+  getStatus: () => ipcRenderer.invoke('mcp:status'),
+
+  // Escuchar nuevas propuestas de otros agentes
+  onNewProposal: (callback) =>
+    ipcRenderer.on('mcp:newProposal', (_, data) => callback(data)),
+
+  // Escuchar actualizaciones de implementación
+  onImplementationUpdate: (callback) =>
+    ipcRenderer.on('mcp:implementationUpdate', (_, data) => callback(data)),
+
+  // Escuchar reviews
+  onReviewReceived: (callback) =>
+    ipcRenderer.on('mcp:reviewReceived', (_, data) => callback(data)),
+
+  // Escuchar cualquier evento MCP
+  onMCPEvent: (callback) =>
+    ipcRenderer.on('mcp:event', (_, event) => callback(event))
+});
+
+// ============================================================================
+// AUTO ORCHESTRATOR API - Multi-Agent Consensus System
+// ============================================================================
+contextBridge.exposeInMainWorld('autoAPI', {
+  // Ejecutar consulta multi-modelo (AUTO button)
+  query: (message) => ipcRenderer.invoke('auto:query', { message }),
+
+  // Obtener consultas activas
+  getActiveQueries: () => ipcRenderer.invoke('auto:getActiveQueries'),
+
+  // Cancelar una consulta
+  cancelQuery: (queryId) => ipcRenderer.invoke('auto:cancelQuery', { queryId }),
+
+  // Escuchar inicio de consulta
+  onQueryStarted: (callback) =>
+    ipcRenderer.on('auto:queryStarted', (_, data) => callback(data)),
+
+  // Escuchar completación de consulta
+  onQueryCompleted: (callback) =>
+    ipcRenderer.on('auto:queryCompleted', (_, data) => callback(data))
+});
+
 // QWEN - Solo QWEN embebido
+console.log('✅ MCP Universal API expuesta');
+console.log('✅ AUTO Orchestrator API expuesta');
 console.log('✅ QWEN disponible');
