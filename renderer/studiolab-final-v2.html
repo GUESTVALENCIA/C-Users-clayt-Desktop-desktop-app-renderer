@@ -3425,12 +3425,22 @@
         const isProviderClick = e.target.closest('.provider-btn-group');
         const isAutoClick = e.target.closest('.auto-btn-container');
         const isVoiceClick = e.target.closest('.voice-btn');
+        const isModelSelectorClick = e.target.closest('.model-selector');
+        const isModelDropdownClick = e.target.closest('#modelDropdown');
 
         // Si no es click en estos elementos, cerrar todos los dropdowns
-        if (!isProviderClick && !isAutoClick && !isVoiceClick) {
+        if (!isProviderClick && !isAutoClick && !isVoiceClick && !isModelSelectorClick && !isModelDropdownClick) {
           document.querySelectorAll('.provider-dropdown, .auto-dropdown, .voice-dropdown').forEach(d => {
             d.style.display = 'none';
           });
+
+          // Cerrar selector de modelos usando clase active
+          const modelSelector = document.getElementById('modelSelector');
+          if (modelSelector) {
+            modelSelector.classList.remove('active');
+            modelSelector.classList.remove('more-open');
+          }
+          document.getElementById('modelTrigger')?.setAttribute('aria-expanded', 'false');
 
           // IMPORTANTE: Restaurar estado correcto de botones activos
           // Limpiar TODOS los botones primero
@@ -3860,16 +3870,35 @@
 
     function toggleModelDropdown(forceOpen = null) {
       const selector = document.getElementById('modelSelector');
-      if (!selector) return;
+      if (!selector) {
+        console.error('[toggleModelDropdown] ❌ Selector no encontrado');
+        return;
+      }
+      
       const next = typeof forceOpen === 'boolean' ? forceOpen : !selector.classList.contains('active');
       selector.classList.toggle('active', next);
-      document.getElementById('modelTrigger')?.setAttribute('aria-expanded', String(next));
+      
+      const trigger = document.getElementById('modelTrigger');
+      if (trigger) {
+        trigger.setAttribute('aria-expanded', String(next));
+      }
+      
       if (!next) {
+        // Cerrar dropdown
         selector.classList.remove('more-open');
+        console.log('[toggleModelDropdown] Dropdown cerrado');
       } else {
         // SIEMPRE renderizar modelos de Qwen cuando se abre el dropdown (sin necesidad de tener Qwen seleccionado)
-        console.log('[toggleModelDropdown] Abriendo dropdown - renderizando modelos de Qwen');
-        setTimeout(() => renderModelLists(), 50); // Pequeño delay para asegurar que el DOM esté listo
+        console.log('[toggleModelDropdown] ✅ Abriendo dropdown - renderizando modelos de Qwen');
+        
+        // Renderizar inmediatamente
+        renderModelLists();
+        
+        // Renderizar de nuevo después de un pequeño delay para asegurar que el DOM esté completamente listo
+        setTimeout(() => {
+          renderModelLists();
+          console.log('[toggleModelDropdown] ✅ Modelos renderizados después de delay');
+        }, 100);
       }
     }
 
@@ -3927,9 +3956,11 @@
       const meta = (state.qwen.models || []).find(m => m.id === modelId);
       state.qwen.model = modelId;
       state.currentModel = modelId;
+      state.currentProvider = 'qwen'; // Asegurar que Qwen está seleccionado como proveedor
+      
       updateModelUI(meta);
       renderModelLists();
-      toggleModelDropdown(false);
+      toggleModelDropdown(false); // Cerrar dropdown usando la clase active
 
       try {
         await window.sandraAPI?.qwenSetModel?.(modelId);
@@ -4096,21 +4127,19 @@
         modeDropdown.style.display = 'none';
       }
 
-      // Close model dropdown (Cursor-style)
-      const modelDropdown = document.getElementById('modelDropdown');
-      if (modelDropdown && except !== 'modelSelector') {
-        modelDropdown.style.display = 'none';
-      }
-
+      // Close model dropdown - usar clase active en lugar de display
       if (except !== 'modelSelector') {
-        document.getElementById('modelSelector')?.classList.remove('more-open');
+        const modelSelector = document.getElementById('modelSelector');
+        if (modelSelector) {
+          modelSelector.classList.remove('active');
+          modelSelector.classList.remove('more-open');
+        }
         document.getElementById('modelTrigger')?.setAttribute('aria-expanded', 'false');
       }
     }
 
-    document.addEventListener('click', () => {
-      closeAllDropdowns();
-    });
+    // Event listener de click removido - ya se maneja en DOMContentLoaded
+    // No duplicar para evitar conflictos
 
     // ============================================
     // THINKING TOGGLE (ON/OFF only)
@@ -4173,63 +4202,12 @@
       }
     }
 
-    function toggleModelMenu(event) {
-      event.stopPropagation();
-      const dropdown = document.getElementById('modelDropdown');
-      if (dropdown) {
-        const isOpen = dropdown.style.display === 'block';
-        closeAllDropdowns('modelSelector');
-        if (!isOpen) {
-          dropdown.style.display = 'block';
-        }
-      }
-    }
-
-    function selectModel(modelId, modelName, modelIcon) {
-      // Update current model
-      state.currentModel = modelId;
-      document.getElementById('currentModelName').textContent = modelName;
-
-      // Update checkmarks in model list
-      const modelOptions = document.querySelectorAll('.cursor-model-option');
-      modelOptions.forEach(opt => {
-        const check = opt.querySelector('.cursor-model-check');
-        if (check) {
-          const isSelected = opt.textContent.includes(modelName);
-          check.textContent = isSelected ? '•' : '';
-        }
-      });
-
-      // Close dropdown
-      document.getElementById('modelDropdown').style.display = 'none';
-
-      addTerminalLine(`Modelo seleccionado: ${modelName}`);
-    }
-
-    function filterModels() {
-      const searchInput = document.getElementById('modelSearchInput');
-      const filter = searchInput.value.toLowerCase();
-      const modelOptions = document.querySelectorAll('.cursor-model-option:not(.cursor-model-add)');
-
-      let visibleCount = 0;
-      modelOptions.forEach(opt => {
-        const text = opt.textContent.toLowerCase();
-        if (text.includes(filter)) {
-          opt.style.display = 'flex';
-          visibleCount++;
-        } else {
-          opt.style.display = 'none';
-        }
-      });
-
-      addTerminalLine(`Modelos encontrados: ${visibleCount}`);
-    }
-
-    function openModelSettings() {
-      addTerminalLine('Abriendo selector completo de modelos en Settings...');
-      // TODO: Open full model selection settings panel
-      alert('Próximamente: Panel completo de selección de modelos en Configuración');
-    }
+    // Función toggleModelMenu eliminada - código muerto que causaba conflictos
+    // El selector de modelos se maneja con toggleModelDropdown() que usa clases CSS
+    
+    // Funciones selectModel, filterModels y openModelSettings eliminadas - código muerto que causaba conflictos
+    // Usar selectProviderModel en su lugar para el selector de modelos
+    
 
     // ============================================
     // AUTO ORCHESTRATOR (Multi-Model Consensus)
@@ -5761,10 +5739,21 @@
         console.log(`   ✅ Qwen seleccionado (usa botón verde de sidebar)`);
       }
 
-      // Cerrar dropdown
+      // Cerrar dropdown del proveedor
       const dropdown = document.getElementById(`dropdown-${provider}`);
       if (dropdown) {
         dropdown.style.display = 'none';
+      }
+
+      // Cerrar dropdown del selector de modelos (usar clase active)
+      const modelSelector = document.getElementById('modelSelector');
+      if (modelSelector) {
+        modelSelector.classList.remove('active');
+        modelSelector.classList.remove('more-open');
+      }
+      const modelTrigger = document.getElementById('modelTrigger');
+      if (modelTrigger) {
+        modelTrigger.setAttribute('aria-expanded', 'false');
       }
 
       // Actualizar UI del modelo superior
