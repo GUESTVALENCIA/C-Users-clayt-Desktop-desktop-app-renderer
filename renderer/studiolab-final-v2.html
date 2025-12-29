@@ -4284,7 +4284,9 @@
     // Listener: Cuando QWEN se oculta, restaurar UI
     try {
       const { ipcRenderer } = require('electron');
-      ipcRenderer.on('qwen:view-hidden', () => {
+      // Listener para cuando BrowserView se oculta - restaurar UI
+      if (typeof ipcRenderer !== 'undefined') {
+        ipcRenderer.on('qwen:view-hidden', () => {
         console.log('[UI] QWEN BrowserView ocultado - restaurando UI');
         state.qwen.panelVisible = false;
         state.qwen.connected = false;
