@@ -5914,20 +5914,69 @@
     async function executeMultipleMode() {
       const messageText = document.getElementById('messageInput').value.trim();
 
+      if (!messageText) {
+        addTerminalLine('⚠️ Escribe un mensaje primero');
+        return;
+      }
+
       console.log('[AUTO] Modo MÚLTIPLE: Consultando múltiples modelos');
-      addTerminalLine('🔗 MÚLTIPLE: Consultando Groq, Anthropic, Gemini en paralelo...');
+      addTerminalLine('🔗 MÚLTIPLE: Orquestando múltiples modelos en paralelo...');
 
-      // Para esta demo, usaremos Groq con múltiples intentos
-      // En producción, esto consultaría múltiples proveedores
-      const providers = [
-        { provider: 'groq', model: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
-        { provider: 'groq', model: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' }
-      ];
+      // Usar el motor de orquestación
+      if (window.autoOrchestrationEngine) {
+        try {
+          const result = await window.autoOrchestrationEngine.executeMultipleMode(messageText);
+          if (result.success) {
+            addTerminalLine(`✅ Síntesis completada: ${result.synthesized.modelsUsed.length} modelos consultados`);
+            // Mostrar respuestas en el chat
+            displaySynthesizedResponse(result.synthesized);
+          } else {
+            addTerminalLine(`❌ Error: ${result.error}`);
+          }
+        } catch (error) {
+          console.error('[AUTO] Error en executeMultipleMode:', error);
+          addTerminalLine(`❌ Error: ${error.message}`);
+        }
+      } else {
+        console.warn('[AUTO] Auto Orchestration Engine no cargado');
+        addTerminalLine('⚠️ Motor de orquestación no disponible');
+      }
+    }
 
-      addTerminalLine('📊 Procesando respuestas de múltiples fuentes...');
+    /**
+     * Mostrar respuesta sintetizada en el chat
+     */
+    function displaySynthesizedResponse(synthesized) {
+      const chatBox = document.getElementById('chatBox');
+      if (!chatBox) return;
 
-      // Enviar con Groq (actualmente disponible)
-      await sendMessageWithProvider('groq', 'llama-3.3-70b-versatile');
+      // Crear mensaje de síntesis
+      const synthMessage = document.createElement('div');
+      synthMessage.className = 'message auto-synthesis';
+      synthMessage.innerHTML = `
+        <div style="background: rgba(0, 100, 150, 0.2); border-left: 3px solid #0ff; padding: 12px; border-radius: 4px; margin: 10px 0;">
+          <div style="color: #0ff; font-weight: bold; margin-bottom: 8px;">🔗 Síntesis Multi-Modelo</div>
+          <div style="color: #0f0; font-size: 0.9em; margin-bottom: 8px;">
+            📊 ${synthesized.modelsUsed.length} modelos consultados: ${synthesized.modelsUsed.join(', ')}
+          </div>
+          <div style="color: ${synthesized.consensus.level === 'high' ? '#0f0' : '#ff0'}; font-size: 0.9em; margin-bottom: 10px;">
+            🎯 ${synthesized.consensus.message}
+          </div>
+          <div style="border-top: 1px solid #0ff; padding-top: 10px; color: #ccc;">
+            <strong>Puntos Clave:</strong>
+            <ul style="margin: 8px 0; padding-left: 20px;">
+              ${synthesized.keyPoints.map(p => `<li>${p}</li>`).join('')}
+            </ul>
+          </div>
+        </div>
+      `;
+
+      chatBox.appendChild(synthMessage);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // También mostrar en terminal
+      addTerminalLine(`📊 SÍNTESIS: ${synthesized.modelsUsed.length} modelos`);
+      addTerminalLine(`🎯 Consenso: ${synthesized.consensus.message}`);
     }
 
     /**
@@ -5958,5 +6007,163 @@
     });
 
   </script>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- AUTO ORCHESTRATION ENGINE - Motor de Orquestación Multi-Modelo -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <script src="./auto-orchestration-engine.js"></script>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MCP API BRIDGE - Interfaz con MCP Universal -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <script>
+    /**
+     * MCP API Bridge - Expone métodos para comunicarse con el servidor MCP
+     */
+    window.mcpAPI = {
+      async sendProposal(data) {
+        try {
+          if (!window.electron) {
+            console.warn('[MCP] electron API no disponible');
+            return null;
+          }
+
+          return await window.electron.ipcRenderer.invoke('mcp:sendProposal', data);
+        } catch (error) {
+          console.error('[MCP] Error enviando propuesta:', error);
+          throw error;
+        }
+      },
+
+      async sendReview(proposalId, rating, feedback) {
+        try {
+          if (!window.electron) {
+            console.warn('[MCP] electron API no disponible');
+            return null;
+          }
+
+          return await window.electron.ipcRenderer.invoke('mcp:sendReview', {
+            proposalId,
+            rating,
+            feedback
+          });
+        } catch (error) {
+          console.error('[MCP] Error enviando review:', error);
+          throw error;
+        }
+      },
+
+      async getStatus() {
+        try {
+          if (!window.electron) {
+            console.warn('[MCP] electron API no disponible');
+            return null;
+          }
+
+          return await window.electron.ipcRenderer.invoke('mcp:status');
+        } catch (error) {
+          console.error('[MCP] Error obteniendo estado:', error);
+          throw error;
+        }
+      }
+    };
+
+    // Escuchar eventos del MCP
+    if (window.electron) {
+      window.electron.ipcRenderer.on('mcp:newProposal', (data) => {
+        console.log('[MCP] Nueva propuesta recibida:', data);
+        addTerminalLine(`📨 Nueva propuesta del MCP: ${data?.title || 'sin título'}`);
+      });
+
+      window.electron.ipcRenderer.on('mcp:implementationUpdate', (data) => {
+        console.log('[MCP] Actualización de implementación:', data);
+        addTerminalLine(`📊 Actualización MCP: ${data?.status || 'procesando'}`);
+      });
+
+      window.electron.ipcRenderer.on('mcp:reviewReceived', (data) => {
+        console.log('[MCP] Review recibido:', data);
+        addTerminalLine(`👁️ Review recibido (${data?.rating || '?'}/10)`);
+      });
+    }
+  </script>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- AI MODELS RESPONSE INTERCEPTOR - Captura respuestas de modelos embebidos -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <script>
+    /**
+     * Interceptor de respuestas de modelos embebidos
+     * Permite capturar respuestas de ChatGPT, QWEN, Gemini, DeepSeek
+     */
+
+    // Cola de listeners de respuesta
+    const responseListeners = new Map();
+
+    // Enhanced window.aiModels con soporte para callbacks de respuesta
+    if (!window.aiModels) {
+      window.aiModels = {};
+    }
+
+    // Agregar métodos para callbacks
+    window.aiModels.onResponse = function(callback) {
+      if (!callback) return;
+      const id = `listener_${Date.now()}_${Math.random()}`;
+      responseListeners.set(id, callback);
+      return id;
+    };
+
+    window.aiModels.offResponse = function(modelId, callback) {
+      responseListeners.forEach((cb, id) => {
+        if (cb === callback || id === modelId) {
+          responseListeners.delete(id);
+        }
+      });
+    };
+
+    // Método para emitir respuesta (llamado cuando se intercepta respuesta de modelo)
+    window.aiModels.emitResponse = function(modelId, response) {
+      responseListeners.forEach(callback => {
+        try {
+          callback({
+            modelId,
+            response,
+            timestamp: Date.now()
+          });
+        } catch (error) {
+          console.error('[AI Models] Error en callback:', error);
+        }
+      });
+    };
+
+    // Escuchar eventos de respuesta desde el proceso principal
+    if (window.electron) {
+      window.electron.ipcRenderer.on('ai-model:response', (data) => {
+        console.log('[AI Models] Respuesta interceptada:', data.modelId);
+        window.aiModels.emitResponse(data.modelId, data.response);
+      });
+    }
+
+    console.log('[Bootstrap] ✅ AI Models Response Interceptor cargado');
+  </script>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- BOOT MESSAGE -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Log de sistemas cargados
+      const systems = [
+        window.autoOrchestrationEngine ? '✅ Auto Orchestration Engine' : '❌ Auto Orchestration Engine',
+        window.mcpAPI ? '✅ MCP API Bridge' : '❌ MCP API Bridge',
+        window.aiModels ? '✅ AI Models' : '❌ AI Models',
+        window.electron ? '✅ Electron IPC' : '❌ Electron IPC'
+      ];
+
+      console.log('%c[STUDIOLAB BOOT]%c Multi-Agent AI Orchestration System', 'color: #0ff; font-weight: bold;', 'color: #0f0;');
+      systems.forEach(s => console.log(`  ${s}`));
+      console.log('[STUDIOLAB] Sistema listo - Usa botón AUTO para orquestación multi-modelo');
+    });
+  </script>
+
 </body>
 </html>
