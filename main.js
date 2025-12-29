@@ -200,8 +200,8 @@ function getModelMeta(id) {
 }
 
 let qwenState = loadQwenState();
-// Sistema QWEN embebido - NUEVO (basado en VS Code extension)
-let qwenWebview = null; // BrowserView simple para QWEN (como VS Code)
+// Sistema QWEN embebido - Técnica VS Code (iframe embebido en HTML)
+// NO usa BrowserView - el iframe maneja todo automáticamente
 
 function emitStatus() {
   try {
@@ -336,7 +336,23 @@ function createWindow() {
 
     // Manejar errores de carga
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      // Ignorar errores de iframes embebidos (no son errores de la ventana principal)
+      if (validatedURL && (validatedURL.includes('qwenlm.ai') || validatedURL.includes('qwen.ai'))) {
+        console.warn('[Main] ⚠️  Error en iframe embebido (ignorado):', errorCode, validatedURL);
+        return; // No es un error crítico - el iframe maneja sus propios errores
+      }
       console.error('[Main] Error cargando:', errorCode, errorDescription, validatedURL);
+    });
+    
+    // CRÍTICO: Bloquear navegaciones no deseadas en la ventana principal
+    mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+      // Permitir solo navegaciones a archivos locales o data URLs
+      if (navigationUrl.startsWith('file://') || navigationUrl.startsWith('data:') || navigationUrl.startsWith('about:')) {
+        return; // Permitir
+      }
+      // Bloquear TODAS las navegaciones a URLs externas
+      console.log('[Main] 🚫 Bloqueando navegación no permitida en ventana principal:', navigationUrl);
+      event.preventDefault();
     });
 
     mainWindow.webContents.on('crashed', () => {
@@ -346,8 +362,10 @@ function createWindow() {
     // Mostrar ventana cuando esté lista
     mainWindow.once('ready-to-show', () => {
       console.log('[Main] Ventana lista, mostrando...');
-      // CRÍTICO: Asegurar que NO hay BrowserView adjuntado (el HTML principal debe ser visible)
-      mainWindow.setBrowserView(null);
+      // Asegurar que NO hay BrowserView adjuntado (el HTML principal debe ser visible)
+      if (mainWindow.getBrowserView()) {
+        mainWindow.setBrowserView(null);
+      }
       mainWindow.show();
       mainWindow.focus();
       try { emitStatus(); } catch {}
@@ -1081,27 +1099,14 @@ ipcMain.on('qwen-message', async (event, { message, context = {} }) => {
       console.log('[QWEN→MCP] ✅ Propuesta enviada exitosamente');
       console.log('[QWEN→MCP] Respuesta:', result);
 
-      // Enviar confirmación de vuelta al Webview QWEN (si está visible)
-      if (qwenWebview && qwenWebview.webContents) {
-        qwenWebview.webContents.send('mcp-response', {
-          success: true,
-          message: 'Propuesta enviada al servidor MCP',
-          result
-        });
-      }
+      // QWEN ahora usa iframe embebido - no necesita mensajes IPC
     } else {
       throw new Error(`Servidor MCP retornó ${response.status}: ${result.message || 'Error desconocido'}`);
     }
   } catch (error) {
     console.error('[QWEN→MCP] ❌ Error enviando propuesta:', error.message);
 
-    // Enviar error de vuelta al Webview QWEN (si está visible)
-    if (qwenWebview && qwenWebview.webContents) {
-      qwenWebview.webContents.send('mcp-response', {
-        success: false,
-        error: error.message
-      });
-    }
+    // QWEN ahora usa iframe embebido - no necesita mensajes IPC
   }
 });
 
@@ -1110,151 +1115,15 @@ ipcMain.handle('qwen:login', async () => {
   return { success: true, message: 'QWEN se muestra embebido en la interfaz' };
 });
 
-// ============ QWEN WEBVIEW - Sistema NUEVO (basado en VS Code extension) ============
-// Sistema simple: crear BrowserView solo cuando se necesita, como VS Code hace con WebviewPanel
+// ============ QWEN WEBVIEW - Técnica VS Code (iframe embebido) ============
+// Sistema simple: iframe embebido directamente en el HTML (como VS Code extension)
+// NO usa BrowserView - el iframe maneja todo automáticamente
 
 ipcMain.handle('qwen:toggle', async (_e, { show }) => {
-  if (!mainWindow) {
-    return { success: false, error: 'Ventana principal no existe' };
-  }
-  
-  try {
-    if (show) {
-      // Crear BrowserView solo cuando se necesita (como VS Code)
-      if (!qwenWebview) {
-        console.log('[QWEN] ========================================');
-        console.log('[QWEN] Creando nuevo BrowserView...');
-        console.log('[QWEN] ========================================');
-        
-        qwenWebview = new BrowserView({
-          webPreferences: {
-            partition: 'persist:qwen-app', // Cookies persistentes
-            contextIsolation: true,
-            nodeIntegration: false,
-            webSecurity: true
-          }
-        });
-        
-        // CRÍTICO: Configurar handlers INMEDIATAMENTE después de crear
-        console.log('[QWEN] 🔒 Configurando handlers de interceptación...');
-        
-        // Handler 1: Interceptar TODOS los intentos de abrir ventanas (PRIMERO Y MÁS IMPORTANTE)
-        qwenWebview.webContents.setWindowOpenHandler(({ url, frameName, features, disposition }) => {
-          console.log('[QWEN] 🚫 INTERCEPTADO intento de abrir ventana:', url);
-          console.log('[QWEN] Frame:', frameName, 'Disposition:', disposition, 'Features:', features);
-          
-          // SIEMPRE navegar en el mismo BrowserView (sin delay)
-          if (url && url !== 'about:blank' && url !== 'javascript:void(0)') {
-            console.log('[QWEN] ➡️  Redirigiendo al mismo BrowserView:', url);
-            // Usar loadURL directamente, sin setTimeout
-            qwenWebview.webContents.loadURL(url).catch(err => {
-              console.error('[QWEN] ❌ Error cargando URL:', err);
-            });
-          }
-          
-          // SIEMPRE denegar - NUNCA permitir ventanas externas
-          return { action: 'deny' };
-        });
-        
-        // Handler 2: Interceptar navegaciones (ANTES de que se ejecuten)
-        qwenWebview.webContents.on('will-navigate', (event, navigationUrl) => {
-          // Permitir solo navegaciones dentro del mismo dominio o OAuth
-          const allowedDomains = ['qwenlm.ai', 'google.com', 'github.com', 'accounts.google.com', 'oauth'];
-          const isAllowed = allowedDomains.some(domain => navigationUrl.includes(domain));
-          
-          if (isAllowed) {
-            console.log('[QWEN] ✅ Navegación permitida:', navigationUrl);
-            return; // Permitir
-          }
-          
-          // Bloquear otras navegaciones sospechosas
-          console.log('[QWEN] ⚠️  Bloqueando navegación no permitida:', navigationUrl);
-          event.preventDefault();
-        });
-        
-        // Handler 3: Interceptar nuevos windows (legacy, por si acaso)
-        qwenWebview.webContents.on('new-window', (event, navigationUrl, frameName, disposition, options) => {
-          console.log('[QWEN] 🚫 INTERCEPTADO new-window (legacy):', navigationUrl);
-          event.preventDefault();
-          // Navegar en el mismo BrowserView
-          if (navigationUrl && navigationUrl !== 'about:blank') {
-            qwenWebview.webContents.loadURL(navigationUrl);
-          }
-        });
-        
-        // Handler 4: Interceptar did-create-window (nuevo evento de Electron)
-        qwenWebview.webContents.on('did-create-window', (window, details) => {
-          console.log('[QWEN] 🚫 INTERCEPTADO did-create-window:', details.url);
-          // Cerrar inmediatamente cualquier ventana que se haya creado
-          if (window) {
-            window.close();
-          }
-          // Navegar en el mismo BrowserView
-          if (details.url && details.url !== 'about:blank') {
-            qwenWebview.webContents.loadURL(details.url);
-          }
-        });
-        
-        console.log('[QWEN] ✅ Todos los handlers configurados correctamente');
-        console.log('[QWEN] ========================================');
-      }
-      
-      // Calcular bounds (respeta sidebar y top bar)
-      const bounds = mainWindow.getBounds();
-      const sidebarWidth = 52;
-      const topBarHeight = 44;
-      
-      qwenWebview.setBounds({
-        x: sidebarWidth,
-        y: topBarHeight,
-        width: bounds.width - sidebarWidth,
-        height: bounds.height - topBarHeight
-      });
-      
-      // Adjuntar ANTES de cargar URL
-      mainWindow.setBrowserView(qwenWebview);
-      
-      // Cargar URL DESPUÉS de configurar handlers
-      console.log('[QWEN] Cargando URL: https://chat.qwenlm.ai/');
-      qwenWebview.webContents.loadURL('https://chat.qwenlm.ai/').catch(err => {
-        console.error('[QWEN] Error cargando URL:', err);
-      });
-      
-      // Actualizar bounds al redimensionar
-      const updateBounds = () => {
-        if (qwenWebview && mainWindow) {
-          const newBounds = mainWindow.getBounds();
-          qwenWebview.setBounds({
-            x: sidebarWidth,
-            y: topBarHeight,
-            width: newBounds.width - sidebarWidth,
-            height: newBounds.height - topBarHeight
-          });
-        }
-      };
-      mainWindow.removeAllListeners('resize');
-      mainWindow.on('resize', updateBounds);
-      
-      console.log('[QWEN] ✅ BrowserView mostrado y configurado');
-      return { success: true };
-    } else {
-      // Ocultar: desadjuntar BrowserView
-      if (qwenWebview && mainWindow) {
-        console.log('[QWEN] Ocultando BrowserView...');
-        mainWindow.setBrowserView(null);
-        mainWindow.focus();
-        mainWindow.webContents.focus();
-        if (mainWindow.webContents) {
-          mainWindow.webContents.send('qwen:view-hidden');
-        }
-        console.log('[QWEN] ✅ BrowserView ocultado');
-      }
-      return { success: true };
-    }
-  } catch (e) {
-    console.error('[QWEN] ❌ Error:', e);
-    return { success: false, error: e.message };
-  }
+  // QWEN ahora usa iframe embebido en el HTML (técnica VS Code)
+  // No necesita BrowserView - el iframe maneja popups automáticamente
+  console.log('[QWEN] Toggle llamado - iframe embebido (técnica VS Code)');
+  return { success: true };
 });
 
 ipcMain.handle('qwen:voiceChat', async (_e, { audioBase64, userId = 'default', text = '' }) => {
@@ -1719,34 +1588,18 @@ ipcMain.handle('devtools:open', async () => {
   return { success: false, error: 'No main window' };
 });
 
+// Abrir en Opera - BLOQUEADO (no permitir ventanas externas)
 ipcMain.handle('app:openInOpera', async (_e, { url }) => {
-  const { spawn } = require('child_process');
-  const operaPaths = [
-    'C:\\Program Files\\Opera\\opera.exe',
-    'C:\\Program Files (x86)\\Opera\\opera.exe',
-    'C:\\Users\\clayt\\AppData\\Local\\Programs\\Opera\\launcher.exe'
-  ];
-
-  for (const operaPath of operaPaths) {
-    try {
-      if (require('fs').existsSync(operaPath)) {
-        spawn(operaPath, [url], { detached: true });
-        return { success: true, message: `Opened in Opera: ${url}` };
-      }
-    } catch (e) {
-      console.log(`Opera path not found: ${operaPath}`);
-    }
-  }
-
-  // Fallback: use default browser
-  await shell.openExternal(url);
-  return { success: true, message: `Opened in default browser: ${url}` };
+  console.log('[Main] 🚫 Bloqueando app:openInOpera:', url);
+  // NO abrir ventanas externas - todo debe estar embebido
+  return { success: false, error: 'Ventanas externas bloqueadas - use iframe embebido' };
 });
 
-// Abrir URL en navegador externo
+// Abrir URL en navegador externo - BLOQUEADO (no permitir ventanas externas)
 ipcMain.handle('shell:openExternal', async (_e, { url }) => {
-  await shell.openExternal(url);
-  return { success: true };
+  console.log('[Main] 🚫 Bloqueando shell.openExternal:', url);
+  // NO abrir ventanas externas - todo debe estar embebido
+  return { success: false, error: 'Ventanas externas bloqueadas - use iframe embebido' };
 });
 
 console.log('✅ IPC Handlers Sandra IA (Groq) registrados');
