@@ -1537,11 +1537,11 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         // Esperar más tiempo para asegurar que la página esté completamente cargada
         setTimeout(() => {
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-            injectQwenResponseObserver(qwenBrowserView);
+          injectQwenResponseObserver(qwenBrowserView);
             // Esperar un poco más antes de iniciar la captura
             setTimeout(() => {
               if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-                startQwenResponseCapture(); // Iniciar captura de respuestas
+          startQwenResponseCapture(); // Iniciar captura de respuestas
               }
             }, 3000); // Esperar 3 segundos adicionales
           }
@@ -1890,7 +1890,7 @@ async function startQwenResponseCapture() {
       // Solo loggear errores que no sean de frame disposed
       if (!error.message || !error.message.includes('Render frame was disposed')) {
         // Ignorar errores silenciosamente (puede ser que el DOM no esté listo aún)
-      }
+    }
       qwenBrowserViewReady = false;
     }
   }, 2000); // Leer cada 2 segundos
@@ -1932,6 +1932,112 @@ async function waitForQWENReady(browserView, timeout = 10000) {
     return true;
   } catch (error) {
     throw new Error(`QWEN not ready: ${error.message}`);
+  }
+}
+
+// ============ QWEN: DIAGNÓSTICO DE EVENT LISTENERS ============
+async function diagnoseQwenInputDetection(browserView) {
+  if (!browserView || browserView.webContents.isDestroyed()) {
+    return { success: false, error: 'BrowserView no disponible' };
+  }
+
+  const diagnoseCode = `
+    (function() {
+      const result = {
+        eventListeners: [],
+        inputEvents: [],
+        buttonState: null
+      };
+
+      // Buscar input
+      const input = document.querySelector('#chat-input') || 
+                   document.querySelector('textarea[placeholder*="ayuda" i]') ||
+                   document.querySelector('[contenteditable="true"]');
+      
+      if (!input) {
+        return { success: false, error: 'Input no encontrado' };
+      }
+
+      // Interceptar addEventListener para ver qué eventos escucha Qwen
+      const originalAddEventListener = input.addEventListener.bind(input);
+      const events = [];
+      
+      input.addEventListener = function(type, listener, options) {
+        events.push({
+          type: type,
+          hasOptions: !!options,
+          listenerType: typeof listener,
+          listenerString: listener.toString().substring(0, 150)
+        });
+        return originalAddEventListener(type, listener, options);
+      };
+
+      // Observar cambios en botones (micrófono/enviar)
+      const buttonObserver = new MutationObserver((mutations) => {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+          const hasMicrophone = btn.querySelector('svg[viewBox*="24"]') || 
+                               btn.getAttribute('aria-label')?.toLowerCase().includes('mic') ||
+                               btn.getAttribute('title')?.toLowerCase().includes('mic');
+          const hasSend = btn.querySelector('svg[viewBox*="24"]') ||
+                         btn.getAttribute('aria-label')?.toLowerCase().includes('send') ||
+                         btn.getAttribute('title')?.toLowerCase().includes('send');
+          
+          if (hasMicrophone || hasSend) {
+            result.buttonState = {
+              visible: btn.offsetParent !== null,
+              disabled: btn.disabled,
+              hasMicrophone: hasMicrophone,
+              hasSend: hasSend,
+              ariaLabel: btn.getAttribute('aria-label') || '',
+              className: btn.className || ''
+            };
+          }
+        });
+      });
+
+      // Observar el contenedor del input
+      const container = input.closest('form') || input.parentElement;
+      if (container) {
+        buttonObserver.observe(container, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['class', 'aria-label', 'disabled', 'style']
+        });
+      }
+
+      // Capturar eventos que se disparan
+      const capturedEvents = [];
+      ['input', 'beforeinput', 'change', 'keydown', 'keypress', 'keyup', 'focus', 'blur'].forEach(eventType => {
+        input.addEventListener(eventType, (e) => {
+          capturedEvents.push({
+            type: e.type,
+            inputType: e.inputType || null,
+            data: e.data || null,
+            bubbles: e.bubbles,
+            cancelable: e.cancelable,
+            target: e.target.tagName
+          });
+        }, true); // Usar capture phase
+      });
+
+      result.eventListeners = events;
+      result.capturedEvents = capturedEvents;
+      result.inputValue = input.value || input.textContent || '';
+      result.inputType = input.tagName.toLowerCase();
+
+      return result;
+    })();
+  `;
+
+  try {
+    const diagnosis = await browserView.webContents.executeJavaScript(diagnoseCode);
+    console.log('[QWEN Event Listeners]', JSON.stringify(diagnosis, null, 2));
+    return { success: true, data: diagnosis };
+  } catch (error) {
+    console.error('[QWEN Event Listeners] Error:', error.message);
+    return { success: false, error: error.message };
   }
 }
 
@@ -2160,16 +2266,16 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
             `input = document.querySelector('${domInfo.inputSelector}');` :
             `// Buscar input nuevamente
             const inputStrategies = [
-              () => document.querySelector('[contenteditable="true"]'),
+            () => document.querySelector('[contenteditable="true"]'),
               () => document.querySelector('textarea:not([disabled])'),
               () => document.querySelector('input[type="text"]:not([disabled])')
-            ];
+          ];
             for (const strategy of inputStrategies) {
-              const found = strategy();
+            const found = strategy();
               if (found && found.offsetParent !== null) {
-                input = found;
-                break;
-              }
+              input = found;
+              break;
+            }
             }`
           }
 
@@ -2178,23 +2284,108 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
             return result;
           }
 
-          // Escribir mensaje en el input
+          // Escribir mensaje en el input usando InputEvent con propiedades completas
           input.focus();
           
-          if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-            input.value = messageText;
-            // Disparar eventos de input
-            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-          } else if (input.hasAttribute('contenteditable')) {
-            // Para contenteditable, usar manipulación directa
-            input.textContent = messageText;
-            input.innerText = messageText;
-            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+          // Función auxiliar para crear InputEvent
+          function createInputEvent(type, data) {
+            try {
+              return new InputEvent(type, {
+                inputType: 'insertText',
+                data: data,
+                bubbles: true,
+                cancelable: true,
+                composed: true
+              });
+            } catch (e) {
+              // Fallback si InputEvent no está disponible
+              return new Event(type, { bubbles: true, cancelable: true });
+            }
           }
 
-          // ESTRATEGIA 1: Botón de envío (con delay usando setTimeout)
+          if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+            // ESTRATEGIA: beforeinput + input con InputEvent
+            // 1. Disparar beforeinput primero
+            const beforeInputEvent = createInputEvent('beforeinput', messageText);
+            input.dispatchEvent(beforeInputEvent);
+            
+            // 2. Cambiar el valor
+            input.value = messageText;
+            
+            // 3. Disparar input con InputEvent completo
+            const inputEvent = createInputEvent('input', messageText);
+            input.dispatchEvent(inputEvent);
+            
+            // 4. Disparar change
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+          } else if (input.hasAttribute('contenteditable')) {
+            // Para contenteditable, usar beforeinput + input
+            const beforeInputEvent = createInputEvent('beforeinput', messageText);
+            input.dispatchEvent(beforeInputEvent);
+            
+            input.textContent = messageText;
+            input.innerText = messageText;
+            
+            const inputEvent = createInputEvent('input', messageText);
+            input.dispatchEvent(inputEvent);
+            
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+          }
+          
+          // Verificar que el botón de envío apareció (micrófono desapareció)
+          function verifySendButtonAppeared() {
+            // Buscar botón de micrófono (debería estar oculto)
+            const microphoneButtons = Array.from(document.querySelectorAll('button')).filter(btn => {
+              const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+              const title = (btn.getAttribute('title') || '').toLowerCase();
+              const hasMicIcon = btn.querySelector('svg[viewBox*="24"]');
+              return (aria.includes('mic') || title.includes('mic') || hasMicIcon) && 
+                     btn.offsetParent !== null; // Visible
+            });
+            
+            // Buscar botón de envío (debería estar visible)
+            const sendButtons = Array.from(document.querySelectorAll('button')).filter(btn => {
+              if (btn.disabled || btn.offsetParent === null) return false;
+              const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+              const title = (btn.getAttribute('title') || '').toLowerCase();
+              const text = (btn.textContent || '').toLowerCase();
+              return aria.includes('send') || aria.includes('enviar') ||
+                     title.includes('send') || title.includes('enviar') ||
+                     text.includes('send') || text.includes('enviar') ||
+                     (btn.querySelector('svg') && !aria.includes('mic'));
+            });
+            
+            // Si hay botón de envío visible y no hay micrófono visible, el botón cambió
+            const micVisible = microphoneButtons.length > 0;
+            const sendVisible = sendButtons.length > 0;
+            
+            return {
+              buttonChanged: sendVisible && !micVisible,
+              sendButton: sendButtons[0] || null,
+              microphoneVisible: micVisible,
+              sendVisible: sendVisible
+            };
+          }
+
+          // Usar setTimeout para verificar el botón después de un delay
+          setTimeout(() => {
+            const buttonCheck = verifySendButtonAppeared();
+            
+            // ESTRATEGIA 1: Botón de envío (si apareció después de escribir)
+            if (buttonCheck.buttonChanged && buttonCheck.sendButton) {
+              try {
+                buttonCheck.sendButton.click();
+                result.strategy = 'send-button-after-input';
+                result.success = true;
+                console.log('[QWEN] ✅ Estrategia 1 (Botón de envío después de InputEvent) ejecutada');
+                return;
+              } catch (e) {
+                console.warn('[QWEN] Estrategia 1 falló:', e.message);
+              }
+            }
+          }, 200);
+
+          // ESTRATEGIA 1b: Botón de envío original (con delay usando setTimeout)
           if (${domInfo.sendButtonFound ? 'true' : 'false'}) {
             try {
               let sendButton = null;
@@ -2242,7 +2433,67 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
             }
           }
 
-          // ESTRATEGIA 2: Enter mejorado (múltiples eventos con delays)
+          // ESTRATEGIA 2: Simulación carácter por carácter (si InputEvent no activó el botón)
+          // Esta estrategia se ejecutará solo si InputEvent no funcionó
+          // Se ejecuta después de un delay para verificar si el botón cambió
+          setTimeout(() => {
+            try {
+              const buttonCheck = verifySendButtonAppeared();
+              if (!buttonCheck.buttonChanged) {
+                // Si no cambió, intentar simulación carácter por carácter
+                input.value = ''; // Limpiar primero
+                
+                for (let i = 0; i < messageText.length; i++) {
+                  const char = messageText[i];
+                  setTimeout(() => {
+                    input.value += char;
+                    const charInputEvent = createInputEvent('input', char);
+                    input.dispatchEvent(charInputEvent);
+                    
+                    // Al final, verificar botón y hacer clic
+                    if (i === messageText.length - 1) {
+                      setTimeout(() => {
+                        const finalCheck = verifySendButtonAppeared();
+                        if (finalCheck.buttonChanged && finalCheck.sendButton) {
+                          finalCheck.sendButton.click();
+                          result.strategy = 'char-by-char';
+                          result.success = true;
+                          console.log('[QWEN] ✅ Estrategia 2 (Carácter por carácter) ejecutada');
+                        }
+                      }, 100);
+                    }
+                  }, i * 15); // 15ms entre caracteres
+                }
+              }
+            } catch (e) {
+              console.warn('[QWEN] Estrategia 2 falló:', e.message);
+            }
+          }, 300); // Esperar 300ms después de InputEvent para verificar
+
+          // ESTRATEGIA 3: document.execCommand (fallback legacy)
+          try {
+            input.focus();
+            input.select(); // Seleccionar todo el texto existente
+            const execResult = document.execCommand('insertText', false, messageText);
+            
+            if (execResult) {
+              setTimeout(() => {
+                const buttonCheck = verifySendButtonAppeared();
+                if (buttonCheck.buttonChanged && buttonCheck.sendButton) {
+                  buttonCheck.sendButton.click();
+                }
+              }, 150);
+              
+              result.strategy = 'execcommand';
+              result.success = true;
+              console.log('[QWEN] ✅ Estrategia 3 (execCommand) ejecutada');
+              return result;
+            }
+          } catch (e) {
+            console.warn('[QWEN] Estrategia 3 falló:', e.message);
+          }
+
+          // ESTRATEGIA 4: Enter mejorado (múltiples eventos con delays)
           try {
             const enterEvents = [
               new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }),
@@ -2258,10 +2509,10 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
             result.strategy = 'enter-events';
             result.success = true;
-            console.log('[QWEN] ✅ Estrategia 2 (Enter) ejecutada');
+            console.log('[QWEN] ✅ Estrategia 4 (Enter) ejecutada');
             return result;
           } catch (e) {
-            console.warn('[QWEN] Estrategia 2 falló:', e.message);
+            console.warn('[QWEN] Estrategia 4 falló:', e.message);
           }
 
           // ESTRATEGIA 3: Funciones globales
@@ -2285,7 +2536,7 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
           }
           ` : ''}
 
-          // ESTRATEGIA 4: Submit de formulario
+          // ESTRATEGIA 6: Submit de formulario
           ${domInfo.hasSubmitForm ? `
           try {
             const form = input.closest('form');
@@ -2293,7 +2544,7 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
               form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
               if (typeof form.requestSubmit === 'function') {
                 form.requestSubmit();
-              } else {
+          } else {
                 form.submit();
               }
               result.strategy = 'form-submit';
@@ -2306,7 +2557,7 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
           }
           ` : ''}
 
-          // ESTRATEGIA 5: Simulación completa de usuario (sin await)
+          // ESTRATEGIA 7: Simulación completa de usuario (sin await)
           try {
             // Focus → escribir → eventos → blur → click botón (todo con delays)
             input.focus();
@@ -2319,9 +2570,9 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
                 input.innerText = messageText;
               }
               
-              input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-              input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-              
+          input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+
               setTimeout(() => {
                 input.blur();
                 
