@@ -4957,11 +4957,15 @@
 
           if (result.success) {
             console.log(`[callAssistant] ✅ Mensaje enviado a QWEN BrowserView`);
+            
+            // Retornar inmediatamente - las respuestas se recibirán via IPC y se mostrarán en tiempo real
+            // El listener global manejará la actualización del mensaje
             return {
-              text: '✅ Mensaje enviado a QWEN. Ve la respuesta en el panel lateral derecho.',
+              text: '✅ Mensaje enviado a QWEN. Esperando respuesta...',
               provider: 'qwen',
               model: 'qwen-embedded',
-              embedded: true
+              stream: true,
+              qwenStreaming: true // Flag para indicar que Qwen está transmitiendo
             };
           } else {
             throw new Error(result.error || 'Error desconocido al enviar');
@@ -5205,14 +5209,64 @@
             attachments: meta.attachments
           });
 
-          const responseText = String(result?.text || '');
-          if (responseText) {
-            await streamMessage(assistantDiv, responseText);
-            maybeApplyCanvasFromResponse(responseText);
-
-            updateModelUI();
+          // Si es Qwen streaming, configurar listener para actualizar en tiempo real
+          if (result?.qwenStreaming) {
+            let accumulatedText = '';
+            let timeoutId = null;
+            
+            const qwenResponseHandler = (data) => {
+              if (data.type === 'text' && data.content) {
+                accumulatedText += data.content;
+                
+                // Actualizar el div en tiempo real
+                updateMessageDiv(assistantDiv, accumulatedText);
+                scrollChatToBottom();
+                
+                // Reset timeout cada vez que llega contenido
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                  // Después de 3 segundos sin nuevas respuestas, considerar que terminó
+                  if (window.sandraAPI?.off) {
+                    window.sandraAPI.off('qwen:response', qwenResponseHandler);
+                  }
+                  maybeApplyCanvasFromResponse(accumulatedText);
+                  updateModelUI();
+                }, 3000);
+              } else if (data.type === 'image' || data.type === 'video' || data.type === 'audio') {
+                // Añadir referencias de media al texto
+                accumulatedText += `\n[${data.type.toUpperCase()}: ${data.content}]`;
+                updateMessageDiv(assistantDiv, accumulatedText);
+              }
+            };
+            
+            // Registrar listener para respuestas de Qwen
+            if (window.sandraAPI?.on) {
+              window.sandraAPI.on('qwen:response', qwenResponseHandler);
+              
+              // Timeout de seguridad (60 segundos) para limpiar listener
+              setTimeout(() => {
+                if (window.sandraAPI?.off) {
+                  window.sandraAPI.off('qwen:response', qwenResponseHandler);
+                }
+                if (timeoutId) clearTimeout(timeoutId);
+                if (!accumulatedText) {
+                  updateMessageDiv(assistantDiv, '⏱️ Timeout esperando respuesta de Qwen. Verifica el panel lateral.');
+                }
+              }, 60000);
+            }
+            
+            // Mostrar mensaje inicial
+            updateMessageDiv(assistantDiv, result.text || '✅ Mensaje enviado a QWEN. Esperando respuesta...');
           } else {
-            assistantDiv.remove();
+            // Para otros proveedores, comportamiento normal
+            const responseText = String(result?.text || '');
+            if (responseText) {
+              await streamMessage(assistantDiv, responseText);
+              maybeApplyCanvasFromResponse(responseText);
+              updateModelUI();
+            } else {
+              assistantDiv.remove();
+            }
           }
         } catch (e) {
           updateMessageDiv(assistantDiv, `Error: ${e.message}`);
