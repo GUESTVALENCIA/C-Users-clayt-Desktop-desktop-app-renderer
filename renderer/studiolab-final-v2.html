@@ -4930,10 +4930,14 @@
           if (!state.qwen.panelVisible) {
             console.log('[callAssistant] Abriendo panel QWEN automáticamente...');
             await window.sandraAPI.qwenToggle(true);
-            // Esperar a que se cargue
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Actualizar estado local
+            state.qwen.panelVisible = true;
+            // Esperar más tiempo para que la página cargue completamente (SPA necesita tiempo)
+            console.log('[callAssistant] Esperando a que QWEN cargue completamente...');
+            await new Promise(resolve => setTimeout(resolve, 4000)); // 4 segundos para carga completa
           }
 
+          console.log('[callAssistant] Enviando mensaje a QWEN BrowserView...');
           const result = await window.sandraAPI.qwenSendMessage(payload.message || '');
           
           if (result.success) {
