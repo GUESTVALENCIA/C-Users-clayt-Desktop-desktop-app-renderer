@@ -1,77 +1,87 @@
 {
   "openai": {
-    "working": [],
+    "working": [
+      {
+        "model": "gpt-4o",
+        "name": "GPT-4o",
+        "description": "GPT-4 Optimized",
+        "response": "¡Hola! Sí, estoy funcionando. ¿En qué puedo ayudarte?",
+        "tokens_used": {
+          "prompt_tokens": 19,
+          "completion_tokens": 14,
+          "total_tokens": 33,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+          }
+        },
+        "timestamp": "2025-12-29T12:38:14.960Z"
+      }
+    ],
     "failed": [
       {
         "model": "gpt-5.2-2025-12-11",
         "name": "GPT-5.2 (2025-12-11)",
-        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
-        "error_code": "invalid_api_key",
+        "error": "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+        "error_code": "unsupported_parameter",
         "full_error": {
-          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "message": "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
           "type": "invalid_request_error",
-          "code": "invalid_api_key",
-          "param": null
+          "param": "max_tokens",
+          "code": "unsupported_parameter"
         },
-        "timestamp": "2025-12-29T12:36:05.690Z"
+        "timestamp": "2025-12-29T12:38:06.519Z"
       },
       {
         "model": "gpt-5.2-pro",
         "name": "GPT-5.2 Pro",
-        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
-        "error_code": "invalid_api_key",
+        "error": "This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?",
+        "error_code": 404,
         "full_error": {
-          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "message": "This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?",
           "type": "invalid_request_error",
-          "code": "invalid_api_key",
-          "param": null
+          "param": "model",
+          "code": null
         },
-        "timestamp": "2025-12-29T12:36:06.962Z"
+        "timestamp": "2025-12-29T12:38:08.004Z"
       },
       {
         "model": "gpt-5.1-codex-max",
         "name": "GPT-5.1 Codex Max",
-        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
-        "error_code": "invalid_api_key",
+        "error": "This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?",
+        "error_code": 404,
         "full_error": {
-          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "message": "This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?",
           "type": "invalid_request_error",
-          "code": "invalid_api_key",
-          "param": null
+          "param": "model",
+          "code": null
         },
-        "timestamp": "2025-12-29T12:36:08.231Z"
+        "timestamp": "2025-12-29T12:38:10.168Z"
       },
       {
         "model": "o3-2025-04-16",
         "name": "O3 (2025-04-16)",
-        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
-        "error_code": "invalid_api_key",
+        "error": "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+        "error_code": "unsupported_parameter",
         "full_error": {
-          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
+          "message": "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
           "type": "invalid_request_error",
-          "code": "invalid_api_key",
-          "param": null
+          "param": "max_tokens",
+          "code": "unsupported_parameter"
         },
-        "timestamp": "2025-12-29T12:36:09.424Z"
-      },
-      {
-        "model": "gpt-4o",
-        "name": "GPT-4o",
-        "error": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
-        "error_code": "invalid_api_key",
-        "full_error": {
-          "message": "Incorrect API key provided: sk-proj-********************************************************************************************************************************************************bUsA. You can find your API key at https://platform.openai.com/account/api-keys.",
-          "type": "invalid_request_error",
-          "code": "invalid_api_key",
-          "param": null
-        },
-        "timestamp": "2025-12-29T12:36:10.673Z"
+        "timestamp": "2025-12-29T12:38:12.298Z"
       }
     ],
     "metadata": {
       "api_endpoint": "https://api.openai.com/v1/chat/completions",
-      "tested_at": "2025-12-29T12:36:04.731Z",
-      "api_key_preview": "sk-proj-yWnJs9xOVemE..."
+      "tested_at": "2025-12-29T12:38:04.592Z",
+      "api_key_preview": "sk-proj-LkOO6uAvCJFw..."
     }
   }
 }

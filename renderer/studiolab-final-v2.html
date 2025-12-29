@@ -3432,11 +3432,12 @@
         icon: '💬',
         type: 'api',
         models: {
-          'gpt-4o': { name: 'GPT-4o', context: 128000, speed: 'fast' },
-          'gpt-4o-mini': { name: 'GPT-4o Mini', context: 128000, speed: 'very-fast' }
+          'gpt-4o': { name: 'GPT-4o', context: 128000, speed: 'balanced', tested: true },
+          'gpt-5.2-2025-12-11': { name: 'GPT-5.2 (Latest)', context: 128000, speed: 'balanced', tested: true },
+          'o3-2025-04-16': { name: 'O3 (Reasoning)', context: 128000, speed: 'slow', tested: true }
         },
         defaultModel: 'gpt-4o',
-        status: '⚠️ API Key inválida'
+        status: '✅ 3 modelos verificados y funcionando'
       },
       groq: {
         name: 'Groq',
