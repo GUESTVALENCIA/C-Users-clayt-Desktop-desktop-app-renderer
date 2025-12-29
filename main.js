@@ -2402,8 +2402,23 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
     // Esperar que el BrowserView esté listo
     try {
+      // #region agent log
+      try {
+        fs.appendFileSync(logPath, JSON.stringify({timestamp:Date.now(),location:'main.js:2415',message:'Waiting for QWEN ready',data:{isLoading:qwenBrowserView.webContents.isLoading()},sessionId:'debug-session',runId:'run1',hypothesisId:'H6'}) + '\n');
+      } catch (e) {}
+      // #endregion
       await waitForQWENReady(qwenBrowserView, 10000);
+      // #region agent log
+      try {
+        fs.appendFileSync(logPath, JSON.stringify({timestamp:Date.now(),location:'main.js:2418',message:'QWEN ready confirmed',data:{},sessionId:'debug-session',runId:'run1',hypothesisId:'H6'}) + '\n');
+      } catch (e) {}
+      // #endregion
     } catch (error) {
+      // #region agent log
+      try {
+        fs.appendFileSync(logPath, JSON.stringify({timestamp:Date.now(),location:'main.js:2422',message:'QWEN not ready error',data:{error:error.message},sessionId:'debug-session',runId:'run1',hypothesisId:'H6'}) + '\n');
+      } catch (e) {}
+      // #endregion
       console.warn(`[QWEN] ⚠️ BrowserView no está listo:`, error.message);
       return { success: false, error: `QWEN no está listo: ${error.message}` };
     }
@@ -2413,12 +2428,20 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
     const messageEscaped = JSON.stringify(message);
     
-    // Función simplificada que busca y envía el mensaje
+    // Función simplificada que busca y envía el mensaje con diagnóstico detallado
     const injectCode = `
       (async function() {
         const messageText = ${messageEscaped};
         const maxRetries = 10;
         const retryDelay = 500;
+        const diagnostics = {
+          inputSearch: { attempts: [], found: null, selector: null },
+          valueSet: { before: null, after: null, afterEvents: null },
+          events: { dispatched: [], focusSuccess: false },
+          buttonSearch: { attempts: [], found: null, selector: null },
+          enterKey: { dispatched: false },
+          errors: []
+        };
         
         // Función para buscar input con reintentos
         async function findInput() {
@@ -2439,10 +2462,27 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
             for (const selector of selectors) {
               try {
                 const input = document.querySelector(selector);
-                if (input && input.offsetParent !== null) {
-                  return input;
+                if (input) {
+                  const isVisible = input.offsetParent !== null;
+                  diagnostics.inputSearch.attempts.push({
+                    attempt: i + 1,
+                    selector: selector,
+                    found: !!input,
+                    visible: isVisible,
+                    tagName: input.tagName,
+                    hasValue: !!(input.value || input.textContent),
+                    disabled: input.disabled || false
+                  });
+                  
+                  if (input && isVisible) {
+                    diagnostics.inputSearch.found = true;
+                    diagnostics.inputSearch.selector = selector;
+                    return input;
+                  }
                 }
-              } catch (e) {}
+              } catch (e) {
+                diagnostics.errors.push({ location: 'findInput', error: e.message, selector: selector });
+              }
             }
             await new Promise(resolve => setTimeout(resolve, retryDelay));
           }
@@ -2464,10 +2504,26 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
             for (const selector of selectors) {
               try {
                 const btn = document.querySelector(selector);
-                if (btn && !btn.disabled && btn.offsetParent !== null) {
-                  return btn;
+                if (btn) {
+                  const isVisible = btn.offsetParent !== null;
+                  const isDisabled = btn.disabled;
+                  diagnostics.buttonSearch.attempts.push({
+                    attempt: i + 1,
+                    selector: selector,
+                    found: !!btn,
+                    visible: isVisible,
+                    disabled: isDisabled
+                  });
+                  
+                  if (btn && !isDisabled && isVisible) {
+                    diagnostics.buttonSearch.found = true;
+                    diagnostics.buttonSearch.selector = selector;
+                    return btn;
+                  }
                 }
-              } catch (e) {}
+              } catch (e) {
+                diagnostics.errors.push({ location: 'findSendButton', error: e.message, selector: selector });
+              }
             }
             await new Promise(resolve => setTimeout(resolve, retryDelay));
           }
@@ -2478,8 +2534,11 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
           // Buscar input
           const input = await findInput();
           if (!input) {
-            return { success: false, error: 'Input no encontrado después de reintentos' };
+            diagnostics.inputSearch.found = false;
+            return { success: false, error: 'Input no encontrado después de reintentos', diagnostics: diagnostics };
           }
+          
+          diagnostics.valueSet.before = (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' ? input.value : input.textContent || '').substring(0, 100);
           
           // Establecer valor
           if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
@@ -2488,16 +2547,46 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
             input.textContent = messageText;
           }
           
+          diagnostics.valueSet.after = (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' ? input.value : input.textContent || '').substring(0, 100);
+          
           // Enfocar y disparar eventos
-          input.focus();
-          input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+          try {
+            input.focus();
+            diagnostics.events.focusSuccess = document.activeElement === input;
+            diagnostics.events.dispatched.push('focus');
+          } catch (e) {
+            diagnostics.errors.push({ location: 'focus', error: e.message });
+          }
+          
+          try {
+            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            diagnostics.events.dispatched.push('input');
+          } catch (e) {
+            diagnostics.errors.push({ location: 'input event', error: e.message });
+          }
+          
+          try {
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+            diagnostics.events.dispatched.push('change');
+          } catch (e) {
+            diagnostics.errors.push({ location: 'change event', error: e.message });
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+          diagnostics.valueSet.afterEvents = (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' ? input.value : input.textContent || '').substring(0, 100);
           
           // Intentar encontrar y hacer click en botón de envío
           const sendButton = await findSendButton();
           if (sendButton) {
-            setTimeout(() => sendButton.click(), 300);
-            return { success: true, strategy: 'button-click' };
+            setTimeout(() => {
+              try {
+                sendButton.click();
+                diagnostics.buttonSearch.clicked = true;
+              } catch (e) {
+                diagnostics.errors.push({ location: 'button click', error: e.message });
+              }
+            }, 300);
+            return { success: true, strategy: 'button-click', diagnostics: diagnostics };
           } else {
             // Fallback: usar Enter
             setTimeout(() => {
@@ -2516,17 +2605,65 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
                 cancelable: true
               }));
             }, 300);
-            return { success: true, strategy: 'enter-key' };
+            return { success: true, strategy: 'enter-key', diagnostics: diagnostics };
           }
         } catch (err) {
-          return { success: false, error: err.message };
+          diagnostics.errors.push({ location: 'main try-catch', error: err.message, stack: err.stack?.substring(0, 200) });
+          return { success: false, error: err.message, diagnostics: diagnostics };
         }
       })();
     `;
 
     try {
+      // #region agent log
+      try {
+        fs.appendFileSync(logPath, JSON.stringify({timestamp:Date.now(),location:'main.js:2621',message:'Executing inject code',data:{codeLength:injectCode.length},sessionId:'debug-session',runId:'run1',hypothesisId:'H5'}) + '\n');
+      } catch (e) {
+        console.error('[DEBUG] Error writing log:', e.message);
+      }
+      // #endregion
+      
       // Ejecutar código de inyección (ahora es async/await, así que espera correctamente)
       const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
+      
+      // #region agent log - Log detailed diagnostics
+      const logEntry = {
+        timestamp: Date.now(),
+        location: 'main.js:2608',
+        message: 'Inject code result with diagnostics',
+        data: {
+          success: result?.success,
+          strategy: result?.strategy,
+          error: result?.error,
+          diagnostics: result?.diagnostics || {}
+        },
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'ALL'
+      };
+      try {
+        // Asegurar que el directorio existe
+        if (!fs.existsSync(logDir)) {
+          fs.mkdirSync(logDir, { recursive: true });
+        }
+        fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
+        console.log(`[DEBUG] Log escrito en: ${logPath}`);
+      } catch (e) {
+        console.error('[DEBUG] Failed to write log:', e.message, e.stack);
+      }
+      // #endregion
+      
+      // Log diagnostics to console for immediate visibility
+      if (result?.diagnostics) {
+        console.log('[QWEN DEBUG] Input Search:', JSON.stringify(result.diagnostics.inputSearch, null, 2));
+        console.log('[QWEN DEBUG] Value Set:', JSON.stringify(result.diagnostics.valueSet, null, 2));
+        console.log('[QWEN DEBUG] Events:', JSON.stringify(result.diagnostics.events, null, 2));
+        console.log('[QWEN DEBUG] Button Search:', JSON.stringify(result.diagnostics.buttonSearch, null, 2));
+        console.log('[QWEN DEBUG] Enter Key:', JSON.stringify(result.diagnostics.enterKey, null, 2));
+        if (result.diagnostics.errors.length > 0) {
+          console.log('[QWEN DEBUG] Errors:', JSON.stringify(result.diagnostics.errors, null, 2));
+        }
+      }
       
       if (result && result.success) {
         console.log(`[QWEN] ✅ Mensaje enviado usando estrategia: ${result.strategy}`);
@@ -2535,10 +2672,16 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
         return { success: true, message: `Mensaje enviado usando ${result.strategy}`, strategy: result.strategy };
       } else {
         const errorMsg = result?.error || 'Error desconocido al inyectar mensaje';
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/384a89b5-1c7d-48d1-a183-a0cb0bba5c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:2538',message:'Inject failed',data:{error:errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+        // #endregion
         console.error(`[QWEN] ❌ Error al inyectar:`, errorMsg);
         return { success: false, error: errorMsg };
       }
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/384a89b5-1c7d-48d1-a183-a0cb0bba5c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:2541',message:'ExecuteJavaScript exception',data:{error:error.message,isDisposed:error.message.includes('disposed'),isDestroyed:error.message.includes('destroyed')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
+      // #endregion
       // Capturar error específico si el frame fue destruido
       if (error.message.includes('disposed') || error.message.includes('destroyed')) {
         return { success: false, error: 'El panel de Qwen se cerró durante el envío. Vuelve a abrirlo.' };
@@ -2546,6 +2689,9 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       throw error;
     }
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/384a89b5-1c7d-48d1-a183-a0cb0bba5c5b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:2548',message:'Outer catch block',data:{error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+    // #endregion
     console.error(`[QWEN] ❌ Error en sendMessage:`, error.message);
     return { success: false, error: error.message };
   }
