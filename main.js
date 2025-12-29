@@ -16,6 +16,38 @@ try {
   console.warn('[Main] Advertencia: No se pudo cargar .env:', e.message);
 }
 
+// ============ API ROTATION SYSTEM - Gestión de credenciales ============
+let apiRotationSystem;
+try {
+  const { APIRotationSystem } = require('./api-rotation-system');
+  apiRotationSystem = new APIRotationSystem({
+    rotationInterval: 3600000, // 1 hora
+    failureThreshold: 3
+  });
+
+  console.log('[Main] ✅ API Rotation System inicializado');
+  const stats = apiRotationSystem.getStats();
+  console.log('[Main] 📊 Resumen de APIs:');
+  Object.entries(stats).forEach(([provider, data]) => {
+    if (data.total > 0) {
+      console.log(`   - ${provider}: ${data.active}/${data.total} activas`);
+    }
+  });
+
+  // Exponer globalmente para acceso desde IPC
+  global.apiRotationSystem = apiRotationSystem;
+
+  // Mostrar reporte de salud
+  const healthReport = apiRotationSystem.getHealthReport();
+  if (healthReport.warnings.length > 0) {
+    console.warn('[Main] ⚠️ ADVERTENCIAS DE APIs:');
+    healthReport.warnings.forEach(w => console.warn(`   ${w}`));
+  }
+} catch (e) {
+  console.warn('[Main] API Rotation System no disponible:', e.message);
+  apiRotationSystem = null;
+}
+
 // ============ MCP SERVER - HERRAMIENTAS GENÉRICAS ============
 let mcpServer;
 try {
