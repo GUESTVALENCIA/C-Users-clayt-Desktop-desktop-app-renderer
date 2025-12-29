@@ -3582,66 +3582,58 @@
     // ============================================
     // QWEN PANEL TOGGLE (Embedded)
     // ============================================
-    // QWEN Toggle - Técnica VS Code (iframe embebido, sin BrowserView, sin IPC)
-    function toggleQwen() {
-      console.log('[UI] toggleQwen llamado - SIN IPC, solo DOM');
+    // QWEN Toggle - BrowserView (necesario por X-Frame-Options de qwen.ai)
+    async function toggleQwen() {
+      console.log('[UI] toggleQwen llamado - usando BrowserView (evita X-Frame-Options)');
       
       // Buscar elementos
       const btn = document.getElementById('qwenBtn') || document.getElementById('qwenBtnToolbar');
       const label = document.getElementById('qwenLabel');
-      const panel = document.getElementById('qwenPanel');
-      const iframe = document.getElementById('qwenIframe');
-      
-      // Validar que el panel existe
-      if (!panel) {
-        console.error('[UI] ❌ qwenPanel no encontrado en el DOM');
-        addTerminalLine('❌ Error: Panel QWEN no encontrado');
-        return;
-      }
       
       // Invertir estado actual
-      const isCurrentlyVisible = !panel.classList.contains('hidden');
+      const isCurrentlyVisible = state.qwen.panelVisible;
       const newState = !isCurrentlyVisible;
       
       console.log('[UI] toggleQwen - Estado:', isCurrentlyVisible, '→', newState);
       
-      if (newState) {
-        // MOSTRAR: Quitar clase hidden y forzar display
-        panel.classList.remove('hidden');
-        panel.style.display = 'flex';
-        panel.style.visibility = 'visible';
-        panel.style.opacity = '1';
-        panel.style.zIndex = '10000';
-        console.log('[UI] ✅ QWEN Panel mostrado');
-        
-        // Cargar URL en iframe si es necesario
-        if (iframe) {
-          const targetUrl = 'https://chat.qwenlm.ai/';
-          if (!iframe.src || iframe.src === 'about:blank' || iframe.src !== targetUrl) {
-            console.log('[UI] Cargando URL en iframe:', targetUrl);
-            iframe.src = targetUrl;
+      // Actualizar estado
+      state.qwen.panelVisible = newState;
+      
+      try {
+        // Usar IPC para controlar BrowserView (evita X-Frame-Options)
+        if (window.sandraAPI?.qwenToggle) {
+          const result = await window.sandraAPI.qwenToggle(newState);
+          
+          if (result && result.success) {
+            if (newState) {
+              if (btn) btn.classList.add('active');
+              if (label) label.textContent = 'QWEN ON';
+              addTerminalLine('✅ QWEN abierto - BrowserView (evita X-Frame-Options)');
+              state.qwen.connected = true;
+            } else {
+              if (btn) btn.classList.remove('active');
+              if (label) label.textContent = 'QWEN';
+              addTerminalLine('QWEN cerrado');
+              state.qwen.connected = false;
+            }
+          } else {
+            const errorMsg = result?.error || 'Error desconocido';
+            console.error('[UI] Error toggle QWEN:', errorMsg);
+            addTerminalLine(`❌ Error: ${errorMsg}`);
+            // Restaurar estado anterior
+            state.qwen.panelVisible = isCurrentlyVisible;
+            if (btn) btn.classList.toggle('active', isCurrentlyVisible);
           }
+        } else {
+          console.error('[UI] window.sandraAPI.qwenToggle no disponible');
+          throw new Error('QWEN API no disponible');
         }
-        
-        // Actualizar UI
-        if (btn) btn.classList.add('active');
-        if (label) label.textContent = 'QWEN ON';
-        addTerminalLine('✅ QWEN abierto');
-        state.qwen.panelVisible = true;
-        state.qwen.connected = true;
-      } else {
-        // OCULTAR: Agregar clase hidden y forzar display none
-        panel.classList.add('hidden');
-        panel.style.display = 'none';
-        panel.style.visibility = 'hidden';
-        console.log('[UI] QWEN Panel ocultado');
-        
-        // Actualizar UI
-        if (btn) btn.classList.remove('active');
-        if (label) label.textContent = 'QWEN';
-        addTerminalLine('QWEN cerrado');
-        state.qwen.panelVisible = false;
-        state.qwen.connected = false;
+      } catch (e) {
+        console.error('[UI] Excepción en toggleQwen:', e);
+        addTerminalLine(`❌ Error: ${e.message}`);
+        // Restaurar estado anterior
+        state.qwen.panelVisible = isCurrentlyVisible;
+        if (btn) btn.classList.toggle('active', isCurrentlyVisible);
       }
     }
 
