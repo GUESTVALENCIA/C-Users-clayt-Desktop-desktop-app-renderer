@@ -328,9 +328,12 @@ function createWindow() {
     try { mainWindow.setMenuBarVisibility(false); } catch {}
     
     // CRÍTICO: Bloquear ventanas externas desde la ventana principal
-    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-      console.log('[Main] ⚠️  Interceptando intento de abrir ventana desde mainWindow:', url);
-      // SIEMPRE denegar - no permitir ventanas externas
+    mainWindow.webContents.setWindowOpenHandler(({ url, frameName }) => {
+      console.log('[Main] ⚠️  Intento de abrir ventana externa (BLOQUEADO):', url);
+      // QWEN3 está completamente embebido - NO permitir ventanas externas
+      // Todo el login/auth debe ocurrir dentro del webview embebido
+      // Si QWEN3 intenta abrir un popup, será capturado automáticamente
+      // por el webview y redirigido internamente
       return { action: 'deny' };
     });
 
@@ -346,11 +349,16 @@ function createWindow() {
     
     // CRÍTICO: Bloquear navegaciones no deseadas en la ventana principal
     mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-      // Permitir solo navegaciones a archivos locales o data URLs
-      if (navigationUrl.startsWith('file://') || navigationUrl.startsWith('data:') || navigationUrl.startsWith('about:')) {
-        return; // Permitir
+      // Permitir navegaciones de webviews embebidos (como QWEN3) Y archivos locales
+      if (navigationUrl.startsWith('file://') ||
+          navigationUrl.startsWith('data:') ||
+          navigationUrl.startsWith('about:') ||
+          navigationUrl.includes('qwenlm.ai') ||
+          navigationUrl.includes('qwen.ai') ||
+          navigationUrl.includes('alibaba.com')) {
+        return; // Permitir - estos son contextos embebidos de QWEN3
       }
-      // Bloquear TODAS las navegaciones a URLs externas
+      // Bloquear TODAS las demás navegaciones a URLs externas
       console.log('[Main] 🚫 Bloqueando navegación no permitida en ventana principal:', navigationUrl);
       event.preventDefault();
     });
@@ -993,8 +1001,8 @@ ipcMain.handle('chat:send', async (_e, { provider, message, role }) => {
 
     const apiKeys = {
       groq: process.env.GROQ_API_KEY,
-      anthropic: process.env.ANTHROPIC_API_KEY,
-      openai: process.env.OPENAI_API_KEY
+      anthropic: process.env.ANTHROPIC_API_KEY
+      // openai removido - usar QWEN3 embebido
     };
 
     if (!apiKeys[provider]) {
