@@ -3447,12 +3447,18 @@
     }
 
     function closeAllDropdowns(except = null) {
-      const dropdowns = ['attachBtn', 'modeBtn', 'voiceBtn', 'modelSelector'];
+      const dropdowns = ['attachBtn', 'modeBtn', 'voiceBtn', 'modelSelector', 'autoContainer'];
       dropdowns.forEach(id => {
         if (id !== except) {
           document.getElementById(id)?.classList.remove('active');
         }
       });
+
+      // Close AUTO dropdown
+      const autoDropdown = document.getElementById('autoDropdown');
+      if (autoDropdown && except !== 'autoContainer') {
+        autoDropdown.style.display = 'none';
+      }
 
       if (except !== 'modelSelector') {
         document.getElementById('modelSelector')?.classList.remove('more-open');
@@ -3496,6 +3502,119 @@
 
       document.getElementById('modeBtn').classList.remove('active');
       addTerminalLine(`Modo cambiado a: ${modeName}`);
+    }
+
+    // ============================================
+    // AUTO ORCHESTRATOR (Multi-Model Consensus)
+    // ============================================
+
+    function toggleAutoMenu(event) {
+      event.stopPropagation();
+      const dropdown = document.getElementById('autoDropdown');
+      if (dropdown) {
+        const isOpen = dropdown.style.display === 'block';
+        closeAllDropdowns('autoContainer');
+        if (!isOpen) {
+          dropdown.style.display = 'block';
+        }
+      }
+    }
+
+    function switchAutoTab(tabName) {
+      // Hide all tab contents
+      const tabContents = document.querySelectorAll('.auto-tab-content');
+      tabContents.forEach(tab => {
+        tab.style.display = tab.id === `tab-${tabName}` ? 'block' : 'none';
+      });
+
+      // Update active tab button
+      const tabBtns = document.querySelectorAll('.auto-tab-btn');
+      tabBtns.forEach(btn => {
+        const isActive = btn.textContent.toLowerCase().includes(
+          tabName === 'embebidos' ? 'embebidos' : tabName === 'api' ? 'apis' : 'local'
+        );
+        btn.classList.toggle('active', isActive);
+      });
+
+      addTerminalLine(`AUTO: Cambiado a tab "${tabName}"`);
+    }
+
+    function selectAllAutoModels() {
+      // Get visible tab content
+      const visibleTab = document.querySelector('.auto-tab-content[style*="display: block"]');
+      if (visibleTab) {
+        const checkboxes = visibleTab.querySelectorAll('.auto-model-check');
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+        addTerminalLine(`AUTO: Todos los modelos seleccionados en tab actual`);
+      }
+    }
+
+    function deselectAllAutoModels() {
+      // Get visible tab content
+      const visibleTab = document.querySelector('.auto-tab-content[style*="display: block"]');
+      if (visibleTab) {
+        const checkboxes = visibleTab.querySelectorAll('.auto-model-check');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+        addTerminalLine(`AUTO: Todos los modelos deseleccionados en tab actual`);
+      }
+    }
+
+    function executeAutoOrchestrator() {
+      // Get selected models from all tabs
+      const selectedModels = [];
+      const allCheckboxes = document.querySelectorAll('.auto-model-check:checked');
+      allCheckboxes.forEach(checkbox => {
+        selectedModels.push(checkbox.dataset.model);
+      });
+
+      if (selectedModels.length === 0) {
+        alert('Por favor, selecciona al menos un modelo para usar AUTO');
+        return;
+      }
+
+      // Get message from input field
+      const messageInput = document.getElementById('messageInput');
+      const message = messageInput?.value?.trim();
+
+      if (!message) {
+        alert('Por favor, escribe un mensaje antes de usar AUTO');
+        return;
+      }
+
+      // Show loading state
+      const autoBtn = document.getElementById('autoBtn');
+      const originalText = autoBtn.innerHTML;
+      autoBtn.innerHTML = '<span class="toolbar-btn-icon">⚡</span><span>AUTO ⟳</span>';
+      autoBtn.disabled = true;
+
+      addTerminalLine(`AUTO: Consultando ${selectedModels.length} modelo(s): ${selectedModels.join(', ')}`);
+
+      // Call the AUTO orchestrator API
+      if (window.autoAPI && window.autoAPI.query) {
+        window.autoAPI.query(message, selectedModels)
+          .then(result => {
+            addTerminalLine(`AUTO: Respuesta recibida (confianza: ${(result.confidence * 100).toFixed(0)}%)`);
+
+            // Display the orchestrated response
+            addMessage('assistant', result.synthesized);
+
+            // Close dropdown
+            document.getElementById('autoDropdown').style.display = 'none';
+          })
+          .catch(error => {
+            addTerminalLine(`AUTO: Error - ${error.message}`);
+            alert(`Error en AUTO: ${error.message}`);
+          })
+          .finally(() => {
+            autoBtn.innerHTML = originalText;
+            autoBtn.disabled = false;
+          });
+      } else {
+        addTerminalLine('AUTO: API no disponible');
+        alert('ERROR: window.autoAPI no está disponible');
+        autoBtn.innerHTML = originalText;
+        autoBtn.disabled = false;
+      }
     }
 
     // ============================================
