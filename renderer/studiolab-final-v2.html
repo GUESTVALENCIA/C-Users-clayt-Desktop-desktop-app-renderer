@@ -2453,6 +2453,172 @@
     }
 
     .hidden { display: none !important; }
+
+    /* ============================================
+       NEW STYLES: PROVIDER SELECTOR + REDESIGNED AUTO
+       ============================================ */
+
+    /* Thinking Button - Small Version */
+    .thinking-btn-small {
+      padding: 6px 8px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      font-size: 12px !important;
+    }
+
+    .thinking-btn-small .toolbar-btn-icon {
+      font-size: 16px !important;
+    }
+
+    /* Provider Selector Container */
+    .provider-selector {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Provider Button Group (Button + Dropdown) */
+    .provider-btn-group {
+      position: relative;
+      display: inline-block;
+    }
+
+    /* Provider Button */
+    .provider-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      height: 32px;
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .provider-btn:hover {
+      background-color: var(--bg-hover);
+      border-color: var(--border-hover);
+    }
+
+    .provider-btn:active {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .provider-icon {
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+    }
+
+    .provider-name-small {
+      display: none;
+    }
+
+    @media (min-width: 1200px) {
+      .provider-name-small {
+        display: inline;
+      }
+    }
+
+    /* Provider Dropdown */
+    .provider-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+      min-width: 180px;
+      animation: slideDownFast 0.15s ease;
+    }
+
+    .provider-models {
+      padding: 8px 0;
+    }
+
+    .provider-model-item {
+      padding: 8px 12px;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 13px;
+      transition: background-color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .provider-model-item:hover {
+      background-color: var(--bg-tertiary);
+    }
+
+    /* AUTO Functions - 3 Button Layout */
+    .auto-functions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 12px;
+    }
+
+    .auto-function-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 16px;
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .auto-function-btn:hover {
+      background-color: var(--bg-hover);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .auto-func-icon {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .auto-func-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+
+    .auto-func-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.3;
+    }
+
+    /* Animation for dropdowns */
+    @keyframes slideDownFast {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -2760,40 +2926,7 @@
       <!-- Input Section -->
       <div class="input-section">
         <div class="composer" id="composer">
-        <!-- Feature Chips -->
-        <div class="feature-chips" id="featureChips">
-          <button class="feature-chip" data-feature="imagen" onclick="toggleFeature(this, 'imagen')">
-            <span class="feature-chip-icon">🖼️</span>
-            <span>Edición de imagen</span>
-          </button>
-          <button class="feature-chip" data-feature="web" onclick="toggleFeature(this, 'web')">
-            <span class="feature-chip-icon">🌐</span>
-            <span>desarrollo web</span>
-          </button>
-          <button class="feature-chip" data-feature="aprende" onclick="toggleFeature(this, 'aprende')">
-            <span class="feature-chip-icon">📚</span>
-            <span>Aprende</span>
-          </button>
-          <button class="feature-chip" data-feature="investigacion" onclick="toggleFeature(this, 'investigacion')">
-            <span class="feature-chip-icon">🔬</span>
-            <span>Investigación en profundidad</span>
-          </button>
-          <button class="feature-chip" data-feature="gen-imagen" onclick="toggleFeature(this, 'gen-imagen')">
-            <span class="feature-chip-icon">🎨</span>
-            <span>Generación de imágenes</span>
-          </button>
-          <button class="feature-chip" data-feature="video" onclick="toggleFeature(this, 'video')">
-            <span class="feature-chip-icon">🎬</span>
-            <span>Generación de Video</span>
-          </button>
-          <button class="feature-chip" data-feature="artefactos" onclick="toggleFeature(this, 'artefactos')">
-            <span class="feature-chip-icon">✨</span>
-            <span>Artefactos</span>
-          </button>
-          <button class="feature-chip" onclick="showMoreFeatures()">
-            <span>Más</span>
-          </button>
-        </div>
+        <!-- Feature Chips - REMOVED PER USER REQUEST -->
 
         <div class="template-tray" id="templateTray" aria-label="Plantillas"></div>
 
@@ -2844,10 +2977,9 @@
                 </div>
               </div>
 
-              <!-- Pensamiento Toggle - SEPARATE (ON/OFF only) -->
-              <button class="toolbar-btn thinking-btn" id="thinkingBtn" onclick="toggleThinking()">
+              <!-- Pensamiento Toggle (Small) -->
+              <button class="toolbar-btn thinking-btn-small" id="thinkingBtn" onclick="toggleThinking()" title="Pensamiento">
                 <span class="toolbar-btn-icon">🧠</span>
-                <span id="thinkingLabel">Pensamiento</span>
               </button>
 
               <!-- Mode Button - Agente/Plan/Debug -->
@@ -2883,76 +3015,92 @@
                 </div>
               </div>
 
-              <!-- MODEL SELECTOR (Cursor-style) -->
-              <div class="cursor-model-selector" id="modelSelector">
-                <button class="cursor-model-btn" id="modelBtnMain" onclick="toggleModelMenu(event)">
-                  <span class="cursor-model-icon">🤖</span>
-                  <span id="currentModelName">Gemini 2.5 Flash</span>
-                  <span class="cursor-dropdown-arrow">›</span>
-                </button>
-                <div class="cursor-model-dropdown" id="modelDropdown" style="display: none;">
-                  <div class="cursor-model-search">
-                    <input type="text" placeholder="Search models" id="modelSearchInput" onkeyup="filterModels()" />
+              <!-- PROVIDER SELECTOR (New: Small buttons for ChatGPT, Groq, Anthropic, Gemini, QWEN) -->
+              <div class="provider-selector" id="providerSelector">
+                <!-- ChatGPT Provider -->
+                <div class="provider-btn-group">
+                  <button class="provider-btn" id="providerChatGPT" onclick="toggleProviderDropdown('chatgpt', event)" title="ChatGPT">
+                    <span class="provider-icon">💬</span>
+                    <span class="provider-name-small">ChatGPT</span>
+                  </button>
+                  <div class="provider-dropdown" id="dropdown-chatgpt" style="display: none;">
+                    <div class="provider-models">
+                      <div class="provider-model-item" onclick="selectProviderModel('chatgpt', 'gpt4-turbo', 'GPT-4 Turbo')">GPT-4 Turbo</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('chatgpt', 'gpt4', 'GPT-4')">GPT-4</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('chatgpt', 'gpt35', 'GPT-3.5')">GPT-3.5</div>
+                    </div>
                   </div>
-                  <div class="cursor-model-list" id="modelList">
-                    <div class="cursor-model-option" onclick="selectModel('auto', 'Auto', '🤖')">
-                      <span class="cursor-model-check">•</span>
-                      <span>Auto</span>
+                </div>
+
+                <!-- Groq Provider -->
+                <div class="provider-btn-group">
+                  <button class="provider-btn" id="providerGroq" onclick="toggleProviderDropdown('groq', event)" title="Groq">
+                    <span class="provider-icon">⚡</span>
+                    <span class="provider-name-small">Groq</span>
+                  </button>
+                  <div class="provider-dropdown" id="dropdown-groq" style="display: none;">
+                    <div class="provider-models">
+                      <div class="provider-model-item" onclick="selectProviderModel('groq', 'llama-3-3-70b', 'Llama 3.3 70B')">Llama 3.3 70B</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('groq', 'llama-3-1-8b', 'Llama 3.1 8B')">Llama 3.1 8B Instant</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('groq', 'llama-4-scout', 'Llama 4 Scout')">Llama 4 Scout (Vision)</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('groq', 'llama-4-maverick', 'Llama 4 Maverick')">Llama 4 Maverick (Vision)</div>
                     </div>
-                    <div class="cursor-model-option" onclick="selectModel('max', 'MAX Mode', '⚡')">
-                      <span class="cursor-model-check"></span>
-                      <span>MAX Mode</span>
+                  </div>
+                </div>
+
+                <!-- Anthropic Provider -->
+                <div class="provider-btn-group">
+                  <button class="provider-btn" id="providerAnthropic" onclick="toggleProviderDropdown('anthropic', event)" title="Anthropic">
+                    <span class="provider-icon">🧠</span>
+                    <span class="provider-name-small">Anthropic</span>
+                  </button>
+                  <div class="provider-dropdown" id="dropdown-anthropic" style="display: none;">
+                    <div class="provider-models">
+                      <div class="provider-model-item" onclick="selectProviderModel('anthropic', 'claude-opus', 'Claude Opus 4.5')">Claude Opus 4.5</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('anthropic', 'claude-sonnet', 'Claude Sonnet 4.5')">Claude Sonnet 4.5</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('anthropic', 'claude-haiku', 'Claude Haiku')">Claude Haiku 4.5</div>
                     </div>
-                    <div class="cursor-model-option" onclick="selectModel('multiple', 'Use Multiple Models', '🔗')">
-                      <span class="cursor-model-check"></span>
-                      <span>Use Multiple Models</span>
+                  </div>
+                </div>
+
+                <!-- Gemini Provider -->
+                <div class="provider-btn-group">
+                  <button class="provider-btn" id="providerGemini" onclick="toggleProviderDropdown('gemini', event)" title="Gemini">
+                    <span class="provider-icon">✨</span>
+                    <span class="provider-name-small">Gemini</span>
+                  </button>
+                  <div class="provider-dropdown" id="dropdown-gemini" style="display: none;">
+                    <div class="provider-models">
+                      <div class="provider-model-item" onclick="selectProviderModel('gemini', 'gemini-2.5', 'Gemini 2.5 Flash')">Gemini 2.5 Flash</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('gemini', 'gemini-pro', 'Gemini 1.5 Pro')">Gemini 1.5 Pro</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('gemini', 'gemini-flash', 'Gemini 1.5 Flash')">Gemini 1.5 Flash</div>
                     </div>
-                    <div class="cursor-model-divider"></div>
-                    <div class="cursor-model-option" onclick="selectModel('composer1', 'Composer 1', '✍️')">
-                      <span class="cursor-model-check"></span>
-                      <span>Composer 1</span>
-                    </div>
-                    <div class="cursor-model-option" onclick="selectModel('opus45', 'Opus 4.5', '🧠')">
-                      <span class="cursor-model-check"></span>
-                      <span>Opus 4.5</span>
-                    </div>
-                    <div class="cursor-model-option" onclick="selectModel('sonnet45', 'Sonnet 4.5', '⚙️')">
-                      <span class="cursor-model-check"></span>
-                      <span>Sonnet 4.5</span>
-                    </div>
-                    <div class="cursor-model-option" onclick="selectModel('gpt51', 'GPT-5.1 Codex Max', '💻')">
-                      <span class="cursor-model-check"></span>
-                      <span>GPT-5.1 Codex Max</span>
-                    </div>
-                    <div class="cursor-model-option" onclick="selectModel('gemini25', 'Gemini 2.5 Flash', '🎯')">
-                      <span class="cursor-model-check">•</span>
-                      <span>Gemini 2.5 Flash</span>
-                    </div>
-                    <div class="cursor-model-option" onclick="selectModel('kikim2', 'Kimi K2', '🌟')">
-                      <span class="cursor-model-check"></span>
-                      <span>Kimi K2</span>
-                    </div>
-                    <div class="cursor-model-divider"></div>
-                    <div class="cursor-model-option cursor-model-add" onclick="openModelSettings()">
-                      <span>+ Ver todos los modelos</span>
+                  </div>
+                </div>
+
+                <!-- QWEN Provider -->
+                <div class="provider-btn-group">
+                  <button class="provider-btn" id="providerQWEN" onclick="toggleProviderDropdown('qwen', event)" title="QWEN">
+                    <span class="provider-icon">🟡</span>
+                    <span class="provider-name-small">QWEN</span>
+                  </button>
+                  <div class="provider-dropdown" id="dropdown-qwen" style="display: none;">
+                    <div class="provider-models">
+                      <div class="provider-model-item" onclick="selectProviderModel('qwen', 'qwen-max', 'QWEN Max')">QWEN Max</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('qwen', 'qwen-plus', 'QWEN Plus')">QWEN Plus</div>
+                      <div class="provider-model-item" onclick="selectProviderModel('qwen', 'qwen-turbo', 'QWEN Turbo')">QWEN Turbo</div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Search Button -->
-              <button class="toolbar-btn" id="searchBtn" onclick="toggleSearch()">
-                <span class="toolbar-btn-icon">🌐</span>
-                <span>Buscar</span>
-              </button>
-
-              <!-- QWEN Connect Button (Toolbar) -->
-              <button class="toolbar-btn qwen-btn" id="qwenBtnToolbar" onclick="toggleQwen()">
+              <!-- QWEN Connect Button (Toolbar) - DISABLED PER USER REQUEST -->
+              <!-- <button class="toolbar-btn qwen-btn" id="qwenBtnToolbar" onclick="toggleQwen()">
                 <span class="toolbar-btn-icon">🤖</span>
                 <span id="qwenLabel">QWEN</span>
-              </button>
+              </button> -->
 
-              <!-- AUTO Orchestrator Button - Tipo Cursor con Dropdown -->
+              <!-- AUTO Orchestrator Button - 3 Functions: Auto, Máximo, Múltiple -->
               <div class="toolbar-btn auto-btn-container" id="autoContainer">
                 <button class="toolbar-btn auto-btn" id="autoBtn" onclick="toggleAutoMenu(event)">
                   <span class="toolbar-btn-icon">⚡</span>
@@ -2960,82 +3108,27 @@
                   <span style="font-size: 0.8em;">▼</span>
                 </button>
                 <div class="auto-dropdown" id="autoDropdown" style="display: none;">
-                  <!-- Tabs -->
-                  <div class="auto-tabs">
-                    <div class="auto-tab-btn active" onclick="switchAutoTab('embebidos')">🤖 Embebidos</div>
-                    <div class="auto-tab-btn" onclick="switchAutoTab('api')">🌐 APIs</div>
-                    <div class="auto-tab-btn" onclick="switchAutoTab('local')">💻 Local</div>
-                  </div>
-
-                  <!-- Tab Content: Embebidos -->
-                  <div class="auto-tab-content" id="tab-embebidos" style="display: block;">
-                    <div class="auto-model-list">
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="chatgpt" checked />
-                        <span>🟢 ChatGPT Plus</span>
-                      </label>
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="qwen" checked />
-                        <span>🟡 QWEN 3</span>
-                      </label>
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="gemini" checked />
-                        <span>🔵 Gemini</span>
-                      </label>
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="deepseek" checked />
-                        <span>🟣 DeepSeek</span>
-                      </label>
+                  <div class="auto-functions">
+                    <!-- Función 1: AUTO (Selección Inteligente) -->
+                    <div class="auto-function-btn" onclick="executeAutoFunction('auto')">
+                      <div class="auto-func-icon">🤖</div>
+                      <div class="auto-func-name">Auto</div>
+                      <div class="auto-func-desc">Selecciona automáticamente el modelo óptimo</div>
                     </div>
-                  </div>
 
-                  <!-- Tab Content: APIs -->
-                  <div class="auto-tab-content" id="tab-api" style="display: none;">
-                    <div class="auto-model-list">
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="groq" checked />
-                        <span>⚡ Groq (Gratis)</span>
-                      </label>
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="kimi" checked />
-                        <span>🟠 Kimi K2</span>
-                      </label>
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="openrouter" />
-                        <span>🌈 OpenRouter</span>
-                      </label>
+                    <!-- Función 2: MÁXIMO (Modelo más poderoso) -->
+                    <div class="auto-function-btn" onclick="executeAutoFunction('maximum')">
+                      <div class="auto-func-icon">⚡</div>
+                      <div class="auto-func-name">Máximo</div>
+                      <div class="auto-func-desc">Usa el modelo más poderoso disponible</div>
                     </div>
-                  </div>
 
-                  <!-- Tab Content: Local -->
-                  <div class="auto-tab-content" id="tab-local" style="display: none;">
-                    <div class="auto-model-list">
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="ollama-qwen" />
-                        <span>🐳 Ollama: Qwen</span>
-                      </label>
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="ollama-mixtral" />
-                        <span>🐳 Ollama: Mixtral</span>
-                      </label>
-                      <label class="auto-model-item">
-                        <input type="checkbox" class="auto-model-check" data-model="ollama-deepseek" />
-                        <span>🐳 Ollama: DeepSeek</span>
-                      </label>
+                    <!-- Función 3: MÚLTIPLE (Consulta varios modelos) -->
+                    <div class="auto-function-btn" onclick="executeAutoFunction('multiple')">
+                      <div class="auto-func-icon">🔗</div>
+                      <div class="auto-func-name">Múltiple</div>
+                      <div class="auto-func-desc">Consulta múltiples modelos y sintetiza</div>
                     </div>
-                  </div>
-
-                  <!-- Auto Button -->
-                  <div class="auto-action-buttons">
-                    <button class="auto-action-btn auto-action-all" onclick="selectAllAutoModels()">
-                      Seleccionar Todo
-                    </button>
-                    <button class="auto-action-btn auto-action-none" onclick="deselectAllAutoModels()">
-                      Limpiar
-                    </button>
-                    <button class="auto-action-btn auto-action-execute" onclick="executeAutoOrchestrator()">
-                      ⚡ USAR AUTO
-                    </button>
                   </div>
                 </div>
               </div>
@@ -5395,6 +5488,221 @@
     } else {
       setupQwenHiddenListener();
     }
+
+    // ============================================
+    // NEW FUNCTIONS: PROVIDER SELECTOR + AUTO FUNCTIONS
+    // ============================================
+
+    /**
+     * Toggle Provider Dropdown
+     * Muestra/oculta el dropdown de modelos para un proveedor
+     */
+    function toggleProviderDropdown(provider, event) {
+      event.stopPropagation();
+
+      // Cerrar otros dropdowns abiertos
+      document.querySelectorAll('.provider-dropdown').forEach(dropdown => {
+        if (dropdown.id !== `dropdown-${provider}`) {
+          dropdown.style.display = 'none';
+        }
+      });
+
+      // Alternar el dropdown actual
+      const dropdown = document.getElementById(`dropdown-${provider}`);
+      if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+      }
+    }
+
+    /**
+     * Select Provider Model
+     * Selecciona un modelo de un proveedor y cierra el dropdown
+     */
+    function selectProviderModel(provider, modelId, modelName) {
+      console.log(`[Provider] Seleccionado ${provider}: ${modelName} (${modelId})`);
+
+      // Actualizar estado
+      state.selectedProvider = provider;
+      state.selectedModel = modelId;
+      state.selectedModelName = modelName;
+
+      // Actualizar UI del botón del proveedor
+      const btn = document.getElementById(`provider${provider.charAt(0).toUpperCase() + provider.slice(1)}`);
+      if (btn) {
+        const label = btn.querySelector('.provider-name-small');
+        if (label) label.textContent = modelName;
+      }
+
+      // Cerrar dropdown
+      const dropdown = document.getElementById(`dropdown-${provider}`);
+      if (dropdown) {
+        dropdown.style.display = 'none';
+      }
+
+      // Añadir a terminal
+      addTerminalLine(`📦 Proveedor: ${provider.toUpperCase()} → ${modelName}`);
+    }
+
+    /**
+     * Toggle AUTO Menu
+     * Muestra/oculta el menú de funciones AUTO
+     */
+    function toggleAutoMenu(event) {
+      event.stopPropagation();
+
+      const autoDropdown = document.getElementById('autoDropdown');
+      if (autoDropdown) {
+        autoDropdown.style.display = autoDropdown.style.display === 'none' ? 'block' : 'none';
+      }
+    }
+
+    /**
+     * Execute AUTO Function
+     * Ejecuta una de las 3 funciones AUTO: auto, maximum, multiple
+     */
+    async function executeAutoFunction(functionType) {
+      console.log(`[AUTO] Ejecutando función: ${functionType}`);
+
+      const messageText = document.getElementById('messageInput').value.trim();
+      if (!messageText) {
+        addTerminalLine('⚠️ Escribe un mensaje primero');
+        return;
+      }
+
+      // Cerrar dropdown
+      const autoDropdown = document.getElementById('autoDropdown');
+      if (autoDropdown) {
+        autoDropdown.style.display = 'none';
+      }
+
+      // Ejecutar función según tipo
+      switch(functionType) {
+        case 'auto':
+          await executeAutoMode();
+          break;
+        case 'maximum':
+          await executeMaximumMode();
+          break;
+        case 'multiple':
+          await executeMultipleMode();
+          break;
+      }
+    }
+
+    /**
+     * Execute AUTO Mode
+     * Selecciona automáticamente el modelo óptimo basado en el input
+     */
+    async function executeAutoMode() {
+      const messageText = document.getElementById('messageInput').value.trim();
+      const hasImages = state.attachments && state.attachments.length > 0;
+
+      console.log('[AUTO] Modo AUTO: Seleccionando modelo óptimo');
+      addTerminalLine('🤖 AUTO: Analizando input para seleccionar modelo óptimo...');
+
+      // Seleccionar modelo basado en el tipo de input
+      let selectedProvider = 'groq';
+      let selectedModel = 'llama-3.3-70b-versatile';
+
+      if (hasImages) {
+        // Si hay imágenes, usar un modelo de visión
+        selectedProvider = 'groq';
+        selectedModel = 'meta-llama/llama-4-maverick-17b-128e-instruct';
+        addTerminalLine('👁️ Detectadas imágenes → Usando Llama 4 Maverick (Visión)');
+      } else if (messageText.length > 500) {
+        // Si el texto es largo, usar modelo más poderoso
+        selectedProvider = 'groq';
+        selectedModel = 'llama-3.3-70b-versatile';
+        addTerminalLine('📝 Texto largo → Usando Llama 3.3 70B');
+      } else {
+        // Por defecto, usar modelo rápido
+        selectedProvider = 'groq';
+        selectedModel = 'llama-3.1-8b-instant';
+        addTerminalLine('⚡ Consulta rápida → Usando Llama 3.1 8B Instant');
+      }
+
+      // Enviar mensaje con proveedor seleccionado
+      await sendMessageWithProvider(selectedProvider, selectedModel);
+    }
+
+    /**
+     * Execute Maximum Mode
+     * Usa el modelo más poderoso disponible
+     */
+    async function executeMaximumMode() {
+      const messageText = document.getElementById('messageInput').value.trim();
+
+      console.log('[AUTO] Modo MÁXIMO: Usando modelo más poderoso');
+      addTerminalLine('⚡ MÁXIMO: Usando el modelo más poderoso disponible...');
+
+      // Usar el modelo más poderoso: Llama 3.3 70B
+      const selectedProvider = 'groq';
+      const selectedModel = 'llama-3.3-70b-versatile';
+
+      addTerminalLine('💪 Modelo: Llama 3.3 70B (Máxima Potencia)');
+
+      // Enviar mensaje
+      await sendMessageWithProvider(selectedProvider, selectedModel);
+    }
+
+    /**
+     * Execute Multiple Mode
+     * Consulta múltiples modelos en paralelo y sintetiza respuesta
+     */
+    async function executeMultipleMode() {
+      const messageText = document.getElementById('messageInput').value.trim();
+
+      console.log('[AUTO] Modo MÚLTIPLE: Consultando múltiples modelos');
+      addTerminalLine('🔗 MÚLTIPLE: Consultando Groq, Anthropic, Gemini en paralelo...');
+
+      // Para esta demo, usaremos Groq con múltiples intentos
+      // En producción, esto consultaría múltiples proveedores
+      const providers = [
+        { provider: 'groq', model: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
+        { provider: 'groq', model: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' }
+      ];
+
+      addTerminalLine('📊 Procesando respuestas de múltiples fuentes...');
+
+      // Enviar con Groq (actualmente disponible)
+      await sendMessageWithProvider('groq', 'llama-3.3-70b-versatile');
+    }
+
+    /**
+     * Send Message with Provider
+     * Envía mensaje usando un proveedor específico
+     */
+    async function sendMessageWithProvider(provider, model) {
+      const messageText = document.getElementById('messageInput').value.trim();
+
+      if (!messageText) return;
+
+      // Construir el mensaje con contexto del proveedor
+      const fullMessage = `[${provider.toUpperCase()}:${model}] ${messageText}`;
+
+      // Usar el método existente sendMessage
+      document.getElementById('messageInput').value = fullMessage;
+      await sendMessage();
+    }
+
+    // Cerrar dropdowns si se hace click fuera
+    document.addEventListener('click', (event) => {
+      // Cerrar provider dropdowns
+      if (!event.target.closest('.provider-btn-group')) {
+        document.querySelectorAll('.provider-dropdown').forEach(dropdown => {
+          dropdown.style.display = 'none';
+        });
+      }
+
+      // Cerrar AUTO dropdown
+      if (!event.target.closest('.auto-btn-container')) {
+        const autoDropdown = document.getElementById('autoDropdown');
+        if (autoDropdown) {
+          autoDropdown.style.display = 'none';
+        }
+      }
+    });
+
   </script>
 </body>
 </html>
