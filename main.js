@@ -1687,26 +1687,21 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
         });
 
-        // ============ CONFIGURAR OBSERVER DE QWEN ============
-        // Esperar a que la página esté completamente lista
+        // ============ CONFIGURAR INTERCEPTOR WEBSOCKET DE QWEN ============
+        // Usar Chrome DevTools Protocol para capturar respuestas en BLOQUE
+        // NO más DOM scraping que causa errores y captura letra por letra
         setTimeout(async () => {
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
             try {
-              // Configurar comunicación bidireccional
-              setupQwenBidirectionalCommunication(qwenBrowserView);
-              // Inyectar observador de respuestas
-              injectQwenResponseObserver(qwenBrowserView);
-              // Iniciar captura de respuestas después de un delay adicional
-              setTimeout(() => {
-                if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-                  startQwenResponseCapture();
-                }
-              }, 2000);
+              const result = await setupQwenWebSocketInterceptor(qwenBrowserView, mainWindow);
+              if (result.success) {
+                console.log('[QWEN3] ✅ WebSocket/Network Interceptor ACTIVO');
+                console.log('[QWEN3] 📡 Capturando respuestas en BLOQUE (no letra por letra)');
+              } else {
+                console.log('[QWEN3] ⚠️ Interceptor no pudo iniciar:', result.error);
+              }
             } catch (error) {
-              console.error('[QWEN3] ⚠️ Error configurando observer:', error.message);
-              // Fallback al sistema anterior
-              setupSimplifiedQwenObserver(qwenBrowserView);
-              startSimplifiedQwenCapture();
+              console.error('[QWEN3] ⚠️ Error configurando interceptor:', error.message);
             }
           }
         }, 2000); // Esperar 2 segundos para que la página esté completamente cargada
@@ -3097,7 +3092,41 @@ function injectQwenResponseObserver(browserView) {
 let qwenResponseInterval = null;
 let qwenBrowserViewReady = false;
 
+// ============ NUEVO: CAPTURA CON WEBSOCKET INTERCEPTOR ============
 async function startQwenResponseCapture() {
+  console.log('[QWEN Capture] 🚀 Iniciando captura con WebSocket interceptor...');
+  
+  // Verificar que el BrowserView existe
+  if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
+    console.error('[QWEN Capture] ❌ BrowserView no disponible');
+    return;
+  }
+  
+  // ✅ INICIALIZAR INTERCEPTOR WEBSOCKET
+  try {
+    const result = await setupQwenWebSocketInterceptor(qwenBrowserView, mainWindow);
+    
+    if (result.success) {
+      console.log('[QWEN Capture] ✅ Interceptor WebSocket activado correctamente');
+    
+      // Configurar listeners para recibir respuestas del interceptor
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        // Las respuestas ahora vienen del interceptor vía IPC
+        // No necesitamos polling, el interceptor nos notifica automáticamente
+        console.log('[QWEN Capture] ✅ Sistema de captura listo (sin polling)');
+      }
+    } else {
+      throw new Error(result.error || 'Interceptor falló');
+    }
+  } catch (error) {
+    console.error('[QWEN Capture] ❌ Error al iniciar interceptor:', error.message);
+    console.log('[QWEN Capture] ⚠️ Fallback: usando sistema de DOM scraping');
+    startQwenResponseCaptureLegacy(); // Fallback al sistema antiguo si falla
+  }
+}
+
+// ============ SISTEMA ANTIGUO (LEGACY) - SOLO COMO FALLBACK ============
+async function startQwenResponseCaptureLegacy() {
   if (qwenResponseInterval) return; // Ya está capturando
   
   let lastCapturedText = '';
@@ -3112,7 +3141,7 @@ async function startQwenResponseCapture() {
   const DEBOUNCE_MS = 1000; // 1 segundo mínimo entre envíos
   const MAX_GREETING_RETRIES = 2;
   
-  console.log('[QWEN Capture] 🚀 Iniciando captura de respuestas...');
+  console.log('[QWEN Capture LEGACY] ⚠️ Usando sistema antiguo de DOM scraping...');
   
   // Función simple para generar hash del texto (para idempotencia)
   function simpleHash(text) {
@@ -3467,10 +3496,16 @@ async function startQwenResponseCapture() {
 }
 
 function stopQwenResponseCapture() {
+  // Detener interceptor WebSocket
+  stopQwenInterceptor();
+  
+  // Detener polling del sistema legacy (si está activo)
   if (qwenResponseInterval) {
     clearInterval(qwenResponseInterval);
     qwenResponseInterval = null;
   }
+  
+  console.log('[QWEN Capture] ✅ Captura detenida (interceptor + legacy)');
 }
 
 // ============ QWEN: FUNCIÓN AUXILIAR - ESPERAR QUE BROWSERVIEW ESTÉ LISTO ============
