@@ -128,21 +128,43 @@ function handleDebuggerMessage(event, method, params) {
     // ============ EVENT SOURCE MESSAGE (SSE) ============
     // ⭐ STREAMING REAL: Este es el evento correcto para capturar chunks SSE en tiempo real
     if (method === 'Network.eventSourceMessageReceived') {
+      const sseData = params.data || '';
+      if (!sseData || sseData === '[DONE]') return;
+      
       // Buscar el requestInfo asociado a este requestId
-      const requestInfo = activeRequestIds.get(params.requestId);
-      if (requestInfo) {
-        const messageId = requestInfo.messageId;
-        const sseData = params.data || '';
+      let requestInfo = activeRequestIds.get(params.requestId);
+      
+      // Si no hay requestInfo, buscar por URL en los activos o crear uno temporal
+      if (!requestInfo) {
+        // Buscar cualquier requestInfo que tenga /chat/completions
+        for (const [reqId, info] of activeRequestIds.entries()) {
+          if (info.url && info.url.includes('/chat/completions')) {
+            requestInfo = info;
+            console.log('[QWEN-NET] 🔍 RequestInfo encontrado por búsqueda:', reqId);
+            break;
+          }
+        }
         
-        console.log('[QWEN-NET] 📡 SSE Chunk recibido:', sseData.length, 'bytes, msgId:', messageId?.substring(0, 15));
-        
-        // Procesar el chunk SSE inmediatamente
-        processStreamingChunk(sseData, requestInfo);
-      } else {
-        // Si no hay requestInfo, intentar procesar igual (fallback)
-        console.log('[QWEN-NET] 📡 SSE Message (sin requestInfo):', params.data?.substring(0, 100));
-        handleSSEMessage(params);
+        // Si aún no hay requestInfo, crear uno temporal
+        if (!requestInfo) {
+          const tempMessageId = `qwen-sse-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          requestInfo = {
+            url: params.requestId || 'unknown',
+            messageId: tempMessageId,
+            contentType: 'text/event-stream',
+            buffer: ''
+          };
+          // Guardarlo en activeRequestIds para futuros chunks
+          activeRequestIds.set(params.requestId, requestInfo);
+          console.log('[QWEN-NET] 🆕 RequestInfo temporal creado:', tempMessageId.substring(0, 20));
+        }
       }
+      
+      const messageId = requestInfo.messageId;
+      console.log('[QWEN-NET] 📡 SSE Chunk recibido:', sseData.length, 'bytes, msgId:', messageId?.substring(0, 15), 'requestId:', params.requestId);
+      
+      // Procesar el chunk SSE inmediatamente
+      processStreamingChunk(sseData, requestInfo);
     }
 
   } catch (err) {
