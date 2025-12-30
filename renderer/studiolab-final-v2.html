@@ -3664,7 +3664,7 @@
                   /^[\s]*rem\s+/gmi,  // Batch rem comments
                   /\.bat|\.cmd|\.ps1|\.sh|\.py|\.js|\.ts|\.html|\.css/i,  // File extensions
                   // Patrones específicos de Python
-                  /#!/usr\/bin\/env python|#!/usr\/bin\/python/i,  // Python shebang
+                  /#!\/usr\/bin\/(env\s+)?python/i,  // Python shebang
                   /import\s+(os|sys|subprocess|json|re|datetime)/i,  // Python imports comunes
                   /def\s+\w+\s*\(/i,  // Python function definitions
                   /subprocess\.(run|call|Popen)/i,  // Python subprocess
