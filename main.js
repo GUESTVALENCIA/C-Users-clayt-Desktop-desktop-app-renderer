@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain, shell, Menu } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, shell, Menu, globalShortcut } = require('electron');
 const path = require('path');
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
@@ -94,6 +94,9 @@ let timeoutManager = null;
 
 // ============ AUDIT SYSTEM - Auditoría con login ============
 const { AuditSystem } = require('./audit-system');
+
+// ============ QWEN WEBSOCKET INTERCEPTOR - Captura en bloque (NO DOM scraping) ============
+const { setupQwenWebSocketInterceptor, stopQwenInterceptor, isInterceptorActive } = require('./qwen-websocket-interceptor');
 
 // ============ API DISCOVERY SERVICE - Descubrimiento de APIs gratuitas ============
 const { APIDiscoveryService } = require('./api-discovery-service');
@@ -340,15 +343,7 @@ function openOpera(url) {
   return false;
 }
 
-// FUNCIÓN DESHABILITADA - QWEN ahora se muestra embebido en el HTML, no en ventana separada
-// function openQwenEmbedded(show = false, url = null) {
-//   // Esta función ya no se usa - QWEN se muestra embebido directamente en el HTML
-//   return null;
-// }
-
 // ==================== QWEN - Sistema Embebido (como VS Code) ====================
-// Código muerto eliminado: createQwenMonitor, qwenMonitorWindow, qwenAuthWindow
-// Sistema QWEN embebido - NUEVO (basado en VS Code extension)
 
 // ==================== QWEN STREAMING SUPPORT ====================
 
@@ -643,6 +638,56 @@ app.whenReady().then(() => {
 
   createWindow();
 
+  // ============ REGISTRAR ATAJO CTRL+SHIFT+I COMO FALLBACK ============
+  // Registrar Ctrl+Shift+I como alternativa si F12 no funciona (interceptado por sistema)
+  // También intentar registrar F12 con globalShortcut (puede no funcionar si Windows lo captura primero)
+  try {
+    const f12Registered = globalShortcut.register('F12', () => {
+      console.log('[Global F12] ✅ Atajo global F12 activado');
+      if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+        if (qwenBrowserView.webContents.isDevToolsOpened()) {
+          qwenBrowserView.webContents.closeDevTools();
+          console.log('[QWEN] 🔧 DevTools cerrado (F12 global)');
+        } else {
+          qwenBrowserView.webContents.openDevTools({ mode: 'detach' });
+          console.log('[QWEN] 🔧 DevTools abierto (F12 global)');
+        }
+      }
+    });
+    if (f12Registered) {
+      console.log('[Main] ✅ Atajo global F12 registrado');
+    } else {
+      console.warn('[Main] ⚠️ No se pudo registrar F12 (probablemente capturado por Windows)');
+    }
+  } catch (e) {
+    console.warn('[Main] ⚠️ Error registrando F12:', e.message);
+  }
+  
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+      // Verificar si DevTools ya está abierto
+      if (qwenBrowserView.webContents.isDevToolsOpened()) {
+        qwenBrowserView.webContents.closeDevTools();
+        console.log('[QWEN] 🔧 DevTools cerrado (Ctrl+Shift+I)');
+      } else {
+        qwenBrowserView.webContents.openDevTools({ mode: 'detach' });
+        console.log('[QWEN] 🔧 DevTools abierto (Ctrl+Shift+I)');
+      }
+    } else {
+      // Si QWEN no está abierto, abrir DevTools de la ventana principal
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.webContents.isDevToolsOpened()) {
+          mainWindow.webContents.closeDevTools();
+          console.log('[Main] 🔧 DevTools cerrado');
+        } else {
+          mainWindow.webContents.openDevTools({ mode: 'detach' });
+          console.log('[Main] 🔧 DevTools abierto (Ctrl+Shift+I)');
+        }
+      }
+    }
+  });
+  console.log('[Main] ✅ Atajo Ctrl+Shift+I registrado como fallback');
+
   // ============ CONECTAR MCP UNIVERSAL CLIENT ============
   // Esto sincroniza StudioLab con todos los otros editores (VS Code, Cursor, Antigravity)
   mcpUniversalClient = new MCPClient('wss://pwa-imbf.onrender.com');
@@ -683,14 +728,6 @@ app.whenReady().then(() => {
   // ============ INICIALIZAR AI MODELS MANAGER ============
   // DESHABILITADO: ai-models-manager causa conflictos con qwenBrowserView
   // Qwen se maneja con qwenBrowserView directamente en el handler qwen:toggle
-  // aiModelsManager = new AIModelsManager(mainWindow);
-  // aiModelsManager.createModelView('chatgpt', 'https://chatgpt.com/', 'chatgpt-plus');
-  // aiModelsManager.createModelView('qwen', 'https://chat.qwenlm.ai/', 'qwen3');
-  // aiModelsManager.createModelView('gemini', 'https://gemini.google.com/', 'gemini');
-  // aiModelsManager.createModelView('deepseek', 'https://chat.deepseek.com/', 'deepseek');
-  // global.aiModelsManager = aiModelsManager;
-
-  // console.log('[Main] ✅ Modelos AI embebidos cargados en background'); // DESHABILITADO
 
   // ============ INICIALIZAR AUTO ORCHESTRATOR ============
   // Sistema de orquestación multi-agente que coordina consultas paralelas
@@ -842,10 +879,17 @@ app.on('window-all-closed', async function () {
   // Limpiar referencia
   qwenBrowserView = null;
   
-  // Detener captura de respuestas
-  stopQwenResponseCapture();
+  // Detener interceptor WebSocket
+  stopQwenInterceptor();
 
   if (process.platform !== 'darwin') app.quit();
+});
+
+// ============ DESREGISTRAR ATAJOS AL CERRAR ============
+app.on('will-quit', () => {
+  // Desregistrar todos los atajos globales
+  globalShortcut.unregisterAll();
+  console.log('[Main] ✅ Atajos globales desregistrados');
 });
 
 // ============ RESTORE MANAGER IPC ============
@@ -1576,6 +1620,49 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       qwenBrowserView.webContents.loadURL(qwenUrl);
       console.log(`[QWEN3] 🔄 Cargando ${qwenUrl}...`);
 
+      // ============ INTERCEPTAR F12 EN BROWSERVIEW ============
+      // Interceptar F12 directamente en el BrowserView para abrir DevTools
+      qwenBrowserView.webContents.on('before-input-event', (event, input) => {
+        // Log de diagnóstico
+        if (input.key === 'F12') {
+          console.log('[QWEN F12] Evento detectado:', input.type, 'key:', input.key, 'code:', input.code);
+        }
+        
+        // Si se presiona F12, abrir/cerrar DevTools
+        if (input.key === 'F12' && input.type === 'keyDown') {
+          event.preventDefault(); // Prevenir que llegue a la página
+          console.log('[QWEN F12] ✅ Interceptado, abriendo DevTools...');
+          if (qwenBrowserView.webContents.isDevToolsOpened()) {
+            qwenBrowserView.webContents.closeDevTools();
+            console.log('[QWEN] 🔧 DevTools cerrado (F12)');
+          } else {
+            qwenBrowserView.webContents.openDevTools({ mode: 'detach' });
+            console.log('[QWEN] 🔧 DevTools abierto (F12)');
+          }
+        }
+      });
+      
+      // También interceptar en la ventana principal cuando QWEN tiene foco
+      if (mainWindow) {
+        mainWindow.webContents.on('before-input-event', (event, input) => {
+          // Solo si QWEN está visible y activo
+          if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed() && 
+              mainWindow.getBrowserView() === qwenBrowserView) {
+            if (input.key === 'F12' && input.type === 'keyDown') {
+              console.log('[Main F12] Evento F12 detectado en ventana principal, redirigiendo a QWEN...');
+              event.preventDefault();
+              if (qwenBrowserView.webContents.isDevToolsOpened()) {
+                qwenBrowserView.webContents.closeDevTools();
+                console.log('[QWEN] 🔧 DevTools cerrado (F12 desde main)');
+              } else {
+                qwenBrowserView.webContents.openDevTools({ mode: 'detach' });
+                console.log('[QWEN] 🔧 DevTools abierto (F12 desde main)');
+              }
+            }
+          }
+        });
+      }
+
       qwenBrowserView.webContents.on('did-finish-load', () => {
         console.log('[QWEN3] ✅ QWEN cargado exitosamente en BrowserView');
         
@@ -1584,25 +1671,33 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
         });
 
-        // Inyectar scripts de comunicación de forma más simple y robusta
-        // Esperar a que el DOM esté completamente listo
-        setTimeout(() => {
+        // ============ NUEVO: INTERCEPTOR WEBSOCKET (reemplaza DOM scraping) ============
+        // Esperar a que la página esté completamente lista
+        setTimeout(async () => {
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
             try {
-              // Usar versión simplificada y robusta del Observer
-              setupSimplifiedQwenObserver(qwenBrowserView);
-              // Iniciar captura simplificada
-              setTimeout(() => {
-                if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-                  startSimplifiedQwenCapture();
-                }
-              }, 2000);
+              // Activar interceptor WebSocket para capturar respuestas EN BLOQUE
+              const result = await setupQwenWebSocketInterceptor(qwenBrowserView, mainWindow);
+              if (result.success) {
+                console.log('[QWEN3] ✅ WebSocket Interceptor ACTIVO - Captura en bloque habilitada');
+              } else {
+                console.warn('[QWEN3] ⚠️ WebSocket Interceptor falló, usando fallback DOM');
+                // Fallback al sistema anterior si falla
+                setupSimplifiedQwenObserver(qwenBrowserView);
+                setTimeout(() => {
+                  if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+                    startSimplifiedQwenCapture();
+                  }
+                }, 2000);
+              }
             } catch (error) {
-              console.error('[QWEN3] ⚠️ Error configurando scripts:', error.message);
-              // Continuar aunque falle la inyección de scripts
+              console.error('[QWEN3] ⚠️ Error configurando interceptor:', error.message);
+              // Fallback al sistema anterior
+              setupSimplifiedQwenObserver(qwenBrowserView);
+              startSimplifiedQwenCapture();
             }
           }
-        }, 3000); // Esperar 3 segundos para que la página esté completamente cargada
+        }, 2000); // Esperar 2 segundos para que la página esté completamente cargada
       });
 
       qwenBrowserView.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
@@ -1728,10 +1823,10 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       // Remover el BrowserView de la ventana (esto lo oculta completamente)
       mainWindow.setBrowserView(null);
       
-      // Detener captura de respuestas
-      stopQwenResponseCapture();
+      // Detener interceptor WebSocket (reemplaza stopQwenResponseCapture)
+      stopQwenInterceptor();
       
-      console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado, captura detenida)');
+      console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado, interceptor detenido)');
       
       // Emitir evento para actualizar UI en el renderer
       if (mainWindow && !mainWindow.isDestroyed()) {
