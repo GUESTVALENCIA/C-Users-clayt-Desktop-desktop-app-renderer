@@ -1181,6 +1181,98 @@
     }
 
     /* Estilos para bloques de código de QWEN */
+    /* Estilos para bloques de código con numeración y etiqueta */
+    .qwen-code-wrapper {
+      position: relative;
+      margin: 12px 0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+    }
+    
+    .qwen-code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    
+    .qwen-code-lang {
+      text-transform: uppercase;
+      color: var(--accent-primary);
+      font-family: 'Courier New', monospace;
+    }
+    
+    .qwen-code-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .qwen-code-action-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .qwen-code-action-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    .qwen-code-block {
+      position: relative;
+      margin: 0;
+      padding: 0;
+      overflow-x: auto;
+    }
+    
+    .qwen-code-block pre {
+      margin: 0;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      overflow-x: auto;
+    }
+    
+    .qwen-code-block pre code {
+      display: block;
+      counter-reset: line;
+      font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    .qwen-code-block pre code .line {
+      display: block;
+      counter-increment: line;
+      padding-left: 50px;
+      position: relative;
+    }
+    
+    .qwen-code-block pre code .line::before {
+      content: counter(line);
+      position: absolute;
+      left: 0;
+      width: 40px;
+      text-align: right;
+      padding-right: 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+      user-select: none;
+      border-right: 1px solid var(--border-color);
+      margin-right: 10px;
+    }
+    
     .qwen-code-block {
       background: var(--bg-primary);
       border: 1px solid var(--border-color);
@@ -3755,7 +3847,113 @@
             return matrix[str2.length][str1.length];
           }
           
-          // Si es "thinking", mostrar indicador
+          // Función para procesar bloques de código: agregar numeración, etiqueta y botones
+          function processCodeBlocks(container) {
+            container.querySelectorAll('pre code').forEach((codeBlock) => {
+              const pre = codeBlock.parentElement;
+              // Verificar si ya está dentro de un wrapper procesado
+              if (pre && !pre.closest('.qwen-code-wrapper') && !pre.classList.contains('qwen-processed')) {
+                pre.classList.add('qwen-processed');
+                
+                // Obtener el lenguaje del código
+                let lang = 'text';
+                const langMatch = codeBlock.className.match(/language-(\w+)/);
+                if (langMatch) {
+                  lang = langMatch[1];
+                }
+                
+                // Convertir a mayúsculas para la etiqueta
+                const langLabel = lang.toUpperCase();
+                
+                // Obtener el HTML ya destacado (highlight.js ya lo procesó)
+                const highlightedHtml = codeBlock.innerHTML || codeBlock.textContent || '';
+                
+                // Dividir en líneas preservando el HTML destacado
+                const lines = highlightedHtml.split('\n');
+                const numberedLines = lines.map((line, index) => {
+                  // Si la línea está vacía, mantenerla vacía pero con numeración
+                  if (!line.trim() && line === '') {
+                    return '<span class="line"></span>';
+                  }
+                  return `<span class="line">${line || ' '}</span>`;
+                }).join('\n');
+                
+                // Crear wrapper con header y código
+                const wrapper = document.createElement('div');
+                wrapper.className = 'qwen-code-wrapper';
+                wrapper.innerHTML = `
+                  <div class="qwen-code-header">
+                    <span class="qwen-code-lang">${langLabel}</span>
+                    <div class="qwen-code-actions">
+                      <button class="qwen-code-action-btn" onclick="qwenCopyCode(this)" title="Copiar código">
+                        📋
+                      </button>
+                      <button class="qwen-code-action-btn" onclick="qwenDownloadCode(this, '${langLabel}')" title="Descargar">
+                        💾
+                      </button>
+                    </div>
+                  </div>
+                  <div class="qwen-code-block">
+                    <pre><code class="language-${lang} hljs">${numberedLines}</code></pre>
+                  </div>
+                `;
+                
+                // Reemplazar el pre original con el wrapper
+                pre.parentNode.replaceChild(wrapper, pre);
+              }
+            });
+          }
+          
+          // Funciones globales para acciones de código
+          window.qwenCopyCode = function(btn) {
+            const codeBlock = btn.closest('.qwen-code-wrapper').querySelector('code');
+            if (codeBlock) {
+              const text = codeBlock.textContent || '';
+              navigator.clipboard.writeText(text).then(() => {
+                const original = btn.innerHTML;
+                btn.innerHTML = '✅';
+                setTimeout(() => {
+                  btn.innerHTML = original;
+                }, 2000);
+              }).catch(() => {
+                // Fallback para navegadores sin clipboard API
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                const original = btn.innerHTML;
+                btn.innerHTML = '✅';
+                setTimeout(() => {
+                  btn.innerHTML = original;
+                }, 2000);
+              });
+            }
+          };
+          
+          window.qwenDownloadCode = function(btn, lang) {
+            const codeBlock = btn.closest('.qwen-code-wrapper').querySelector('code');
+            if (codeBlock) {
+              const text = codeBlock.textContent || '';
+              const extension = lang.toLowerCase() === 'batch' ? 'bat' : 
+                               lang.toLowerCase() === 'powershell' ? 'ps1' :
+                               lang.toLowerCase() === 'javascript' ? 'js' :
+                               lang.toLowerCase() === 'python' ? 'py' :
+                               lang.toLowerCase() === 'bash' ? 'sh' : 'txt';
+              const blob = new Blob([text], { type: 'text/plain' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `code.${extension}`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }
+          };
+          
+          // Si es "thinking", mostrar indicador mejorado
           if (data.type === 'thinking') {
             // Solo crear si no hay mensaje con este ID
             const msgId = messageId || Date.now().toString();
@@ -3763,7 +3961,7 @@
               qwenMessages.set(msgId, { text: '', isComplete: false });
               
               const msgDiv = document.createElement('div');
-              msgDiv.className = 'message-row assistant qwen-message';
+              msgDiv.className = 'message-row assistant qwen-message qwen-thinking-message';
               msgDiv.dataset.messageId = msgId;
               msgDiv.innerHTML = `
                 <div class="message-bubble assistant">
@@ -3771,7 +3969,13 @@
                     <span class="message-role">Qwen3-Max</span>
                   </div>
                   <div class="message-content qwen-response-content">
-                    <span class="thinking-indicator">🤔 Pensando...</span>
+                    <div class="thinking-indicator" style="display: flex; align-items: center; gap: 12px; padding: 16px;">
+                      <span style="font-size: 24px; animation: pulse 1.5s ease-in-out infinite;">🤔</span>
+                      <div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">QWEN está analizando tu solicitud...</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">Esto puede tomar unos segundos</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               `;
@@ -3871,18 +4075,37 @@
             
             const contentEl = msgEl.querySelector('.qwen-response-content');
             if (contentEl) {
-              // Usar markdown-it para renderizar el contenido completo
-              // Esto maneja automáticamente código, texto, y todo el markdown
+              // CRÍTICO: Preservar contenido anterior si es parte del mismo mensaje
+              // Solo reemplazar si es un mensaje completamente nuevo
               if (isActuallyNewMessage) {
                 // Mensaje nuevo: renderizar completo
                 contentEl.innerHTML = md.render(qwenFullText);
               } else {
                 // Mensaje existente (streaming): actualizar solo si hay contenido nuevo
                 const currentText = contentEl.textContent || '';
-                if (qwenFullText !== currentText && qwenFullText.length >= currentText.length) {
-                  // Re-renderizar con markdown-it para mantener formato correcto
+                const currentHtml = contentEl.innerHTML || '';
+                
+                // Si el nuevo contenido es más largo, actualizar
+                if (qwenFullText.length > currentText.length) {
+                  // CRÍTICO: Verificar si el contenido anterior tiene bloques de código procesados
+                  // Si los tiene, preservarlos y solo actualizar el texto nuevo
+                  const hasProcessedCode = currentHtml.includes('qwen-code-wrapper');
+                  
+                  if (hasProcessedCode) {
+                    // Si ya hay código procesado, solo actualizar el texto nuevo que viene después
+                    // Esto evita que el código sobrescriba el texto anterior
+                    const newContent = md.render(qwenFullText);
+                    contentEl.innerHTML = newContent;
+                  } else {
+                    // Si no hay código procesado, actualizar normalmente
+                    contentEl.innerHTML = md.render(qwenFullText);
+                  }
+                } else if (!currentText) {
+                  // Si no hay contenido previo, establecer el nuevo
                   contentEl.innerHTML = md.render(qwenFullText);
                 }
+                // Si el contenido no es más largo y ya hay contenido, no hacer nada
+                // Esto preserva el contenido anterior
               }
               
               // Aplicar highlighting a los bloques de código después del renderizado
@@ -3893,6 +4116,10 @@
                   }
                 });
               }
+              
+              // Procesar bloques de código: agregar numeración, etiqueta y botones
+              // Solo procesar bloques que no han sido procesados antes
+              processCodeBlocks(contentEl);
             }
             
             chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -5978,14 +6205,21 @@
               window.sandraAPI.on('qwen:response', qwenResponseHandler);
               
               // Timeout inicial más corto (15 segundos) para detectar si el mensaje no se envió
+              // PERO solo si no hay indicador de "thinking" activo
               setTimeout(() => {
                 if (!responseReceived && accumulatedText === '') {
-                  updateMessageDiv(assistantDiv, '⚠️ El mensaje puede no haberse enviado. Verifica el panel lateral de Qwen y envía manualmente si es necesario.');
-                  addTerminalLine('⚠️ QWEN: Posible fallo en envío automático - verifica panel lateral');
+                  // Verificar si hay un mensaje de "thinking" activo
+                  const thinkingMsg = document.querySelector('.qwen-thinking-message');
+                  if (!thinkingMsg) {
+                    // Solo mostrar advertencia si NO hay indicador de thinking
+                    updateMessageDiv(assistantDiv, '⚠️ El mensaje puede no haberse enviado. Verifica el panel lateral de Qwen y envía manualmente si es necesario.');
+                    addTerminalLine('⚠️ QWEN: Posible fallo en envío automático - verifica panel lateral');
+                  }
                 }
               }, 15000);
               
               // Timeout de seguridad (60 segundos) para limpiar listener
+              // PERO solo mostrar timeout si NO hay indicador de "thinking" activo
               setTimeout(() => {
                 if (checkInterval) {
                   clearInterval(checkInterval);
@@ -5996,8 +6230,27 @@
                 }
                 if (timeoutId) clearTimeout(timeoutId);
                 if (!accumulatedText && !responseReceived) {
-                  updateMessageDiv(assistantDiv, '⏱️ Timeout esperando respuesta de Qwen. Verifica el panel lateral y que el mensaje se haya enviado correctamente.');
-                  addTerminalLine('⏱️ QWEN: Timeout - el mensaje puede no haberse enviado');
+                  // Verificar si hay un mensaje de "thinking" activo
+                  const thinkingMsg = document.querySelector('.qwen-thinking-message');
+                  if (!thinkingMsg) {
+                    // Solo mostrar timeout si NO hay indicador de thinking
+                    updateMessageDiv(assistantDiv, '⏱️ Timeout esperando respuesta de Qwen. Verifica el panel lateral y que el mensaje se haya enviado correctamente.');
+                    addTerminalLine('⏱️ QWEN: Timeout - el mensaje puede no haberse enviado');
+                  } else {
+                    // Si hay thinking activo, actualizar el mensaje para indicar que sigue procesando
+                    const thinkingContent = thinkingMsg.querySelector('.qwen-response-content');
+                    if (thinkingContent) {
+                      thinkingContent.innerHTML = `
+                        <div class="thinking-indicator" style="display: flex; align-items: center; gap: 12px; padding: 16px;">
+                          <span style="font-size: 24px; animation: pulse 1.5s ease-in-out infinite;">🤔</span>
+                          <div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">QWEN está realizando un análisis profundo...</div>
+                            <div style="font-size: 12px; color: var(--text-muted);">Esto puede tomar más tiempo de lo normal</div>
+                          </div>
+                        </div>
+                      `;
+                    }
+                  }
                 }
               }, 60000);
             }
