@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QWEN Observer Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #252526;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            font-size: 20px;
+            color: #4fc3f7;
+        }
+        
+        .status {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #555;
+        }
+        
+        .status-dot.active {
+            background: #4caf50;
+            animation: pulse 1s infinite;
+        }
+        
+        .status-dot.thinking {
+            background: #ff9800;
+        }
+        
+        .status-dot.error {
+            background: #f44336;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 120px);
+        }
+        
+        .panel {
+            background: #252526;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .panel-title {
+            color: #4fc3f7;
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .log-entry {
+            font-size: 12px;
+            line-height: 1.5;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 2px solid transparent;
+        }
+        
+        .log-entry.thinking {
+            border-left-color: #ff9800;
+            color: #ffcc80;
+        }
+        
+        .log-entry.text {
+            border-left-color: #4caf50;
+            color: #a5d6a7;
+        }
+        
+        .log-entry.code {
+            border-left-color: #2196f3;
+            color: #90caf9;
+            font-family: 'Consolas', monospace;
+        }
+        
+        .log-entry.error {
+            border-left-color: #f44336;
+            color: #ef9a9a;
+        }
+        
+        .timestamp {
+            color: #808080;
+            font-size: 10px;
+            margin-right: 10px;
+        }
+        
+        .code-block {
+            background: #1e1e1e;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 5px 0;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            overflow-x: auto;
+        }
+        
+        .language-badge {
+            display: inline-block;
+            background: #007acc;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        button:hover {
+            background: #005a9e;
+        }
+        
+        button.danger {
+            background: #f44336;
+        }
+        
+        button.danger:hover {
+            background: #d32f2f;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #2d2d30;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            color: #808080;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 QWEN Observer Monitor v2</h1>
+        <div class="status">
+            <div class="status-item">
+                <span class="status-dot" id="connectionStatus"></span>
+                <span id="connectionText">Desconectado</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot" id="observerStatus"></span>
+                <span id="observerText">Inactivo</span>
+            </div>
+            <div class="status-item">
+                <span id="currentState">Estado: idle</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-value" id="messageCount">0</div>
+            <div class="stat-label">Mensajes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="codeBlockCount">0</div>
+            <div class="stat-label">Bloques de Código</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="duplicateCount">0</div>
+            <div class="stat-label">Duplicados</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="errorCount">0</div>
+            <div class="stat-label">Errores</div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="panel">
+            <h3 class="panel-title">📝 Captura en Tiempo Real</h3>
+            <div id="captureLog"></div>
+        </div>
+        
+        <div class="panel">
+            <h3 class="panel-title">💻 Código Detectado</h3>
+            <div id="codeLog"></div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="clearLogs()">Limpiar Logs</button>
+        <button onclick="toggleCapture()" id="toggleBtn">Pausar</button>
+        <button onclick="exportLogs()">Exportar</button>
+        <button onclick="testObserver()">Test Observer</button>
+    </div>
+    
+    <script>
+        let capturing = true;
+        let stats = {
+            messages: 0,
+            codeBlocks: 0,
+            duplicates: 0,
+            errors: 0
+        };
+        
+        function updateStats() {
+            document.getElementById('messageCount').textContent = stats.messages;
+            document.getElementById('codeBlockCount').textContent = stats.codeBlocks;
+            document.getElementById('duplicateCount').textContent = stats.duplicates;
+            document.getElementById('errorCount').textContent = stats.errors;
+        }
+        
+        function addLogEntry(panel, type, content, timestamp = new Date()) {
+            if (!capturing && type !== 'error') return;
+            
+            const logPanel = document.getElementById(panel);
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            
+            const time = timestamp.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                fractionalSecondDigits: 3 
+            });
+            
+            entry.innerHTML = `<span class="timestamp">[${time}]</span>${content}`;
+            logPanel.insertBefore(entry, logPanel.firstChild);
+            
+            // Mantener máximo 100 entradas
+            while (logPanel.children.length > 100) {
+                logPanel.removeChild(logPanel.lastChild);
+            }
+        }
+        
+        function addCodeBlock(language, code) {
+            const codePanel = document.getElementById('codeLog');
+            const block = document.createElement('div');
+            block.className = 'code-block';
+            
+            const badge = document.createElement('div');
+            badge.className = 'language-badge';
+            badge.textContent = language || 'text';
+            
+            const pre = document.createElement('pre');
+            pre.textContent = code;
+            
+            block.appendChild(badge);
+            block.appendChild(pre);
+            codePanel.insertBefore(block, codePanel.firstChild);
+            
+            stats.codeBlocks++;
+            updateStats();
+        }
+        
+        function clearLogs() {
+            document.getElementById('captureLog').innerHTML = '';
+            document.getElementById('codeLog').innerHTML = '';
+            stats = { messages: 0, codeBlocks: 0, duplicates: 0, errors: 0 };
+            updateStats();
+        }
+        
+        function toggleCapture() {
+            capturing = !capturing;
+            document.getElementById('toggleBtn').textContent = capturing ? 'Pausar' : 'Reanudar';
+            addLogEntry('captureLog', 'text', capturing ? '▶️ Captura reanudada' : '⏸️ Captura pausada');
+        }
+        
+        function exportLogs() {
+            const logs = {
+                capture: Array.from(document.getElementById('captureLog').children).map(el => el.textContent),
+                code: Array.from(document.getElementById('codeLog').children).map(el => el.textContent),
+                stats: stats,
+                timestamp: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `qwen-observer-logs-${Date.now()}.json`;
+            a.click();
+        }
+        
+        function testObserver() {
+            addLogEntry('captureLog', 'text', '🧪 Ejecutando test del Observer...');
+            // Aquí puedes agregar pruebas específicas
+            window.sandraAPI?.testQwenObserver?.();
+        }
+        
+        // Escuchar eventos del Observer
+        if (window.sandraAPI) {
+            // Eventos de QWEN
+            window.sandraAPI.onQwenObserverEvent?.((event) => {
+                const { type, data } = event;
+                
+                switch(type) {
+                    case 'state_change':
+                        document.getElementById('currentState').textContent = `Estado: ${data.state}`;
+                        document.getElementById('observerStatus').className = `status-dot ${data.state === 'thinking' ? 'thinking' : 'active'}`;
+                        document.getElementById('observerText').textContent = data.state;
+                        addLogEntry('captureLog', data.state, `Estado cambiado a: ${data.state}`);
+                        break;
+                        
+                    case 'text_captured':
+                        addLogEntry('captureLog', 'text', `📝 Texto: "${data.text.substring(0, 100)}..."`);
+                        stats.messages++;
+                        updateStats();
+                        break;
+                        
+                    case 'code_detected':
+                        addLogEntry('captureLog', 'code', `💻 Código detectado: ${data.language}`);
+                        addCodeBlock(data.language, data.code);
+                        break;
+                        
+                    case 'duplicate':
+                        addLogEntry('captureLog', 'error', `⚠️ Duplicado detectado`);
+                        stats.duplicates++;
+                        updateStats();
+                        break;
+                        
+                    case 'error':
+                        addLogEntry('captureLog', 'error', `❌ Error: ${data.message}`);
+                        stats.errors++;
+                        updateStats();
+                        break;
+                        
+                    case 'first_greeting_stuck':
+                        addLogEntry('captureLog', 'error', `⚠️ PRIMER SALUDO ATASCADO - Requiere intervención`);
+                        break;
+                }
+            });
+            
+            // Estado de conexión
+            window.sandraAPI.onQwenConnectionStatus?.((connected) => {
+                document.getElementById('connectionStatus').className = `status-dot ${connected ? 'active' : ''}`;
+                document.getElementById('connectionText').textContent = connected ? 'Conectado' : 'Desconectado';
+            });
+        }
+        
+        // Inicialización
+        addLogEntry('captureLog', 'text', '✅ Monitor iniciado y escuchando eventos...');
+        updateStats();
+    </script>
+</body>
+</html>
