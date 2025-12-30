@@ -1490,6 +1490,11 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         }
       });
 
+      // PROTECCIÓN: Deshabilitar interacción del usuario para mantener comunicación bidireccional
+      // Los clicks pasan a través pero la comunicación se mantiene activa
+      qwenBrowserView.webContents.setIgnoreMouseEvents(true, { forward: true });
+      console.log('[QWEN3] 🔒 BrowserView protegido - interacción deshabilitada para mantener comunicación');
+
       // Cargar cookies guardadas si existen
       const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
       try {
@@ -1574,6 +1579,11 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       qwenBrowserView.webContents.on('did-finish-load', () => {
         console.log('[QWEN3] ✅ QWEN cargado exitosamente en BrowserView');
         
+        // Asegurar que la protección sigue activa después de cargar
+        if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+          qwenBrowserView.webContents.setIgnoreMouseEvents(true, { forward: true });
+        }
+        
         // Guardar cookies después de cargar (por si hay nuevas)
         saveQwenCookies(qwenSession, cookiesPath).catch(e => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
@@ -1607,10 +1617,21 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         console.error('[QWEN3] URL intentada:', validatedURL);
       });
 
+      // PROTECCIÓN: Prevenir que el BrowserView se oculte accidentalmente
+      qwenBrowserView.webContents.on('will-navigate', (event, url) => {
+        console.log('[QWEN3] 🧭 Navegación detectada:', url.substring(0, 50));
+        // Mantener comunicación activa durante navegaciones
+        if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+          qwenBrowserView.webContents.setIgnoreMouseEvents(true, { forward: true });
+        }
+      });
+
       // Guardar cookies periódicamente (cada 30 segundos) - LIMPIAR cuando se oculte
       if (qwenCookieInterval) clearInterval(qwenCookieInterval);
       qwenCookieInterval = setInterval(() => {
         if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+          // Asegurar protección en cada guardado
+          qwenBrowserView.webContents.setIgnoreMouseEvents(true, { forward: true });
           saveQwenCookies(qwenSession, cookiesPath).catch(e => {
             // Silenciar errores en guardado automático
           });
@@ -2095,24 +2116,43 @@ function setupQwenBidirectionalCommunication(browserView) {
         return false;
       }
 
-      // Detectar si QWEN está ejecutando código (NUEVO según plan)
+      // Detectar si QWEN está ejecutando código (MEJORADO según plan)
       function isExecutingCode() {
-        // Buscar bloques de código
-        const codeBlocks = document.querySelectorAll('pre code, [class*="code"], [class*="syntax"]');
+        // Buscar bloques de código con indicadores de ejecución más específicos
+        const codeBlocks = document.querySelectorAll('pre code, [class*="code-block"], [class*="syntax-highlight"], [class*="code"]');
         if (codeBlocks.length > 0) {
           // Verificar si hay indicadores de ejecución
           const hasExecution = Array.from(codeBlocks).some(block => {
             const text = block.textContent || '';
+            const parent = block.closest('pre, div, section');
+            const parentText = parent ? parent.textContent : '';
+            
+            // Indicadores más específicos de ejecución
             return text.includes('>>>') || text.includes('$') || 
-                   text.includes('Running') || text.includes('Executing');
+                   text.includes('Running') || text.includes('Executing') ||
+                   text.includes('Output:') || text.includes('Result:') ||
+                   text.includes('Error:') || text.includes('Warning:') ||
+                   parentText.includes('Ejecutando') || parentText.includes('Running');
           });
           if (hasExecution) return true;
         }
         
-        // Buscar indicadores de ejecución en el texto
+        // Buscar en mensajes del asistente con bloques de código
+        const assistantMessages = document.querySelectorAll('[data-role="assistant"], [class*="assistant"]');
+        for (const msg of assistantMessages) {
+          const text = msg.textContent || '';
+          // Detectar bloques de código markdown con indicadores de ejecución
+          if (text.match(/```[\s\S]*?```/) && (text.includes('>>>') || text.includes('$') || 
+              text.includes('Output:') || text.includes('Result:'))) {
+            return true;
+          }
+        }
+        
+        // Buscar indicadores de ejecución en el texto general
         const bodyText = document.body.innerText || '';
         if (bodyText.includes('Ejecutando') || bodyText.includes('Running') ||
-            bodyText.includes('>>>') || bodyText.match(/\\$\\s+\\w+/)) {
+            bodyText.includes('>>>') || bodyText.match(/\\$\\s+\\w+/) ||
+            bodyText.includes('Output:') || bodyText.includes('Result:')) {
           return true;
         }
         
@@ -2280,6 +2320,12 @@ async function startQwenResponseCapture() {
   let lastState = 'idle';
   let captureCount = 0;
   let consecutiveDuplicates = 0; // Contador de duplicados consecutivos
+  let firstGreetingTimeout = null; // Timeout para primer saludo
+  let greetingRetryCount = 0; // Contador de reintentos del primer saludo
+  let lastSentHash = ''; // Hash del último mensaje enviado (para evitar duplicados)
+  let lastSentTime = 0; // Timestamp del último envío
+  const DEBOUNCE_MS = 1000; // 1 segundo mínimo entre envíos
+  const MAX_GREETING_RETRIES = 2;
   
   console.log('[QWEN Capture] 🚀 Iniciando captura de respuestas...');
   
@@ -2293,6 +2339,14 @@ async function startQwenResponseCapture() {
       hash = hash & hash; // Convertir a 32bit integer
     }
     return hash.toString(36);
+  }
+
+  // Función mejorada para hash con contexto temporal (evita duplicados)
+  function enhancedHash(text, state) {
+    const baseHash = simpleHash(text);
+    const stateHash = simpleHash(state || '');
+    const timeHash = Math.floor(Date.now() / 1000).toString(36); // Hash por segundo
+    return simpleHash(baseHash + stateHash + timeHash);
   }
   
   // Esperar a que el BrowserView esté completamente listo
@@ -2399,6 +2453,17 @@ async function startQwenResponseCapture() {
           if (lastState !== 'thinking') {
             console.log('[QWEN Capture] 🤔 Estado: Pensando...');
             lastState = 'thinking';
+            
+            // FIX PRIMER SALUDO: Detectar si es el primer mensaje y está atascado
+            if (greetingRetryCount === 0 && captureCount < 30) { // Primeros 15 segundos
+              if (firstGreetingTimeout) clearTimeout(firstGreetingTimeout);
+              firstGreetingTimeout = setTimeout(() => {
+                console.log('[QWEN Capture] ⚠️ Primer saludo atascado en "thinking", puede necesitar reintento');
+                greetingRetryCount++;
+                // No reintentamos automáticamente, solo logueamos para debug
+                // El usuario puede reintentar manualmente
+              }, 10000); // 10 segundos de timeout
+            }
           }
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('qwen:response', {
@@ -2408,22 +2473,38 @@ async function startQwenResponseCapture() {
             });
           }
         } else if (responseText) {
-          // Calcular hash del texto actual para idempotencia
-          const currentHash = simpleHash(responseText);
+          // Limpiar timeout del primer saludo si hay respuesta
+          if (firstGreetingTimeout) {
+            clearTimeout(firstGreetingTimeout);
+            firstGreetingTimeout = null;
+            greetingRetryCount = 0; // Reset contador
+          }
+          
+          // Calcular hash mejorado del texto actual para idempotencia (evita duplicados)
+          const currentHash = enhancedHash(responseText, currentState);
           
           // Verificar si es realmente contenido nuevo (hash diferente)
-          if (currentHash !== lastTextHash) {
+          if (currentHash !== lastTextHash && currentHash !== lastSentHash) {
+            // FIX RESPUESTAS DOBLES: Debounce más agresivo
+            const now = Date.now();
+            if (now - lastSentTime < DEBOUNCE_MS) {
+              console.log('[QWEN Capture] ⏸️ Debounce activo, esperando...');
+              return;
+            }
+            
             // Hay nueva respuesta (hash diferente = contenido realmente nuevo)
             console.log('[QWEN Capture] 📥 Nueva respuesta detectada! Longitud:', responseText.length);
             
             // Solo enviar si el texto es más largo (streaming) o es completamente diferente
-            if (responseText.length > lastCapturedText.length || currentHash !== simpleHash(lastCapturedText)) {
+            if (responseText.length > lastCapturedText.length || currentHash !== enhancedHash(lastCapturedText, lastState)) {
               const newContent = responseText.length > lastCapturedText.length 
                 ? responseText.slice(lastCapturedText.length)  // Solo la parte nueva
                 : responseText;  // Todo el texto si es completamente diferente
               
               lastCapturedText = responseText;
               lastTextHash = currentHash;
+              lastSentHash = currentHash; // Guardar hash del mensaje enviado
+              lastSentTime = now; // Guardar timestamp
               lastState = currentState;
               consecutiveDuplicates = 0; // Reset contador de duplicados
               
