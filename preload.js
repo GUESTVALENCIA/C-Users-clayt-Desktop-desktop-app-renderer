@@ -187,6 +187,25 @@ contextBridge.exposeInMainWorld('sandraAPI', {
     // Retornar función para remover listener si es necesario
     return () => ipcRenderer.removeListener('qwen:response', handler);
   },
+  
+  // QWEN Observer Events (Debug/Monitor)
+  onQwenObserverEvent: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('qwen:observer:event', handler);
+    return () => ipcRenderer.removeListener('qwen:observer:event', handler);
+  },
+  
+  // QWEN Connection Status
+  onQwenConnectionStatus: (callback) => {
+    const handler = (_event, connected) => callback(connected);
+    ipcRenderer.on('qwen:connection:status', handler);
+    return () => ipcRenderer.removeListener('qwen:connection:status', handler);
+  },
+  
+  // Test QWEN Observer
+  testQwenObserver: () => {
+    ipcRenderer.send('qwen:test:observer');
+  },
   // Eventos de visibilidad del BrowserView
   onQwenViewShown: (callback) => ipcRenderer.on('qwen:view-shown', (_event) => callback()),
   onQwenViewHidden: (callback) => ipcRenderer.on('qwen:view-hidden', (_event) => callback()),
