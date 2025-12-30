@@ -1822,8 +1822,9 @@ function setupQwenBidirectionalCommunication(browserView) {
             }
             
             // Detectar si es markdown (triple backticks con lenguaje)
-            // Usar new RegExp para evitar problemas con backticks en template literal
-            const markdownPattern = new RegExp('^\\`\\`\\`(\\w+)?\\n([\\s\\S]*?)\\`\\`\\`$', 'm');
+            // Usar new RegExp con construcción de string para evitar problemas con backticks
+            const backtick = String.fromCharCode(96); // backtick character
+            const markdownPattern = new RegExp('^' + backtick + backtick + backtick + '(\\w+)?\\n([\\s\\S]*?)' + backtick + backtick + backtick + '$', 'm');
             const markdownMatch = codeText.match(markdownPattern);
             if (markdownMatch) {
               language = markdownMatch[1] || language;
