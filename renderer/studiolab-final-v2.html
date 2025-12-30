@@ -3679,7 +3679,7 @@
               // Detectar lenguaje del código (mejorado con soporte .bat y Python)
               const detectLanguage = (text) => {
                 // Detectar Python primero (más específico - buscar múltiples patrones)
-                if (/#!/usr\/bin\/env python|#!/usr\/bin\/python|import os|import sys|import subprocess|def get_|def |from |import |\.py[^a-z]|subprocess\.|os\.|sys\./i.test(text)) return 'python';
+                if (/#!\/usr\/bin\/(env\s+)?python|import\s+(os|sys|subprocess)|def\s+\w+|from\s+\w+\s+import|\.py[^a-z]|subprocess\.|os\.|sys\./i.test(text)) return 'python';
                 // Detectar .bat (más específico)
                 if (/@echo\s+off|^[\s]*::|^[\s]*@|\.bat|\.cmd/i.test(text)) return 'batch';
                 if (/Write-Host|Get-|Set-|Stop-Process|\$[A-Za-z]|# SCRIPT|\.ps1/i.test(text)) return 'powershell';
