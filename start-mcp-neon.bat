@@ -14,7 +14,7 @@ echo Verificando Python...
 
 echo.
 echo Iniciando MCP Server NEON...
-"C:\Users\clayt\AppData\Local\Programs\Python\Python314\python.exe" mcp-server-neon-simple.py
+"C:\Users\clayt\AppData\Local\Programs\Python\Python314\python.exe" mcp-server-neon.py
 
 echo.
 echo MCP Server NEON detenido
