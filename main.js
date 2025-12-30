@@ -1742,7 +1742,7 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
   }
 });
 
-// ============ QWEN: COMUNICACIÓN BIDIRECCIONAL (MEJORADO) ============
+// ============ QWEN: COMUNICACIÓN BIDIRECCIONAL (MEJORADO V2) ============
 function setupQwenBidirectionalCommunication(browserView) {
   if (!browserView || browserView.webContents.isDestroyed()) return;
 
@@ -1751,7 +1751,7 @@ function setupQwenBidirectionalCommunication(browserView) {
       if (window.qwenBidirectionalSetup) return;
       window.qwenBidirectionalSetup = true;
       
-      console.log('[QWEN Observer] 🚀 Iniciando sistema mejorado de captura...');
+      console.log('[QWEN Observer V2] 🚀 Iniciando sistema de captura MEJORADO...');
 
       // Estado global
       window.qwenState = {
@@ -1767,152 +1767,172 @@ function setupQwenBidirectionalCommunication(browserView) {
         messageCount: 0
       };
 
-      // Selectores específicos para QWEN (actualizados)
-      const QWEN_SELECTORS = {
-        // Contenedor principal de mensajes
-        messagesContainer: [
-          '[class*="chat-messages"]',
-          '[class*="message-list"]',
-          '[class*="conversation"]',
-          'main [class*="scroll"]',
-          'main',
-          '#__next main'
-        ],
-        // Mensajes del asistente
-        assistantMessage: [
-          '[data-testid="assistant-message"]',
-          '[class*="assistant"]',
-          '[data-role="assistant"]',
-          '[class*="bot-message"]',
-          '[class*="ai-message"]',
-          '.markdown-body',
-          '[class*="prose"]'
-        ],
-        // Indicador de "pensando"
-        thinkingIndicator: [
-          '[class*="thinking"]',
-          '[class*="loading"]',
-          '[class*="typing"]',
-          '[class*="generating"]',
-          '[class*="spinner"]'
-        ]
-      };
-
-      // Buscar elemento con múltiples selectores
-      function findElement(selectors) {
-        for (const sel of selectors) {
-          try {
-            const el = document.querySelector(sel);
-            if (el && el.offsetParent !== null) return el;
-          } catch (e) {}
-        }
-        return null;
-      }
-
-      // Buscar todos los elementos
-      function findAllElements(selectors) {
-        const found = [];
-        for (const sel of selectors) {
-          try {
-            document.querySelectorAll(sel).forEach(el => {
-              if (!found.includes(el)) found.push(el);
+      // Función para extraer el ÚLTIMO mensaje del asistente (VERSIÓN MEJORADA PARA QWEN)
+      function extractLastAssistantMessage() {
+        try {
+          // BLACKLIST COMPLETA de textos de UI de QWEN
+          const UI_EXACT_MATCHES = [
+            'pensamiento', 'buscar', 'edición de imagen', 'desarrollo web',
+            'generación de imágenes', 'generación de video', 'artefactos',
+            '¿cómo puedo ayudarte hoy?', '¿cómo puedo ayudarte', 
+            'qwen3-max', 'qwen3', 'qwen', 'buenos días', 'buenas tardes',
+            'thinking', 'search', 'image editing', 'web development',
+            'image generation', 'video generation', 'artifacts',
+            'copy', 'like', 'dislike', 'regenerate', 'share',
+            'el contenido generado por ia puede no ser preciso',
+            'hola, cley', '✨', '🌟', '☀️'
+          ];
+          
+          // Función para limpiar texto de UI
+          function cleanUIText(text) {
+            let cleaned = text.toLowerCase();
+            // Eliminar cada coincidencia exacta de UI
+            for (const ui of UI_EXACT_MATCHES) {
+              while (cleaned.includes(ui.toLowerCase())) {
+                cleaned = cleaned.replace(ui.toLowerCase(), '');
+              }
+            }
+            // Eliminar líneas muy cortas
+            const lines = cleaned.split('\\n').filter(line => {
+              const trimmed = line.trim();
+              if (!trimmed) return false;
+              if (trimmed.length < 8) return false;
+              return true;
             });
-          } catch (e) {}
+            return lines.join(' ').trim();
+          }
+          
+          // Función para detectar si es texto de UI (botones/menús)
+          function isPureUIElement(el) {
+            // Si es un botón, es UI
+            if (el.tagName === 'BUTTON') return true;
+            // Si tiene role de botón/navegación, es UI
+            const role = el.getAttribute('role');
+            if (role && ['button', 'navigation', 'menu', 'menuitem', 'tab', 'tablist'].includes(role)) return true;
+            // Si tiene onclick o es clickeable, probablemente es UI
+            if (el.onclick || el.getAttribute('onclick')) return true;
+            // Si su clase indica que es UI
+            const cls = (el.className || '').toLowerCase();
+            if (cls.includes('btn') || cls.includes('button') || cls.includes('nav') || 
+                cls.includes('toolbar') || cls.includes('menu') || cls.includes('chip') ||
+                cls.includes('tag') || cls.includes('badge')) return true;
+            return false;
+          }
+          
+          // ESTRATEGIA 1: Buscar el último mensaje del asistente por estructura
+          // QWEN usa divs con data-role o clases específicas
+          const assistantSelectors = [
+            '[data-role="assistant"]',
+            '[data-message-role="assistant"]',
+            '[class*="assistant"]',
+            '[class*="bot-response"]',
+            '[class*="ai-message"]',
+            '[class*="response-content"]',
+            '[class*="markdown-body"]',
+            '[class*="prose"]'
+          ];
+          
+          let allMessages = [];
+          
+          for (const selector of assistantSelectors) {
+            try {
+              const elements = document.querySelectorAll(selector);
+              elements.forEach(el => {
+                if (isPureUIElement(el)) return;
+                if (el.querySelector('textarea, input[type="text"]')) return;
+                
+                const rawText = (el.innerText || '').trim();
+                const cleanedText = cleanUIText(rawText);
+                
+                // Solo considerar si tiene contenido real después de limpiar
+                if (cleanedText.length > 30) {
+                  allMessages.push({
+                    text: cleanedText,
+                    raw: rawText,
+                    element: el,
+                    rect: el.getBoundingClientRect()
+                  });
+                }
+              });
+            } catch (e) {}
+          }
+          
+          // ESTRATEGIA 2: Si no encontramos con selectores específicos, buscar en main
+          if (allMessages.length === 0) {
+            const mainContent = document.querySelector('main') || document.body;
+            const allDivs = mainContent.querySelectorAll('div');
+            
+            allDivs.forEach(div => {
+              if (isPureUIElement(div)) return;
+              if (div.querySelector('textarea, input[type="text"]')) return;
+              if (div.offsetHeight < 30) return;
+              
+              // Verificar que no sea un contenedor de UI (muchos botones hijos)
+              const buttons = div.querySelectorAll('button');
+              if (buttons.length > 2) return;
+              
+              const rawText = (div.innerText || '').trim();
+              const cleanedText = cleanUIText(rawText);
+              
+              // Solo mensajes con contenido sustancial
+              if (cleanedText.length > 50 && cleanedText.split(' ').length > 10) {
+                allMessages.push({
+                  text: cleanedText,
+                  raw: rawText,
+                  element: div,
+                  rect: div.getBoundingClientRect()
+                });
+              }
+            });
+          }
+          
+          // Ordenar por posición Y (más abajo = más reciente)
+          allMessages.sort((a, b) => b.rect.top - a.rect.top);
+          
+          // Tomar el mensaje más reciente (más abajo en la página)
+          if (allMessages.length > 0) {
+            const lastMessage = allMessages[0].text;
+            console.log('[QWEN Observer V3] ✅ Mensaje limpio:', lastMessage.substring(0, 100) + '...');
+            return lastMessage;
+          }
+          
+          return '';
+        } catch (e) {
+          console.error('[QWEN Observer V2] Error:', e);
+          return '';
         }
-        return found;
       }
 
       // Detectar si QWEN está pensando/generando
       function isThinking() {
-        // Buscar indicadores visuales
-        const indicator = findElement(QWEN_SELECTORS.thinkingIndicator);
-        if (indicator) return true;
-        
-        // Buscar texto "Pensando" o similar
-        const bodyText = document.body.innerText.toLowerCase();
-        if (bodyText.includes('pensando') || bodyText.includes('thinking') || 
-            bodyText.includes('generando') || bodyText.includes('generating')) {
+        const bodyText = (document.body.innerText || '').toLowerCase();
+        // Buscar indicadores de carga
+        const loadingIndicators = document.querySelectorAll('[class*="loading"], [class*="spinner"], [class*="thinking"], [class*="generating"]');
+        if (loadingIndicators.length > 0) {
+          for (const ind of loadingIndicators) {
+            if (ind.offsetParent !== null) return true;
+          }
+        }
+        // Buscar texto de "pensando"
+        if (bodyText.includes('pensando') || bodyText.includes('thinking')) {
           return true;
         }
-        
         return false;
       }
 
-      // Extraer ÚLTIMO mensaje del asistente
-      function extractLastAssistantMessage() {
-        try {
-          // Estrategia 1: Buscar mensajes específicos del asistente
-          const assistantMsgs = findAllElements(QWEN_SELECTORS.assistantMessage);
-          if (assistantMsgs.length > 0) {
-            const lastMsg = assistantMsgs[assistantMsgs.length - 1];
-            const text = lastMsg.innerText || lastMsg.textContent || '';
-            if (text.trim().length > 0) {
-              console.log('[QWEN Observer] ✅ Mensaje encontrado (método 1):', text.substring(0, 50) + '...');
-              return text.trim();
-            }
-          }
-
-          // Estrategia 2: Buscar en el contenedor de mensajes
-          const container = findElement(QWEN_SELECTORS.messagesContainer);
-          if (container) {
-            // Buscar el último div grande con texto (probablemente la respuesta)
-            const divs = container.querySelectorAll('div');
-            let bestMatch = null;
-            let maxLength = 0;
-            
-            divs.forEach(div => {
-              const text = div.innerText || '';
-              // Ignorar textos muy cortos o que parecen UI
-              if (text.length > 50 && text.length > maxLength && 
-                  !text.includes('Pensamiento') && !text.includes('Buscar')) {
-                // Verificar que no sea el input
-                if (!div.querySelector('textarea, input')) {
-                  maxLength = text.length;
-                  bestMatch = text.trim();
-                }
-              }
-            });
-            
-            if (bestMatch) {
-              console.log('[QWEN Observer] ✅ Mensaje encontrado (método 2):', bestMatch.substring(0, 50) + '...');
-              return bestMatch;
-            }
-          }
-
-          // Estrategia 3: Buscar markdown-body o prose
-          const markdown = document.querySelector('.markdown-body, [class*="prose"], [class*="markdown"]');
-          if (markdown) {
-            const text = markdown.innerText || '';
-            if (text.trim().length > 20) {
-              console.log('[QWEN Observer] ✅ Mensaje encontrado (método 3):', text.substring(0, 50) + '...');
-              return text.trim();
-            }
-          }
-
-          return '';
-        } catch (e) {
-          console.error('[QWEN Observer] Error extrayendo mensaje:', e);
-          return '';
-        }
-      }
-
-      // Extraer media (imágenes, videos, audio)
+      // Extraer media
       function extractMedia() {
         const media = { images: [], videos: [], audio: [] };
         try {
-          // Imágenes (excluyendo iconos pequeños)
           document.querySelectorAll('img[src]').forEach(img => {
-            if (img.src && !img.src.startsWith('data:') && 
-                img.width > 100 && img.height > 100) {
+            if (img.src && !img.src.startsWith('data:') && img.width > 100) {
               media.images.push(img.src);
             }
           });
-          // Videos
           document.querySelectorAll('video[src], video source[src]').forEach(v => {
             const src = v.src || v.getAttribute('src');
             if (src) media.videos.push(src);
           });
-          // Audio
           document.querySelectorAll('audio[src], audio source[src]').forEach(a => {
             const src = a.src || a.getAttribute('src');
             if (src) media.audio.push(src);
@@ -1931,7 +1951,6 @@ function setupQwenBidirectionalCommunication(browserView) {
         window.qwenState.videos = media.videos;
         window.qwenState.audio = media.audio;
         
-        // Objeto que main.js lee
         window.qwenLastResponse = {
           text: text || '',
           state: state,
@@ -1941,54 +1960,50 @@ function setupQwenBidirectionalCommunication(browserView) {
           timestamp: Date.now()
         };
         
-        console.log('[QWEN Observer] Estado actualizado:', state, '- Texto:', (text || '').substring(0, 30) + '...');
+        console.log('[QWEN Observer V2] Estado:', state, '- Texto:', (text || '').substring(0, 50) + '...');
       }
 
-      // Observador principal del DOM
+      // Observador principal
       let lastText = '';
-      let checkCount = 0;
+      let stableCount = 0;
       
       const checkForChanges = () => {
-        checkCount++;
         const thinking = isThinking();
         const currentText = extractLastAssistantMessage();
         
-        if (thinking) {
+        if (thinking && !currentText) {
           updateState('thinking', '');
+          stableCount = 0;
         } else if (currentText && currentText !== lastText) {
           lastText = currentText;
           window.qwenState.messageCount++;
           updateState('responding', currentText);
+          stableCount = 0;
         } else if (currentText && currentText === lastText && !thinking) {
-          // Sin cambios por un tiempo = completo
-          updateState('complete', currentText);
-        }
-        
-        // Log periódico para debug
-        if (checkCount % 10 === 0) {
-          console.log('[QWEN Observer] Check #' + checkCount + ' - Estado:', window.qwenState.currentState);
+          stableCount++;
+          // Si el texto no cambia por 3 checks (1.5s), considerarlo completo
+          if (stableCount >= 3) {
+            updateState('complete', currentText);
+          }
         }
       };
 
-      // Ejecutar verificación periódicamente
+      // Verificación cada 500ms
       setInterval(checkForChanges, 500);
 
-      // También usar MutationObserver para cambios del DOM
+      // MutationObserver para cambios del DOM
       const observer = new MutationObserver(() => {
         checkForChanges();
       });
 
-      // Observar todo el body
       observer.observe(document.body, {
         childList: true,
         subtree: true,
         characterData: true
       });
 
-      console.log('[QWEN Observer] ✅ Sistema de captura iniciado correctamente');
-      
-      // Primera verificación inmediata
-      checkForChanges();
+      console.log('[QWEN Observer V2] ✅ Sistema iniciado correctamente');
+      checkForChanges(); // Primera verificación
     })();
   `;
 
