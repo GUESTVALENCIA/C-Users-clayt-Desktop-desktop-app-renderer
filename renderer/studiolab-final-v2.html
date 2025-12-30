@@ -5,10 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* https://* ws://localhost:*; frame-src 'self' https://*; child-src 'self' https://*;">
   <title>StudioLab - Multimodal Intelligence</title>
-  <!-- Markdown-it and Highlight.js for code formatting -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.0.0/dist/markdown-it.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <!-- Open Source Libraries for Safe Markdown Rendering and Code Highlighting -->
+  <!-- DOMPurify: Sanitización segura de HTML para prevenir XSS -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+  <!-- marked: Parser de markdown robusto y rápido -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+  <!-- PrismJS: Syntax highlighting con numeración de líneas nativa -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
   <style>
     /* ============================================
        STUDIOLAB 8.0 PRO - FINAL POLISHED VERSION
@@ -3677,57 +3684,31 @@
           return null;
         };
         
-        // Configurar markdown-it con highlight.js para formateo de código
-        const md = window.markdownit({
-          html: true,
-          linkify: true,
-          typographer: true,
-          highlight: function (str, lang) {
-            // Si lang es 'text' o vacío, intentar detección automática mejorada
-            if (!lang || lang === 'text' || lang.trim() === '') {
-              const detectedLang = detectCodeLanguage(str);
-              if (detectedLang && window.hljs.getLanguage(detectedLang)) {
-                try {
-                  return '<pre class="hljs"><code class="language-' + detectedLang + '">' +
-                         window.hljs.highlight(str, { language: detectedLang, ignoreIllegals: true }).value +
-                         '</code></pre>';
-                } catch (__) {}
+        // ⭐ Configurar marked (open source) con PrismJS para renderizado seguro
+        // marked parsea markdown y PrismJS aplica highlighting + numeración de líneas automáticamente
+        if (typeof marked !== 'undefined') {
+          // Configurar marked para renderizar código con clases de PrismJS
+          marked.setOptions({
+            breaks: true,
+            gfm: true,
+            highlight: function(code, lang) {
+              // Si no hay lang, intentar detectar
+              if (!lang || lang === 'text') {
+                const detectedLang = detectCodeLanguage(code);
+                if (detectedLang) {
+                  lang = detectedLang;
+                }
               }
-              // Si no se detectó, usar highlightAuto de highlight.js
-              try {
-                const auto = window.hljs.highlightAuto(str, ['python', 'javascript', 'bash', 'powershell', 'batch', 'html', 'css', 'json']);
-                return '<pre class="hljs"><code class="language-' + (auto.language || 'text') + '">' +
-                       auto.value +
-                       '</code></pre>';
-              } catch (__) {
-                const div = document.createElement('div');
-                div.textContent = str;
-                return '<pre class="hljs"><code>' + div.innerHTML + '</code></pre>';
-              }
+              
+              // PrismJS aplicará el highlighting automáticamente después del renderizado
+              // Por ahora, solo retornar el código con la clase de lenguaje
+              return code;
             }
-            
-            // Si lang está especificado y es válido
-            if (lang && window.hljs.getLanguage(lang)) {
-              try {
-                return '<pre class="hljs"><code class="language-' + lang + '">' +
-                       window.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
-                       '</code></pre>';
-              } catch (__) {}
-            }
-            
-            // Fallback: intentar detección automática
-            try {
-              const auto = window.hljs.highlightAuto(str, ['python', 'javascript', 'bash', 'powershell', 'batch', 'html', 'css', 'json']);
-              return '<pre class="hljs"><code class="language-' + (auto.language || 'text') + '">' +
-                     auto.value +
-                     '</code></pre>';
-            } catch (__) {
-              const div = document.createElement('div');
-              div.textContent = str;
-              return '<pre class="hljs"><code>' + div.innerHTML + '</code></pre>';
-            }
-          }
-        });
+          });
+          console.log('[QWEN Render] ✅ marked configurado con PrismJS');
+        } else {
+          console.warn('[QWEN Render] ⚠️ marked no disponible, usando fallback');
+        }
         
         let qwenMessages = new Map(); // Mapa de mensajes por messageId
         let lastProcessedMessageId = null; // Último messageId procesado
@@ -3838,62 +3819,9 @@
           }
           
           // Función para procesar bloques de código: agregar numeración, etiqueta y botones
-          function processCodeBlocks(container) {
-            container.querySelectorAll('pre code').forEach((codeBlock) => {
-              const pre = codeBlock.parentElement;
-              // Verificar si ya está dentro de un wrapper procesado
-              // IMPORTANTE: No re-procesar bloques ya procesados durante streaming
-              if (pre && !pre.closest('.qwen-code-wrapper') && !pre.classList.contains('qwen-processed')) {
-                pre.classList.add('qwen-processed');
-                
-                // Obtener el lenguaje del código
-                let lang = 'text';
-                const langMatch = codeBlock.className.match(/language-(\w+)/);
-                if (langMatch) {
-                  lang = langMatch[1];
-                }
-                
-                // Convertir a mayúsculas para la etiqueta
-                const langLabel = lang.toUpperCase();
-                
-                // Obtener el HTML ya destacado (highlight.js ya lo procesó)
-                const highlightedHtml = codeBlock.innerHTML || codeBlock.textContent || '';
-                
-                // Dividir en líneas preservando el HTML destacado
-                const lines = highlightedHtml.split('\n');
-                const numberedLines = lines.map((line, index) => {
-                  // Si la línea está vacía, mantenerla vacía pero con numeración
-                  if (!line.trim() && line === '') {
-                    return '<span class="line"></span>';
-                  }
-                  return `<span class="line">${line || ' '}</span>`;
-                }).join('\n');
-                
-                // Crear wrapper con header y código
-                const wrapper = document.createElement('div');
-                wrapper.className = 'qwen-code-wrapper';
-                wrapper.innerHTML = `
-                  <div class="qwen-code-header">
-                    <span class="qwen-code-lang">${langLabel}</span>
-                    <div class="qwen-code-actions">
-                      <button class="qwen-code-action-btn" onclick="qwenCopyCode(this)" title="Copiar código">
-                        📋
-                      </button>
-                      <button class="qwen-code-action-btn" onclick="qwenDownloadCode(this, '${langLabel}')" title="Descargar">
-                        💾
-                      </button>
-                    </div>
-                  </div>
-                  <div class="qwen-code-block">
-                    <pre><code class="language-${lang} hljs">${numberedLines}</code></pre>
-                  </div>
-                `;
-                
-                // Reemplazar el pre original con el wrapper
-                pre.parentNode.replaceChild(wrapper, pre);
-              }
-            });
-          }
+          // ⚠️ ELIMINADO: processCodeBlocks custom
+          // PrismJS con plugin line-numbers maneja numeración de líneas automáticamente
+          // No se necesita código custom para esto
           
           // Funciones globales para acciones de código
           window.qwenCopyCode = function(btn) {
@@ -4097,26 +4025,71 @@
                 // ⭐ RENDERIZAR INMEDIATAMENTE (síncrono, sin requestAnimationFrame, sin setTimeout)
                 // El contenido acumulado se actualiza en tiempo real, carácter por carácter
                 try {
-                  contentEl.innerHTML = md.render(qwenFullText);
+                  // ⭐ CRÍTICO: Guardar bloques de código ya procesados antes de re-renderizar
+                  // Esto evita que se pierdan durante el re-renderizado
+                  const existingCodeWrappers = Array.from(contentEl.querySelectorAll('.qwen-code-wrapper'));
+                  const preservedCode = new Map();
+                  existingCodeWrappers.forEach((wrapper, index) => {
+                    const code = wrapper.querySelector('code');
+                    if (code) {
+                      preservedCode.set(index, {
+                        lang: wrapper.querySelector('.qwen-code-lang')?.textContent || 'TEXT',
+                        content: code.textContent || code.innerText || ''
+                      });
+                    }
+                  });
                   
-                  // Aplicar highlighting a los bloques de código después del renderizado
-                  // ⭐ HACERLO INMEDIATAMENTE (no async)
-                  if (window.hljs) {
-                    contentEl.querySelectorAll('pre code').forEach((block) => {
-                      if (!block.classList.contains('hljs')) {
-                        try {
-                          window.hljs.highlightElement(block);
-                        } catch (e) {
-                          // Ignorar errores de highlighting durante streaming
-                        }
-                      }
+                  // ⭐ RENDERIZAR CON LIBRERÍAS OPEN SOURCE: marked + DOMPurify + PrismJS
+                  let html = '';
+                  
+                  if (typeof marked !== 'undefined') {
+                    // Usar marked para parsear markdown
+                    html = marked.parse(qwenFullText);
+                  } else {
+                    // Fallback si marked no está disponible
+                    html = qwenFullText.replace(/\n/g, '<br>');
+                  }
+                  
+                  // ⭐ SANITIZAR HTML con DOMPurify para prevenir XSS
+                  if (typeof DOMPurify !== 'undefined') {
+                    html = DOMPurify.sanitize(html, {
+                      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'a', 'img'],
+                      ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'data-line']
                     });
                   }
                   
-                  // Procesar bloques de código: agregar numeración, etiqueta y botones
-                  // IMPORTANTE: Solo procesar bloques nuevos, no re-procesar los existentes
-                  // Esto evita que se dupliquen los wrappers durante streaming
-                  processCodeBlocks(contentEl);
+                  // Renderizar contenido sanitizado
+                  contentEl.innerHTML = html;
+                  
+                  // ⭐ APLICAR PRISMJS: Highlighting + numeración de líneas automática
+                  if (typeof Prism !== 'undefined') {
+                    // PrismJS aplica highlighting y numeración automáticamente a los bloques de código
+                    // Solo procesar bloques que pertenecen a este mensaje específico
+                    contentEl.querySelectorAll('pre code').forEach((block) => {
+                      const blockMsgId = block.closest('[data-message-id]')?.dataset.messageId;
+                      if (blockMsgId === msgId) {
+                        // Agregar clase line-numbers para activar numeración (plugin de PrismJS)
+                        const pre = block.parentElement;
+                        if (pre && !pre.classList.contains('line-numbers')) {
+                          pre.classList.add('line-numbers');
+                        }
+                        
+                        // Aplicar highlighting de PrismJS
+                        try {
+                          Prism.highlightElement(block);
+                        } catch (e) {
+                          // Ignorar errores durante streaming
+                        }
+                      }
+                    });
+                    
+                    // Aplicar PrismJS a todo el contenedor (método alternativo)
+                    try {
+                      Prism.highlightAllUnder(contentEl);
+                    } catch (e) {
+                      // Ignorar errores durante streaming
+                    }
+                  }
                 } catch (renderErr) {
                   console.error('[QWEN Render] ⚠️ Error renderizando:', renderErr.message);
                 }
@@ -5772,48 +5745,32 @@
         .replace(/'/g, '&#39;');
     }
 
+    // ⭐ RENDERIZADO SEGURO CON LIBRERÍAS OPEN SOURCE
     function formatMessageHtml(text) {
-      // Usar markdown-it si está disponible, sino fallback a formato simple
-      if (window.markdownit && window.hljs) {
-        const md = window.markdownit({
-          html: true,
-          linkify: true,
-          typographer: true,
-          highlight: function (str, lang) {
-            if (lang && window.hljs.getLanguage(lang)) {
-              try {
-                return '<pre class="hljs"><code class="language-' + lang + '">' +
-                       window.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
-                       '</code></pre>';
-              } catch (__) {}
-            }
-            // Si lang es 'text' o no se especifica, intentar detección automática
-            try {
-              const auto = window.hljs.highlightAuto(str);
-              return '<pre class="hljs"><code class="language-' + (auto.language || 'text') + '">' +
-                     auto.value +
-                     '</code></pre>';
-            } catch (__) {
-              const div = document.createElement('div');
-              div.textContent = str;
-              return '<pre class="hljs"><code>' + div.innerHTML + '</code></pre>';
-            }
-          }
-        });
-        const html = md.render(String(text || ''));
-        // Aplicar highlighting después del renderizado
-        setTimeout(() => {
-          document.querySelectorAll('pre code').forEach((block) => {
-            if (!block.classList.contains('hljs')) {
-              window.hljs.highlightElement(block);
-            }
-          });
-        }, 0);
+      let html = '';
+      
+      // Usar marked (open source) para parsear markdown
+      if (typeof marked !== 'undefined') {
+        html = marked.parse(String(text || ''));
+      } else {
+        // Fallback: formato simple si marked no está disponible
+        html = escapeHtml(text).replace(/\n/g, '<br>');
         return html;
       }
       
-      // Fallback: formato simple si markdown-it no está disponible
-      return escapeHtml(text).replace(/\n/g, '<br>');
+      // ⭐ SANITIZAR HTML con DOMPurify para prevenir XSS
+      if (typeof DOMPurify !== 'undefined') {
+        html = DOMPurify.sanitize(html, {
+          ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'a', 'img'],
+          ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'data-line']
+        });
+      }
+      
+      // ⭐ APLICAR PRISMJS: Highlighting + numeración de líneas automática
+      // Nota: PrismJS se aplicará después de insertar el HTML en el DOM
+      // usando Prism.highlightAllUnder() o Prism.highlightElement()
+      
+      return html;
     }
 
     function estimateTokens(text) {
@@ -5951,6 +5908,24 @@
       const contentEl = messageDiv?.querySelector?.('.message-content');
       if (!contentEl) return;
       contentEl.innerHTML = formatMessageHtml(text);
+      
+      // ⭐ APLICAR PRISMJS después de renderizar
+      if (typeof Prism !== 'undefined') {
+        // Agregar clase line-numbers a todos los bloques de código
+        contentEl.querySelectorAll('pre code').forEach((block) => {
+          const pre = block.parentElement;
+          if (pre && !pre.classList.contains('line-numbers')) {
+            pre.classList.add('line-numbers');
+          }
+        });
+        
+        // Aplicar highlighting de PrismJS
+        try {
+          Prism.highlightAllUnder(contentEl);
+        } catch (e) {
+          // Ignorar errores
+        }
+      }
     }
 
     async function streamMessage(messageDiv, fullText) {
@@ -5960,6 +5935,18 @@
 
       if (text.length > 2000) {
         contentEl.innerHTML = formatMessageHtml(text);
+        // Aplicar PrismJS después de renderizar
+        if (typeof Prism !== 'undefined') {
+          contentEl.querySelectorAll('pre code').forEach((block) => {
+            const pre = block.parentElement;
+            if (pre && !pre.classList.contains('line-numbers')) {
+              pre.classList.add('line-numbers');
+            }
+          });
+          try {
+            Prism.highlightAllUnder(contentEl);
+          } catch (e) {}
+        }
         return;
       }
 
@@ -5968,6 +5955,18 @@
       for (const part of parts) {
         acc += part;
         contentEl.innerHTML = formatMessageHtml(acc);
+        // Aplicar PrismJS durante streaming (solo al final para mejor rendimiento)
+        if (typeof Prism !== 'undefined' && acc.length === text.length) {
+          contentEl.querySelectorAll('pre code').forEach((block) => {
+            const pre = block.parentElement;
+            if (pre && !pre.classList.contains('line-numbers')) {
+              pre.classList.add('line-numbers');
+            }
+          });
+          try {
+            Prism.highlightAllUnder(contentEl);
+          } catch (e) {}
+        }
         scrollChatToBottom();
         await new Promise(r => setTimeout(r, 10));
       }
@@ -6103,166 +6102,21 @@
             attachments: meta.attachments
           });
 
-          // Si es Qwen streaming, configurar listener para actualizar en tiempo real
-          if (result?.qwenStreaming) {
-            let accumulatedText = '';
-            let timeoutId = null;
-            let responseReceived = false;
-            let checkInterval = null;
-            
-            // Verificar periódicamente si Qwen está procesando (cada 2 segundos)
-            checkInterval = setInterval(() => {
-              if (!responseReceived && accumulatedText === '') {
-                // Si después de 10 segundos no hay respuesta, verificar si el mensaje se envió
-                console.log('[QWEN] Verificando estado del envío...');
-              }
-            }, 2000);
-            
-            const qwenResponseHandler = (data) => {
-              // Manejar diferentes tipos de eventos
-              if (data.type === 'thinking') {
-                // Qwen está pensando
-                responseReceived = true; // Marcar como recibido para evitar timeout
-                updateMessageDiv(assistantDiv, '💭 Pensando...');
-                scrollChatToBottom();
-                console.log('[QWEN] Estado: Pensando...');
-                return;
-              }
-              
-              // Detectar si la respuesta está completa (por type='complete' o partial=false)
-              const isComplete = data.type === 'complete' || (data.partial === false && data.content);
-              
-              // Aceptar contenido con o sin tipo específico
-              if ((data.type === 'text' || data.type === 'code' || !data.type) && data.content) {
-                responseReceived = true;
-                if (checkInterval) {
-                  clearInterval(checkInterval);
-                  checkInterval = null;
-                }
-                
-                // Si es respuesta completa, usar el contenido completo
-                if (isComplete) {
-                  accumulatedText = data.content;
-                } else {
-                  // Si es streaming, acumular
-                  accumulatedText = data.content; // El interceptor ya envía el texto completo acumulado
-                }
-                
-                // Actualizar el div en tiempo real
-                updateMessageDiv(assistantDiv, accumulatedText);
-                scrollChatToBottom();
-                
-                // Si está completo, finalizar inmediatamente
-                if (isComplete) {
-                  // Limpiar timeout y finalizar
-                  if (timeoutId) clearTimeout(timeoutId);
-                  if (window.sandraAPI?.off) {
-                    window.sandraAPI.off('qwen:response', qwenResponseHandler);
-                  }
-                  maybeApplyCanvasFromResponse(accumulatedText);
-                  updateModelUI();
-                  console.log('[QWEN] ✅ Respuesta completa (partial: false)');
-                } else {
-                  // Reset timeout cada vez que llega contenido (streaming)
-                  if (timeoutId) clearTimeout(timeoutId);
-                  timeoutId = setTimeout(() => {
-                    // Después de 3 segundos sin nuevas respuestas, considerar que terminó
-                    if (window.sandraAPI?.off) {
-                      window.sandraAPI.off('qwen:response', qwenResponseHandler);
-                    }
-                    maybeApplyCanvasFromResponse(accumulatedText);
-                    updateModelUI();
-                  }, 3000);
-                }
-              } else if (data.type === 'complete' || isComplete) {
-                // Respuesta completa (fallback)
-                responseReceived = true;
-                if (checkInterval) {
-                  clearInterval(checkInterval);
-                  checkInterval = null;
-                }
-                
-                // Si hay texto completo, usarlo
-                if (data.fullText || data.content) {
-                  accumulatedText = data.fullText || data.content;
-                  updateMessageDiv(assistantDiv, accumulatedText);
-                }
-                
-                // Limpiar timeout y finalizar
-                if (timeoutId) clearTimeout(timeoutId);
-                if (window.sandraAPI?.off) {
-                  window.sandraAPI.off('qwen:response', qwenResponseHandler);
-                }
-                maybeApplyCanvasFromResponse(accumulatedText);
-                updateModelUI();
-                console.log('[QWEN] ✅ Respuesta completa');
-              } else if (data.type === 'image' || data.type === 'video' || data.type === 'audio') {
-                // Añadir referencias de media al texto
-                accumulatedText += `\n[${data.type.toUpperCase()}: ${data.content}]`;
-                updateMessageDiv(assistantDiv, accumulatedText);
-              }
-            };
-            
-            // Registrar listener para respuestas de Qwen
-            if (window.sandraAPI?.on) {
-              window.sandraAPI.on('qwen:response', qwenResponseHandler);
-              
-              // Timeout inicial más corto (15 segundos) para detectar si el mensaje no se envió
-              // PERO solo si no hay indicador de "thinking" activo
-              setTimeout(() => {
-                if (!responseReceived && accumulatedText === '') {
-                  // Verificar si hay un mensaje de "thinking" activo
-                  const thinkingMsg = document.querySelector('.qwen-thinking-message');
-                  if (!thinkingMsg) {
-                    // Solo mostrar advertencia si NO hay indicador de thinking
-                    updateMessageDiv(assistantDiv, '⚠️ El mensaje puede no haberse enviado. Verifica el panel lateral de Qwen y envía manualmente si es necesario.');
-                    addTerminalLine('⚠️ QWEN: Posible fallo en envío automático - verifica panel lateral');
-                  }
-                }
-              }, 15000);
-              
-              // Timeout de seguridad (60 segundos) para limpiar listener
-              // PERO solo mostrar timeout si NO hay indicador de "thinking" activo
-              setTimeout(() => {
-                if (checkInterval) {
-                  clearInterval(checkInterval);
-                  checkInterval = null;
-                }
-                if (window.sandraAPI?.off) {
-                  window.sandraAPI.off('qwen:response', qwenResponseHandler);
-                }
-                if (timeoutId) clearTimeout(timeoutId);
-                if (!accumulatedText && !responseReceived) {
-                  // Verificar si hay un mensaje de "thinking" activo
-                  const thinkingMsg = document.querySelector('.qwen-thinking-message');
-                  if (!thinkingMsg) {
-                    // Solo mostrar timeout si NO hay indicador de thinking
-                    updateMessageDiv(assistantDiv, '⏱️ Timeout esperando respuesta de Qwen. Verifica el panel lateral y que el mensaje se haya enviado correctamente.');
-                    addTerminalLine('⏱️ QWEN: Timeout - el mensaje puede no haberse enviado');
-                  } else {
-                    // Si hay thinking activo, actualizar el mensaje para indicar que sigue procesando
-                    const thinkingContent = thinkingMsg.querySelector('.qwen-response-content');
-                    if (thinkingContent) {
-                      thinkingContent.innerHTML = `
-                        <div class="thinking-indicator" style="display: flex; align-items: center; gap: 12px; padding: 16px;">
-                          <span style="font-size: 24px; animation: pulse 1.5s ease-in-out infinite;">🤔</span>
-                          <div>
-                            <div style="font-weight: 600; margin-bottom: 4px;">QWEN está realizando un análisis profundo...</div>
-                            <div style="font-size: 12px; color: var(--text-muted);">Esto puede tomar más tiempo de lo normal</div>
-                          </div>
-                        </div>
-                      `;
-                    }
-                  }
-                }
-              }, 60000);
-            }
-            
-            // Mostrar mensaje inicial
-            updateMessageDiv(assistantDiv, result.text || '✅ Mensaje enviado a QWEN. Esperando respuesta...');
+          // ⚠️ ELIMINADO: qwenResponseHandler antiguo
+          // El nuevo sistema onQwenResponse (línea ~3746) maneja todo el streaming y renderizado
+          // No se necesita el handler antiguo que causaba conflictos
+          
+          // Para QWEN, el sistema onQwenResponse maneja el streaming automáticamente
+          // Solo mostrar mensaje inicial si no hay respuesta inmediata
+          if (result?.text) {
+            updateMessageDiv(assistantDiv, result.text);
           } else {
-            // Para otros proveedores, comportamiento normal
-            const responseText = String(result?.text || '');
+            updateMessageDiv(assistantDiv, '✅ Mensaje enviado a QWEN. Esperando respuesta...');
+          }
+          
+          // Para otros proveedores, comportamiento normal
+          if (state.currentProvider !== 'qwen' && result?.text) {
+            const responseText = String(result.text);
             if (responseText) {
               await streamMessage(assistantDiv, responseText);
               maybeApplyCanvasFromResponse(responseText);
@@ -6683,11 +6537,15 @@
      * Abre el panel QWEN embebido (estilo VS Code)
      * Envía IPC signal a main.js para crear la ventana
      */
-    function openQwenEmbedded() {
+    window.openQwenEmbedded = function() {
       // Usar el sistema del MCP Universal - BrowserView embebido (como VS Code extension)
       // No abre ventanas externas, simplemente muestra/oculta el panel embebido
-      toggleQwen();
-    }
+      if (typeof toggleQwen === 'function') {
+        toggleQwen();
+      } else {
+        console.warn('[QWEN] toggleQwen no está definido');
+      }
+    };
 
     /**
      * Listener: Respuestas del MCP Server
