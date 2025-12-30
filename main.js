@@ -1589,14 +1589,12 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         setTimeout(() => {
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
             try {
-              // Configurar comunicación bidireccional
-              setupQwenBidirectionalCommunication(qwenBrowserView);
-              // Inyectar observador de respuestas
-              injectQwenResponseObserver(qwenBrowserView);
-              // Iniciar captura de respuestas después de un delay adicional
+              // Usar versión simplificada y robusta del Observer
+              setupSimplifiedQwenObserver(qwenBrowserView);
+              // Iniciar captura simplificada
               setTimeout(() => {
                 if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-                  startQwenResponseCapture();
+                  startSimplifiedQwenCapture();
                 }
               }, 2000);
             } catch (error) {
@@ -1753,6 +1751,168 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
     return { success: true, message: 'QWEN oculto' };
   }
 });
+
+// ============ QWEN: OBSERVER SIMPLIFICADO Y ROBUSTO ============
+// Versión simplificada que garantiza funcionamiento sin bloqueos
+function setupSimplifiedQwenObserver(browserView) {
+  if (!browserView || browserView.webContents.isDestroyed()) return;
+
+  const observerScript = `
+    (function() {
+      if (window.qwenObserverActive) return;
+      window.qwenObserverActive = true;
+      
+      console.log('[QWEN Observer] ✅ Versión simplificada iniciada');
+      
+      window.qwenState = { lastText: '', lastHash: '', messageCount: 0 };
+      
+      function simpleHash(text) {
+        if (!text) return '';
+        let hash = 0;
+        for (let i = 0; i < text.length; i++) {
+          hash = ((hash << 5) - hash) + text.charCodeAt(i);
+          hash = hash & hash;
+        }
+        return hash.toString(36);
+      }
+      
+      function extractLastMessage() {
+        try {
+          const selectors = ['[data-role="assistant"]', '[class*="assistant"]', '[class*="message"]'];
+          let allTexts = [];
+          
+          for (const sel of selectors) {
+            const elements = document.querySelectorAll(sel);
+            elements.forEach(el => {
+              if (el.tagName === 'BUTTON' || el.closest('button')) return;
+              if (el.querySelector('button, input, textarea')) return;
+              
+              const text = (el.innerText || el.textContent || '').trim();
+              if (text.length < 20) return;
+              if (text.match(/^(copy|like|dislike|share|regenerate)$/i)) return;
+              if (text.includes('El contenido generado')) return;
+              
+              allTexts.push({ text: text, rect: el.getBoundingClientRect() });
+            });
+          }
+          
+          allTexts.sort((a, b) => b.rect.top - a.rect.top);
+          return allTexts.length > 0 ? allTexts[0].text : '';
+        } catch (e) {
+          return '';
+        }
+      }
+      
+      function detectCode(text) {
+        if (!text) return { hasCode: false, blocks: [] };
+        const hasCode = /```|`[^`]+`|Write-Host|Get-|Set-|function |def |class |import /.test(text);
+        const blocks = [];
+        const markdownMatch = text.match(/```([\\w]+)?\\n([\\s\\S]*?)```/g);
+        if (markdownMatch) {
+          markdownMatch.forEach(match => {
+            const langMatch = match.match(/```(\\w+)?/);
+            const codeMatch = match.match(/```[\\w]*\\n([\\s\\S]*?)```/);
+            if (codeMatch) {
+              blocks.push({
+                code: codeMatch[1],
+                language: langMatch ? langMatch[1] || 'text' : 'text',
+                format: 'markdown'
+              });
+            }
+          });
+        }
+        return { hasCode, blocks };
+      }
+      
+      function updateResponse() {
+        const currentText = extractLastMessage();
+        const currentHash = simpleHash(currentText);
+        
+        if (currentHash !== window.qwenState.lastHash && currentText.length > 0) {
+          window.qwenState.lastText = currentText;
+          window.qwenState.lastHash = currentHash;
+          window.qwenState.messageCount++;
+          
+          const codeInfo = detectCode(currentText);
+          
+          window.qwenLastResponse = {
+            text: currentText,
+            fullText: currentText,
+            state: 'complete',
+            hasCode: codeInfo.hasCode,
+            codeBlocks: codeInfo.blocks,
+            timestamp: Date.now()
+          };
+          
+          console.log('[QWEN Observer] ✅ Actualizado:', currentText.substring(0, 50), codeInfo.hasCode ? '(código)' : '');
+        }
+      }
+      
+      const observer = new MutationObserver(updateResponse);
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      setInterval(updateResponse, 500);
+      updateResponse();
+      
+      console.log('[QWEN Observer] ✅ Observador simplificado activo');
+    })();
+  `;
+
+  browserView.webContents.executeJavaScript(observerScript).catch(err => {
+    console.error('[QWEN] Error inyectando observer simplificado:', err);
+  });
+}
+
+// Sistema de captura simplificado
+function startSimplifiedQwenCapture() {
+  if (qwenResponseInterval) return;
+  
+  let lastSentText = '';
+  let lastSentHash = '';
+  
+  console.log('[QWEN Capture] 🚀 Iniciando captura simplificada...');
+  
+  qwenResponseInterval = setInterval(async () => {
+    if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
+      if (qwenResponseInterval) {
+        clearInterval(qwenResponseInterval);
+        qwenResponseInterval = null;
+      }
+      return;
+    }
+    
+    try {
+      const response = await qwenBrowserView.webContents.executeJavaScript(`
+        (function() {
+          return window.qwenLastResponse || { text: '', state: 'idle', hasCode: false, codeBlocks: [] };
+        })();
+      `);
+      
+      if (response && response.text && response.text.length > 0) {
+        const currentHash = response.text.length.toString() + response.text.substring(0, 50);
+        
+        if (currentHash !== lastSentHash && response.text !== lastSentText) {
+          lastSentText = response.text;
+          lastSentHash = currentHash;
+          
+          console.log('[QWEN Capture] 📤 Enviando:', response.text.length, 'chars', response.hasCode ? '(código)' : '');
+          
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('qwen:response', {
+              type: response.hasCode ? 'code' : 'text',
+              content: response.text,
+              state: response.state || 'complete',
+              stream: false,
+              isCode: response.hasCode,
+              codeBlocks: response.codeBlocks || []
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // Silenciar errores (página puede no estar lista aún)
+    }
+  }, 1000); // Verificar cada segundo
+}
 
 // ============ QWEN: COMUNICACIÓN BIDIRECCIONAL (MEJORADO V2) ============
 function setupQwenBidirectionalCommunication(browserView) {
