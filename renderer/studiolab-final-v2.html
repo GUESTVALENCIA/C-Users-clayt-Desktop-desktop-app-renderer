@@ -3520,31 +3520,24 @@
       if (window.sandraAPI?.onQwenResponse) {
         console.log('[QWEN Listener] 🎧 Configurando listener de respuestas...');
         
-        let qwenMessages = new Map(); // Mapa de mensajes por ID
-        let currentMessageId = null; // ID del mensaje actual
-        let lastMessageHash = ''; // Hash del último mensaje para detectar nuevos
+        let qwenMessages = new Map(); // Mapa de mensajes por messageId
+        let lastProcessedMessageId = null; // Último messageId procesado
         
         window.sandraAPI.onQwenResponse((data) => {
-          console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state);
+          console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state, 'MessageID:', data.messageId?.substring(0, 10));
           
           const chatContainer = document.getElementById('chatContainer');
           if (!chatContainer) return;
           
-          // Función para generar hash simple del contenido
-          function simpleHash(text) {
-            if (!text) return '';
-            return text.length.toString() + text.substring(0, 30);
-          }
-          
-          // Usar flag isNewMessage del sistema (más confiable)
-          const isNewMessage = data.isNewMessage === true;
+          // Usar messageId del sistema (más confiable que hash)
+          const messageId = data.messageId || null;
+          const isNewMessage = data.isNewMessage === true || (messageId && messageId !== lastProcessedMessageId);
           
           // Si es "thinking", mostrar indicador
           if (data.type === 'thinking') {
-            // Solo crear si no hay mensaje actual
-            if (!currentMessageId) {
-              const msgId = Date.now();
-              currentMessageId = msgId;
+            // Solo crear si no hay mensaje con este ID
+            const msgId = messageId || Date.now().toString();
+            if (!qwenMessages.has(msgId)) {
               qwenMessages.set(msgId, { text: '', isComplete: false });
               
               const msgDiv = document.createElement('div');
@@ -3568,37 +3561,31 @@
           
           // Si es texto o código
           if ((data.type === 'text' || data.type === 'code') && data.content) {
-            // CRÍTICO: Si es un mensaje nuevo, crear NUEVO elemento (NUNCA borrar el anterior)
-            if (isNewMessage && currentMessageId) {
+            // CRÍTICO: Usar messageId del sistema
+            const msgId = messageId || Date.now().toString();
+            
+            // Si es un mensaje nuevo, crear NUEVO elemento (NO reemplazar el anterior)
+            if (isNewMessage && lastProcessedMessageId && msgId !== lastProcessedMessageId) {
               // Marcar mensaje anterior como completo (NO borrarlo)
-              const prevMsg = qwenMessages.get(currentMessageId);
+              const prevMsg = qwenMessages.get(lastProcessedMessageId);
               if (prevMsg) {
                 prevMsg.isComplete = true;
-                const prevEl = document.querySelector(`[data-message-id="${currentMessageId}"]`);
+                const prevEl = document.querySelector(`[data-message-id="${lastProcessedMessageId}"]`);
                 if (prevEl) {
                   prevEl.classList.remove('qwen-streaming-message');
                   prevEl.classList.add('qwen-complete-message');
                 }
               }
-              
-              // Crear NUEVO mensaje (el anterior se mantiene intacto)
-              currentMessageId = Date.now();
-              lastMessageHash = simpleHash(data.content);
-              console.log('[QWEN Render] 🆕 Creando NUEVO mensaje, anterior se mantiene');
+              console.log('[QWEN Render] 🆕 Creando NUEVO mensaje (ID:', msgId.substring(0, 10) + '), anterior se mantiene');
             }
             
-            // Si no hay mensaje actual, crear uno
-            if (!currentMessageId) {
-              currentMessageId = Date.now();
-              lastMessageHash = simpleHash(data.content);
-            }
-            
-            let msgEl = document.querySelector(`[data-message-id="${currentMessageId}"]`);
+            // Buscar o crear elemento del mensaje
+            let msgEl = document.querySelector(`[data-message-id="${msgId}"]`);
             if (!msgEl) {
               // Crear nuevo mensaje
               const msgDiv = document.createElement('div');
               msgDiv.className = 'message-row assistant qwen-message qwen-streaming-message';
-              msgDiv.dataset.messageId = currentMessageId;
+              msgDiv.dataset.messageId = msgId;
               msgDiv.innerHTML = `
                 <div class="message-bubble assistant">
                   <div class="message-header">
@@ -3609,28 +3596,24 @@
               `;
               chatContainer.appendChild(msgDiv);
               msgEl = msgDiv;
-              qwenMessages.set(currentMessageId, { text: '', isComplete: false });
+              qwenMessages.set(msgId, { text: '', isComplete: false });
             }
             
             // Obtener texto acumulado del mensaje actual
-            const msgData = qwenMessages.get(currentMessageId) || { text: '', isComplete: false };
+            const msgData = qwenMessages.get(msgId) || { text: '', isComplete: false };
             
-            // AGREGAR contenido nuevo (NUNCA reemplazar)
-            if (data.content && data.content.length > 0) {
-              // Solo agregar si el contenido es nuevo (no duplicado)
-              if (!msgData.text.includes(data.content) || data.content.length > msgData.text.length) {
-                // Si el nuevo contenido es más largo, es una actualización
-                if (data.content.length > msgData.text.length) {
-                  msgData.text = data.content; // Actualizar con versión completa
-                } else if (!msgData.text.includes(data.content)) {
-                  // Agregar contenido nuevo
-                  msgData.text += data.content;
-                }
-                qwenMessages.set(currentMessageId, msgData);
-              }
+            // ACTUALIZAR contenido (solo si es más largo = streaming)
+            if (data.content && data.content.length > msgData.text.length) {
+              msgData.text = data.content; // Actualizar con versión completa (streaming)
+              qwenMessages.set(msgId, msgData);
+            } else if (data.content && !msgData.text) {
+              // Si no hay texto previo, establecer el nuevo
+              msgData.text = data.content;
+              qwenMessages.set(msgId, msgData);
             }
             
             const qwenFullText = msgData.text;
+            lastProcessedMessageId = msgId; // Actualizar último procesado
             
             const contentEl = msgEl.querySelector('.qwen-response-content');
             if (contentEl) {
