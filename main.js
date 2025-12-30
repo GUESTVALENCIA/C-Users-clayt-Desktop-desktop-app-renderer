@@ -1770,35 +1770,99 @@ function setupQwenBidirectionalCommunication(browserView) {
       // Función para extraer el ÚLTIMO mensaje del asistente (VERSIÓN MEJORADA PARA QWEN)
       function extractLastAssistantMessage() {
         try {
-          // BLACKLIST COMPLETA de textos de UI de QWEN
+          // BLACKLIST COMPLETA de textos de UI de QWEN (EXPANDIDA)
           const UI_EXACT_MATCHES = [
+            // Botones de QWEN
             'pensamiento', 'buscar', 'edición de imagen', 'desarrollo web',
             'generación de imágenes', 'generación de video', 'artefactos',
-            '¿cómo puedo ayudarte hoy?', '¿cómo puedo ayudarte', 
-            'qwen3-max', 'qwen3', 'qwen', 'buenos días', 'buenas tardes',
             'thinking', 'search', 'image editing', 'web development',
             'image generation', 'video generation', 'artifacts',
-            'copy', 'like', 'dislike', 'regenerate', 'share',
+            // Acciones
+            'copy', 'like', 'dislike', 'regenerate', 'share', 'edit', 'delete',
+            'copiar', 'me gusta', 'no me gusta', 'regenerar', 'compartir', 'editar', 'eliminar',
+            // Saludos/UI
+            '¿cómo puedo ayudarte hoy?', '¿cómo puedo ayudarte', 
+            '¿en qué puedo ayudarte?', 'how can i help',
+            'qwen3-max', 'qwen3', 'qwen', 'qwen-max', 'qwen-turbo',
+            'buenos días', 'buenas tardes', 'buenas noches',
+            'hola, cley', 'hola cley',
+            // Disclaimers
             'el contenido generado por ia puede no ser preciso',
-            'hola, cley', '✨', '🌟', '☀️'
+            'ai-generated content may not be accurate',
+            'contenido generado', 'generated content',
+            // Emojis comunes de UI
+            '✨', '🌟', '☀️', '🔍', '📝', '🎬', '🖼️', '⚡', '🌐',
+            // Navegación
+            'nuevo chat', 'new chat', 'historial', 'history', 'ajustes', 'settings',
+            'perfil', 'profile', 'cerrar sesión', 'logout', 'sign out',
+            // Chips/Tags
+            'chip', 'tag', 'badge', 'label'
           ];
           
-          // Función para limpiar texto de UI
+          // ============ FILTROS DE LIMPIEZA AVANZADOS (Pipeline QWEN + Claude) ============
+          const NOISE_PATTERNS = [
+            /https?:\\/\\/[^\\s]+/gi,           // URLs completas
+            /www\\.[^\\s]+/gi,                   // URLs sin protocolo
+            /\\[.*?\\]/g,                        // [botones], [iconos], etc.
+            /data-[\\w-]+="[^"]*"/gi,           // atributos data-*
+            /class="[^"]*"/gi,                  // clases CSS
+            /aria-[\\w-]+="[^"]*"/gi,           // accesibilidad
+            /<[^>]+>/g,                         // HTML tags residuales
+            /\\{[^}]*\\}/g,                      // JSON residual
+            /style="[^"]*"/gi,                  // estilos inline
+            /id="[^"]*"/gi,                     // IDs
+            /onclick="[^"]*"/gi,                // eventos
+            /&nbsp;/gi,                         // espacios HTML
+            /&[a-z]+;/gi,                       // entidades HTML
+            /\\\\n|\\\\r|\\\\t/g,                    // escapes de línea
+            /^\\s*[-•●○▪▸►]\\s*/gm,              // bullets de lista
+            /\\s{3,}/g,                          // 3+ espacios → uno
+            /\\d{1,2}:\\d{2}\\s*(AM|PM|am|pm)?\\s*\\.?/g,  // Timestamps (3:51 AM)
+            /\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}/g,    // Fechas (12/30/2024)
+            /^\\s*\\.\\s*/gm,                     // Puntos sueltos al inicio
+          ];
+          
+          // Función para limpiar texto de UI (MEJORADA)
           function cleanUIText(text) {
-            let cleaned = text.toLowerCase();
-            // Eliminar cada coincidencia exacta de UI
+            if (!text) return '';
+            
+            let cleaned = text;
+            
+            // Paso 1: Aplicar todos los patrones de ruido
+            for (const pattern of NOISE_PATTERNS) {
+              cleaned = cleaned.replace(pattern, ' ');
+            }
+            
+            // Paso 2: Eliminar coincidencias exactas de UI (case-insensitive)
+            let lowerCleaned = cleaned.toLowerCase();
             for (const ui of UI_EXACT_MATCHES) {
-              while (cleaned.includes(ui.toLowerCase())) {
-                cleaned = cleaned.replace(ui.toLowerCase(), '');
+              const uiLower = ui.toLowerCase();
+              while (lowerCleaned.includes(uiLower)) {
+                const idx = lowerCleaned.indexOf(uiLower);
+                cleaned = cleaned.substring(0, idx) + cleaned.substring(idx + ui.length);
+                lowerCleaned = cleaned.toLowerCase();
               }
             }
-            // Eliminar líneas muy cortas
+            
+            // Paso 3: Normalizar espacios y líneas
+            cleaned = cleaned
+              .replace(/\\n{3,}/g, '\\n\\n')       // Máximo 2 saltos de línea
+              .replace(/\\s{2,}/g, ' ')            // Espacios múltiples → uno
+              .replace(/^\\s+|\\s+$/gm, '')        // Trim cada línea
+              .trim();
+            
+            // Paso 4: Filtrar líneas muy cortas o sospechosas
             const lines = cleaned.split('\\n').filter(line => {
               const trimmed = line.trim();
               if (!trimmed) return false;
-              if (trimmed.length < 8) return false;
+              if (trimmed.length < 5) return false;
+              // Descartar líneas que son solo emojis
+              if (/^[\\p{Emoji}\\s]+$/u.test(trimmed)) return false;
+              // Descartar líneas que parecen botones
+              if (/^(copy|like|dislike|share|regenerate|edit|delete)$/i.test(trimmed)) return false;
               return true;
             });
+            
             return lines.join(' ').trim();
           }
           
@@ -2533,6 +2597,133 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
     const wc = qwenBrowserView.webContents;
 
+    // ============ INTERCEPTOR DE COMANDOS - BOTONES MÁGICOS ============
+    // Detecta intención y hace click en el botón correspondiente de QWEN
+    const QWEN_BUTTONS = {
+      video: {
+        keywords: ['video', 'vídeo', 'graba', 'grabación', 'clip', 'película', 'anima', 'animación'],
+        selectors: [
+          'button[aria-label*="video" i]',
+          'button[title*="video" i]',
+          '[class*="video" i] button',
+          'button:has(svg[class*="video" i])',
+          // Por texto visible
+          'button:contains("Video")',
+          'button:contains("Generación de Video")'
+        ],
+        icon: '🎬'
+      },
+      imagen: {
+        keywords: ['imagen', 'imágen', 'foto', 'fotografía', 'picture', 'image', 'dibuja', 'ilustra', 'genera imagen', 'crea imagen'],
+        selectors: [
+          'button[aria-label*="imagen" i]',
+          'button[aria-label*="image" i]',
+          'button[title*="imagen" i]',
+          '[class*="image" i] button',
+          'button:has(svg[class*="image" i])'
+        ],
+        icon: '🖼️'
+      },
+      edicion: {
+        keywords: ['edita imagen', 'modifica imagen', 'retoca', 'editing', 'edición de imagen'],
+        selectors: [
+          'button[aria-label*="edición" i]',
+          'button[aria-label*="editing" i]',
+          'button[title*="edición" i]'
+        ],
+        icon: '✏️'
+      },
+      web: {
+        keywords: ['web', 'página', 'website', 'sitio', 'landing', 'html', 'desarrollo web'],
+        selectors: [
+          'button[aria-label*="web" i]',
+          'button[title*="web" i]',
+          '[class*="web" i] button'
+        ],
+        icon: '🌐'
+      },
+      artefacto: {
+        keywords: ['artefacto', 'artifact', 'componente', 'app', 'aplicación', 'código', 'code'],
+        selectors: [
+          'button[aria-label*="artefacto" i]',
+          'button[aria-label*="artifact" i]',
+          'button[title*="artefacto" i]',
+          '[class*="artifact" i] button'
+        ],
+        icon: '⚡'
+      }
+    };
+
+    // Detectar qué botón activar basado en el mensaje
+    const messageLower = message.toLowerCase();
+    let buttonToClick = null;
+    
+    for (const [buttonType, config] of Object.entries(QWEN_BUTTONS)) {
+      for (const keyword of config.keywords) {
+        if (messageLower.includes(keyword)) {
+          buttonToClick = { type: buttonType, ...config };
+          break;
+        }
+      }
+      if (buttonToClick) break;
+    }
+
+    // Si detectamos un comando especial, intentar hacer click en el botón
+    if (buttonToClick) {
+      console.log(`[QWEN] ${buttonToClick.icon} Detectado comando: ${buttonToClick.type.toUpperCase()}`);
+      
+      const clickResult = await wc.executeJavaScript(`
+        (function() {
+          const buttonType = '${buttonToClick.type}';
+          const keywords = ${JSON.stringify(buttonToClick.keywords)};
+          
+          // Buscar todos los botones en la barra de herramientas/chips
+          const allButtons = document.querySelectorAll('button, [role="button"], [class*="chip"], [class*="tag"]');
+          
+          for (const btn of allButtons) {
+            const text = (btn.textContent || btn.innerText || '').toLowerCase();
+            const ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase();
+            const title = (btn.getAttribute('title') || '').toLowerCase();
+            const className = (btn.className || '').toLowerCase();
+            
+            // Buscar coincidencia por texto o atributos
+            const allText = text + ' ' + ariaLabel + ' ' + title + ' ' + className;
+            
+            // Mapeo específico para QWEN
+            const matches = {
+              'video': ['video', 'vídeo', 'generación de video', 'video generation'],
+              'imagen': ['imagen', 'image', 'generación de imágenes', 'image generation'],
+              'edicion': ['edición de imagen', 'image editing', 'edición'],
+              'web': ['desarrollo web', 'web development', 'web'],
+              'artefacto': ['artefactos', 'artifacts', 'artefacto']
+            };
+            
+            const targetKeywords = matches[buttonType] || [];
+            
+            for (const kw of targetKeywords) {
+              if (allText.includes(kw)) {
+                console.log('[QWEN Buttons] ✅ Botón encontrado:', btn.textContent?.substring(0, 30));
+                btn.click();
+                return { success: true, clicked: buttonType, text: text.substring(0, 50) };
+              }
+            }
+          }
+          
+          console.log('[QWEN Buttons] ⚠️ Botón no encontrado para:', buttonType);
+          return { success: false, error: 'Botón no encontrado' };
+        })();
+      `);
+
+      if (clickResult.success) {
+        console.log(`[QWEN] ✅ Botón ${buttonToClick.type} activado`);
+        // Esperar un momento para que QWEN procese el click
+        await new Promise(r => setTimeout(r, 300));
+      } else {
+        console.log(`[QWEN] ⚠️ No se encontró el botón ${buttonToClick.type}, continuando sin él`);
+      }
+    }
+    // ============ FIN INTERCEPTOR DE COMANDOS ============
+
     // PASO 1: Enfocar el input usando JavaScript
     const focusResult = await wc.executeJavaScript(`
       (function() {
@@ -2600,7 +2791,8 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     return { 
       success: true, 
       message: 'Mensaje enviado con sendInputEvent (método VS Code)',
-      strategy: 'sendInputEvent-real-keys'
+      strategy: 'sendInputEvent-real-keys',
+      buttonActivated: buttonToClick?.type || null
     };
 
   } catch (error) {
@@ -2608,6 +2800,59 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     if (error.message.includes('disposed') || error.message.includes('destroyed')) {
       return { success: false, error: 'El panel de Qwen se cerró. Vuelve a abrirlo.' };
     }
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ QWEN: CLICK EN BOTÓN ESPECÍFICO ============
+ipcMain.handle('qwen:clickButton', async (_e, { buttonType }) => {
+  try {
+    if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
+      return { success: false, error: 'QWEN no disponible' };
+    }
+
+    console.log(`[QWEN] 🔘 Activando botón: ${buttonType}`);
+
+    const result = await qwenBrowserView.webContents.executeJavaScript(`
+      (function() {
+        const buttonType = '${buttonType}';
+        const allButtons = document.querySelectorAll('button, [role="button"], [class*="chip"], [class*="tag"]');
+        
+        const matches = {
+          'video': ['video', 'vídeo', 'generación de video', 'video generation'],
+          'imagen': ['imagen', 'image', 'generación de imágenes', 'image generation'],
+          'edicion': ['edición de imagen', 'image editing', 'edición'],
+          'web': ['desarrollo web', 'web development', 'web'],
+          'artefacto': ['artefactos', 'artifacts', 'artefacto'],
+          'pensamiento': ['pensamiento', 'thinking'],
+          'buscar': ['buscar', 'search']
+        };
+        
+        const targetKeywords = matches[buttonType] || [buttonType];
+        
+        for (const btn of allButtons) {
+          const text = (btn.textContent || btn.innerText || '').toLowerCase();
+          const ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase();
+          const allText = text + ' ' + ariaLabel;
+          
+          for (const kw of targetKeywords) {
+            if (allText.includes(kw)) {
+              btn.click();
+              return { success: true, clicked: buttonType, text: text.substring(0, 50) };
+            }
+          }
+        }
+        
+        return { success: false, error: 'Botón no encontrado: ' + buttonType };
+      })();
+    `);
+
+    if (result.success) {
+      console.log(`[QWEN] ✅ Botón ${buttonType} activado`);
+    }
+    
+    return result;
+  } catch (error) {
     return { success: false, error: error.message };
   }
 });
