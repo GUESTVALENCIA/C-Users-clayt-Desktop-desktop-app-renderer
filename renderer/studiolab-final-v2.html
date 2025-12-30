@@ -3737,52 +3737,42 @@
         let qwenTimeoutId = null; // Timeout global para cancelar cuando llegue respuesta completa
         
         window.sandraAPI.onQwenResponse((data) => {
-          console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state, 'MessageID:', data.messageId?.substring(0, 10));
+          console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state, 'MessageID:', data.messageId?.substring(0, 20), 'isNew:', data.isNewMessage, 'isPartial:', data.isPartial);
           
           const chatContainer = document.getElementById('chatContainer');
           if (!chatContainer) return;
           
-          // Usar messageId del sistema (más confiable que hash)
+          // CRÍTICO: Usar messageId del interceptor (ahora siempre viene)
           const messageId = data.messageId || null;
           const currentTimestamp = Date.now();
           
-          // CRÍTICO: Detectar si es mensaje nuevo de forma más robusta
-          // 1. Si viene flag isNewMessage explícito, usarlo
-          // 2. Si messageId es diferente al último procesado, es nuevo
-          // 3. Si no hay messageId pero han pasado más de 2 segundos desde el último mensaje, puede ser nuevo
-          // 4. Si el contenido es completamente diferente (menos del 20% de similitud), es nuevo
+          // CRÍTICO: Detectar si es mensaje nuevo
+          // PRIORIDAD 1: Si viene flag isNewMessage explícito del interceptor, usarlo (más confiable)
+          // PRIORIDAD 2: Si messageId es diferente al último procesado, es nuevo
+          // PRIORIDAD 3: Si no hay messageId pero han pasado más de 3 segundos, puede ser nuevo
           let isNewMessage = false;
           
           if (data.isNewMessage === true) {
+            // ⭐ MÁS CONFIABLE: El interceptor marca explícitamente el primer chunk como nuevo
             isNewMessage = true;
+            console.log('[QWEN Listener] 🆕 Mensaje nuevo detectado por flag isNewMessage');
           } else if (messageId) {
             // Si hay messageId, comparar con el último procesado
             if (messageId !== lastProcessedMessageId) {
               isNewMessage = true;
+              console.log('[QWEN Listener] 🆕 Mensaje nuevo detectado por messageId diferente:', messageId.substring(0, 15), 'vs', lastProcessedMessageId?.substring(0, 15));
             } else {
-              // Mismo messageId: verificar si es un mensaje muy antiguo (más de 30 segundos)
-              const msgTimestamp = messageIdToTimestamp.get(messageId) || 0;
-              if (currentTimestamp - msgTimestamp > 30000) {
-                isNewMessage = true; // Mensaje muy antiguo, probablemente es nuevo
-              }
+              // Mismo messageId = mismo mensaje (streaming)
+              isNewMessage = false;
             }
           } else {
-            // Sin messageId: usar timestamp y similitud de contenido
+            // Sin messageId: usar timestamp (fallback)
             if (!lastProcessedMessageId) {
               isNewMessage = true; // Primer mensaje
-            } else if (currentTimestamp - lastMessageTimestamp > 2000) {
-              // Han pasado más de 2 segundos desde el último mensaje
+            } else if (currentTimestamp - lastMessageTimestamp > 3000) {
+              // Han pasado más de 3 segundos desde el último mensaje
               isNewMessage = true;
-            } else if (data.content) {
-              // Comparar similitud con el último mensaje
-              const lastMsg = qwenMessages.get(lastProcessedMessageId);
-              if (lastMsg && lastMsg.text) {
-                const similarity = calculateSimilarity(data.content, lastMsg.text);
-                if (similarity < 0.2) {
-                  // Menos del 20% de similitud, es un mensaje nuevo
-                  isNewMessage = true;
-                }
-              }
+              console.log('[QWEN Listener] 🆕 Mensaje nuevo detectado por timeout (3s)');
             }
           }
           
@@ -3992,13 +3982,16 @@
             const msgId = messageId || Date.now().toString();
             
             // CRÍTICO: Detectar si es realmente un mensaje nuevo
-            // Es nuevo si: viene flag isNewMessage, o messageId es diferente, o no existe elemento con ese ID
+            // PRIORIDAD: usar isNewMessage del interceptor (más confiable)
             const existingMsgEl = document.querySelector(`[data-message-id="${msgId}"]`);
-            const isActuallyNewMessage = isNewMessage || 
-                                        (lastProcessedMessageId && msgId !== lastProcessedMessageId) ||
-                                        (!existingMsgEl && lastProcessedMessageId !== null);
             
-            // Si es un mensaje nuevo, marcar el anterior como completo
+            // Es nuevo si:
+            // 1. El interceptor marca isNewMessage = true (primer chunk de un nuevo request)
+            // 2. messageId es diferente al último procesado Y no existe elemento con ese ID
+            const isActuallyNewMessage = isNewMessage || 
+                                        (messageId && messageId !== lastProcessedMessageId && !existingMsgEl);
+            
+            // CRÍTICO: Si es un mensaje nuevo, marcar el anterior como completo
             if (isActuallyNewMessage && lastProcessedMessageId && msgId !== lastProcessedMessageId) {
               // Marcar mensaje anterior como completo (NO borrarlo)
               const prevMsg = qwenMessages.get(lastProcessedMessageId);
@@ -4008,9 +4001,22 @@
                 if (prevEl) {
                   prevEl.classList.remove('qwen-streaming-message');
                   prevEl.classList.add('qwen-complete-message');
+                  
+                  // Asegurar que el mensaje anterior tenga botones de acción si no los tiene
+                  const prevContentEl = prevEl.querySelector('.qwen-response-content');
+                  if (prevContentEl && !prevContentEl.querySelector('.qwen-action-buttons') && prevMsg.text) {
+                    const actionButtons = document.createElement('div');
+                    actionButtons.className = 'qwen-action-buttons';
+                    actionButtons.innerHTML = `
+                      <button class="qwen-action-btn" onclick="qwenCopyMessage(this)" title="Copiar">📋</button>
+                      <button class="qwen-action-btn" onclick="qwenRegenerateMessage(this)" title="Regenerar">🔄</button>
+                      <button class="qwen-action-btn" onclick="qwenShareMessage(this)" title="Compartir">📤</button>
+                    `;
+                    prevContentEl.appendChild(actionButtons);
+                  }
                 }
               }
-              console.log('[QWEN Render] 🆕 Creando NUEVO mensaje (ID:', msgId.substring(0, 10) + '), anterior se mantiene');
+              console.log('[QWEN Render] 🆕 Creando NUEVO mensaje (ID:', msgId.substring(0, 15) + '), anterior se mantiene y se marca como completo');
             }
             
             // Buscar o crear elemento del mensaje
@@ -4045,25 +4051,30 @@
               qwenMessages.set(msgId, msgData);
             }
             
-            // CRÍTICO: Solo actualizar si el mensaje pertenece al messageId actual
-            // Si es un mensaje nuevo, inicializar con el contenido nuevo
+            // CRÍTICO: Actualizar contenido del mensaje
+            // Si es mensaje nuevo, inicializar con el contenido nuevo
+            // Si es streaming (mismo messageId), actualizar con contenido acumulado
             if (isActuallyNewMessage) {
               // Mensaje nuevo: establecer contenido inicial
               msgData.text = data.content || '';
               msgData.timestamp = currentTimestamp;
               qwenMessages.set(msgId, msgData);
+              console.log('[QWEN Listener] 🆕 Nuevo mensaje inicializado:', msgId.substring(0, 15), 'contenido:', (data.content || '').substring(0, 50));
             } else if (data.content) {
-              // Mensaje existente: actualizar solo si es más largo (streaming) o si no hay contenido previo
-              if (data.content.length > msgData.text.length) {
-                msgData.text = data.content; // Actualizar con versión completa (streaming)
+              // Mensaje existente (streaming): SIEMPRE actualizar si el contenido es más largo
+              // Esto permite ver el streaming en tiempo real
+              if (data.content.length >= msgData.text.length) {
+                msgData.text = data.content; // Actualizar con versión completa acumulada (streaming)
                 msgData.timestamp = currentTimestamp;
                 qwenMessages.set(msgId, msgData);
+                console.log('[QWEN Listener] 📝 Streaming actualizado:', msgId.substring(0, 15), 'longitud:', data.content.length);
               } else if (!msgData.text) {
                 // Si no hay texto previo, establecer el nuevo
                 msgData.text = data.content;
                 msgData.timestamp = currentTimestamp;
                 qwenMessages.set(msgId, msgData);
               }
+              // Si el contenido es más corto, no actualizar (puede ser un chunk duplicado)
             }
             
             const qwenFullText = msgData.text;
@@ -4076,33 +4087,44 @@
             
             const contentEl = msgEl.querySelector('.qwen-response-content');
             if (contentEl) {
-              // CRÍTICO: Para streaming real, siempre actualizar con el contenido completo acumulado
-              // Esto permite ver el texto escribiéndose en tiempo real
-              
+              // ⭐ STREAMING REAL: Actualizar INMEDIATAMENTE sin delays
               // Verificar si es streaming (partial = true)
-              const isStreaming = data.isStreaming === true || data.state === 'streaming' || data.isPartial === true || data.isStreaming === true;
+              const isStreaming = data.isStreaming === true || data.state === 'streaming' || data.isPartial === true;
               
-              // Para streaming real, siempre renderizar el contenido completo acumulado
-              // Esto permite ver el texto escribiéndose carácter por carácter
-              if (isActuallyNewMessage || isStreaming || qwenFullText.length > 0) {
-                // Renderizar completo (el contenido acumulado se actualiza en tiempo real)
-                contentEl.innerHTML = md.render(qwenFullText);
-                
-                // Aplicar highlighting a los bloques de código después del renderizado
-                if (window.hljs) {
-                  contentEl.querySelectorAll('pre code').forEach((block) => {
-                    if (!block.classList.contains('hljs')) {
-                      window.hljs.highlightElement(block);
-                    }
-                  });
+              // CRÍTICO: Para streaming real, SIEMPRE actualizar el contenido inmediatamente
+              // Esto permite ver el texto escribiéndose carácter por carácter en tiempo real
+              if (qwenFullText.length > 0) {
+                // ⭐ RENDERIZAR INMEDIATAMENTE (síncrono, sin requestAnimationFrame, sin setTimeout)
+                // El contenido acumulado se actualiza en tiempo real, carácter por carácter
+                try {
+                  contentEl.innerHTML = md.render(qwenFullText);
+                  
+                  // Aplicar highlighting a los bloques de código después del renderizado
+                  // ⭐ HACERLO INMEDIATAMENTE (no async)
+                  if (window.hljs) {
+                    contentEl.querySelectorAll('pre code').forEach((block) => {
+                      if (!block.classList.contains('hljs')) {
+                        try {
+                          window.hljs.highlightElement(block);
+                        } catch (e) {
+                          // Ignorar errores de highlighting durante streaming
+                        }
+                      }
+                    });
+                  }
+                  
+                  // Procesar bloques de código: agregar numeración, etiqueta y botones
+                  // IMPORTANTE: Solo procesar bloques nuevos, no re-procesar los existentes
+                  // Esto evita que se dupliquen los wrappers durante streaming
+                  processCodeBlocks(contentEl);
+                } catch (renderErr) {
+                  console.error('[QWEN Render] ⚠️ Error renderizando:', renderErr.message);
                 }
-                
-                // Procesar bloques de código: agregar numeración, etiqueta y botones
-                // IMPORTANTE: Solo procesar bloques nuevos, no re-procesar los existentes
-                processCodeBlocks(contentEl);
               }
             }
             
+            // ⭐ SCROLL INMEDIATAMENTE (sin requestAnimationFrame)
+            // Esto permite ver el contenido escribiéndose en tiempo real
             chatContainer.scrollTop = chatContainer.scrollHeight;
           }
           
