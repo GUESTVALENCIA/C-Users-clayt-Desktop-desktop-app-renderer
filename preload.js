@@ -167,6 +167,8 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   qwenOpenPortal: () => Promise.resolve({ success: true }),
   qwenVoiceChat: (audioBase64, userId, text) => ipcRenderer.invoke('qwen:voiceChat', { audioBase64, userId, text }),
   qwenLogin: () => Promise.resolve({ success: true }),
+  // QWEN - Botones mágicos (video, imagen, artefactos, etc.)
+  qwenClickButton: (buttonType) => ipcRenderer.invoke('qwen:clickButton', { buttonType }),
 
   // Funciones de streaming de Qwen (mantener solo para funcionalidad adicional)
   qwenStartAudioStream: (options = {}) => ipcRenderer.invoke('qwen:startAudioStream', options),
