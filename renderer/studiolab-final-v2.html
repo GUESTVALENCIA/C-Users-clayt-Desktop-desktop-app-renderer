@@ -1175,6 +1175,47 @@
     .qwen-action-btn:active {
       transform: scale(0.95);
     }
+
+    /* Estilos para bloques de código de QWEN */
+    .qwen-code-block {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 12px 0;
+      overflow-x: auto;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      position: relative;
+    }
+
+    .qwen-code-block code {
+      display: block;
+      color: var(--text-primary);
+      white-space: pre;
+      word-wrap: normal;
+      overflow-wrap: normal;
+    }
+
+    .qwen-code-block code.language-powershell {
+      color: #d4d4d4;
+    }
+
+    .qwen-code-block code.language-python {
+      color: #d4d4d4;
+    }
+
+    .qwen-code-block code.language-javascript,
+    .qwen-code-block code.language-js {
+      color: #d4d4d4;
+    }
+
+    .qwen-code-block code.language-bash,
+    .qwen-code-block code.language-shell {
+      color: #d4d4d4;
+    }
+
       border: none;
       font-size: 14px;
     }
@@ -3487,8 +3528,8 @@
             return;
           }
           
-          // Si es texto, actualizar el contenido
-          if (data.type === 'text' && data.content) {
+          // Si es texto o código, actualizar el contenido
+          if ((data.type === 'text' || data.type === 'code') && data.content) {
             let msgEl = document.querySelector('.qwen-streaming-message');
             if (!msgEl) {
               // Crear si no existe
@@ -3516,10 +3557,58 @@
             
             const contentEl = msgEl.querySelector('.qwen-response-content');
             if (contentEl) {
-              contentEl.innerHTML = qwenFullText.replace(/\n/g, '<br>');
+              // Función auxiliar para escapar HTML
+              const escapeHtml = (text) => {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+              };
+              
+              // NUEVO: Si tiene código, renderizar con formato
+              if (data.type === 'code' && data.codeBlocks && data.codeBlocks.length > 0) {
+                // Renderizar bloques de código con formato
+                let htmlContent = '';
+                let textIndex = 0;
+                
+                data.codeBlocks.forEach((block, idx) => {
+                  // Añadir texto antes del bloque de código si existe
+                  const codeStart = qwenFullText.indexOf(block.code, textIndex);
+                  if (codeStart > textIndex) {
+                    const textBefore = qwenFullText.substring(textIndex, codeStart);
+                    htmlContent += textBefore.replace(/\n/g, '<br>');
+                  }
+                  
+                  // Renderizar bloque de código con formato
+                  const codeHtml = escapeHtml(block.code);
+                  htmlContent += `<pre class="qwen-code-block"><code class="language-${block.language || 'text'}">${codeHtml}</code></pre>`;
+                  
+                  textIndex = codeStart + block.code.length;
+                });
+                
+                // Añadir texto restante después del último bloque
+                if (textIndex < qwenFullText.length) {
+                  htmlContent += qwenFullText.substring(textIndex).replace(/\n/g, '<br>');
+                }
+                
+                contentEl.innerHTML = htmlContent;
+              } else if (data.codeContent) {
+                // Si viene código formateado en markdown, renderizarlo
+                const codeHtml = escapeHtml(data.codeContent);
+                contentEl.innerHTML = `<pre class="qwen-code-block"><code>${codeHtml}</code></pre>`;
+              } else {
+                // Texto normal
+                contentEl.innerHTML = qwenFullText.replace(/\n/g, '<br>');
+              }
             }
             
             chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+          
+          // Función auxiliar para escapar HTML
+          function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
           }
           
           // Si es imagen, añadirla
