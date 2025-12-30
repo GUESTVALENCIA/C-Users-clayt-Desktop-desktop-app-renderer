@@ -1788,6 +1788,66 @@ function setupQwenBidirectionalCommunication(browserView) {
         messageCount: 0
       };
 
+      // Función para extraer bloques de código con formato (NUEVO)
+      function extractCodeBlocks(element) {
+        const codeBlocks = [];
+        try {
+          // Buscar bloques de código en el elemento
+          const codeElements = element.querySelectorAll('pre code, pre, [class*="code-block"], [class*="syntax-highlight"]');
+          
+          codeElements.forEach(codeEl => {
+            const codeText = codeEl.textContent || codeEl.innerText || '';
+            if (!codeText.trim()) return;
+            
+            // Detectar lenguaje si está en la clase o en el elemento padre
+            let language = 'text';
+            const classList = Array.from(codeEl.classList);
+            const parentPre = codeEl.closest('pre');
+            const parentClassList = parentPre ? Array.from(parentPre.classList) : [];
+            
+            // Buscar lenguaje en clases (common patterns)
+            const langMatch = [...classList, ...parentClassList].find(cls => 
+              cls.includes('language-') || cls.includes('lang-') || 
+              cls.match(/^(javascript|python|powershell|bash|shell|html|css|json|xml|sql|typescript|java|cpp|csharp|go|rust|php|ruby|swift|kotlin)$/i)
+            );
+            
+            if (langMatch) {
+              language = langMatch.replace(/^(language-|lang-)/i, '').toLowerCase();
+            } else if (parentPre) {
+              // Intentar detectar desde el primer hijo (común en markdown)
+              const firstChild = parentPre.firstElementChild;
+              if (firstChild && firstChild.classList.contains('language-')) {
+                language = firstChild.className.replace('language-', '').toLowerCase();
+              }
+            }
+            
+            // Detectar si es markdown (triple backticks con lenguaje)
+            // Usar new RegExp para evitar problemas con backticks en template literal
+            const markdownPattern = new RegExp('^\\`\\`\\`(\\w+)?\\n([\\s\\S]*?)\\`\\`\\`$', 'm');
+            const markdownMatch = codeText.match(markdownPattern);
+            if (markdownMatch) {
+              language = markdownMatch[1] || language;
+              codeBlocks.push({
+                code: markdownMatch[2],
+                language: language,
+                format: 'markdown',
+                raw: codeText
+              });
+            } else {
+              codeBlocks.push({
+                code: codeText,
+                language: language,
+                format: 'raw',
+                raw: codeText
+              });
+            }
+          });
+        } catch (e) {
+          console.error('[QWEN Code Extract] Error:', e);
+        }
+        return codeBlocks;
+      }
+
       // Función para extraer el ÚLTIMO mensaje del asistente (VERSIÓN MEJORADA PARA QWEN)
       function extractLastAssistantMessage() {
         try {
@@ -1981,6 +2041,10 @@ function setupQwenBidirectionalCommunication(browserView) {
                 // Verificar que el texto no sea solo URLs o botones
                 if (/^https?:\\/\\//i.test(rawText) || /^\\s*(copy|like|dislike|share|regenerate|edit|delete)\\s*$/i.test(rawText)) return;
                 
+                // NUEVO: Extraer bloques de código antes de limpiar
+                const codeBlocks = extractCodeBlocks(el);
+                const hasCode = codeBlocks.length > 0;
+                
                 const cleanedText = cleanUIText(rawText);
                 
                 // Validación final: asegurar que NO es principalmente botones mágicos (según plan)
@@ -1996,13 +2060,15 @@ function setupQwenBidirectionalCommunication(browserView) {
                 });
                 if (isMostlyMagicButtons) return; // Ignorar este mensaje
                 
-                // Solo considerar si tiene contenido real después de limpiar
-                if (cleanedText.length > 30) {
+                // Solo considerar si tiene contenido real después de limpiar O tiene código
+                if (cleanedText.length > 30 || hasCode) {
                   allMessages.push({
                     text: cleanedText,
                     raw: rawText,
                     element: el,
-                    rect: el.getBoundingClientRect()
+                    rect: el.getBoundingClientRect(),
+                    codeBlocks: codeBlocks,  // NUEVO: incluir bloques de código
+                    hasCode: hasCode  // NUEVO: flag de código
                   });
                 }
               });
@@ -2049,6 +2115,10 @@ function setupQwenBidirectionalCommunication(browserView) {
               });
               if (isOnlyButtonNames) return;
               
+              // NUEVO: Extraer bloques de código antes de limpiar
+              const codeBlocks = extractCodeBlocks(div);
+              const hasCode = codeBlocks.length > 0;
+              
               const cleanedText = cleanUIText(rawText);
               
               // Validación final: asegurar que NO es principalmente botones mágicos (según plan)
@@ -2064,19 +2134,21 @@ function setupQwenBidirectionalCommunication(browserView) {
               });
               if (isMostlyMagicButtons) return; // Ignorar este mensaje
               
-              // Solo mensajes con contenido sustancial Y que no sean solo UI
-              if (cleanedText.length > 50 && cleanedText.split(' ').length > 10) {
+              // Solo mensajes con contenido sustancial Y que no sean solo UI O tiene código
+              if ((cleanedText.length > 50 && cleanedText.split(' ').length > 10) || hasCode) {
                 // Verificar que no sea principalmente texto de UI después de limpiar
                 const uiWords = ['generación', 'video', 'imagen', 'artefacto', 'edición', 'web', 
                                 'pensamiento', 'buscar', 'copy', 'like', 'dislike'];
                 const uiWordCount = uiWords.filter(word => lowerText.includes(word)).length;
-                if (uiWordCount > 3) return; // Si tiene más de 3 palabras de UI, ignorar
+                if (uiWordCount > 3 && !hasCode) return; // Si tiene más de 3 palabras de UI y NO tiene código, ignorar
                 
                 allMessages.push({
                   text: cleanedText,
                   raw: rawText,
                   element: div,
-                  rect: div.getBoundingClientRect()
+                  rect: div.getBoundingClientRect(),
+                  codeBlocks: codeBlocks,  // NUEVO: incluir bloques de código
+                  hasCode: hasCode  // NUEVO: flag de código
                 });
               }
             });
@@ -2087,9 +2159,21 @@ function setupQwenBidirectionalCommunication(browserView) {
           
           // Tomar el mensaje más reciente (más abajo en la página)
           if (allMessages.length > 0) {
-            const lastMessage = allMessages[0].text;
-            console.log('[QWEN Observer V3] ✅ Mensaje limpio:', lastMessage.substring(0, 100) + '...');
-            return lastMessage;
+            const lastMessage = allMessages[0];
+            const messageText = lastMessage.text;
+            
+            // NUEVO: Si tiene código, incluir información de código en el estado global
+            if (lastMessage.hasCode && lastMessage.codeBlocks && lastMessage.codeBlocks.length > 0) {
+              window.qwenState.lastCodeBlocks = lastMessage.codeBlocks;
+              window.qwenState.hasCode = true;
+              console.log('[QWEN Observer V3] 💻 Código detectado:', lastMessage.codeBlocks.length, 'bloques');
+            } else {
+              window.qwenState.lastCodeBlocks = [];
+              window.qwenState.hasCode = false;
+            }
+            
+            console.log('[QWEN Observer V3] ✅ Mensaje limpio:', messageText.substring(0, 100) + '...');
+            return messageText;
           }
           
           return '';
@@ -2142,7 +2226,9 @@ function setupQwenBidirectionalCommunication(browserView) {
         for (const msg of assistantMessages) {
           const text = msg.textContent || '';
           // Detectar bloques de código markdown con indicadores de ejecución
-          if (text.match(/```[\s\S]*?```/) && (text.includes('>>>') || text.includes('$') || 
+          // Usar new RegExp para evitar problemas con backticks en template literal
+          const codeBlockPattern = new RegExp('\\`\\`\\`[\\s\\S]*?\\`\\`\\`');
+          if (codeBlockPattern.test(text) && (text.includes('>>>') || text.includes('$') || 
               text.includes('Output:') || text.includes('Result:'))) {
             return true;
           }
@@ -2436,7 +2522,13 @@ async function startQwenResponseCapture() {
             return false;
           })();
           
+          // NUEVO: Obtener bloques de código del estado global
+          const codeBlocks = window.qwenState?.lastCodeBlocks || [];
+          const hasCode = window.qwenState?.hasCode || false;
+          
           lastResponse.isExecutingCode = isExecutingCode;
+          lastResponse.codeBlocks = codeBlocks;  // NUEVO: incluir bloques de código
+          lastResponse.hasCode = hasCode;  // NUEVO: flag de código
           return lastResponse;
         })();
       `);
@@ -2446,6 +2538,8 @@ async function startQwenResponseCapture() {
         const currentState = response.state || 'idle';
         const responseText = response.text || '';
         const executingCode = response.isExecutingCode || false;  // NUEVO según plan
+        const codeBlocks = response.codeBlocks || [];  // NUEVO: bloques de código
+        const hasCode = response.hasCode || false;  // NUEVO: flag de código
         
         // Si hay un cambio de estado, notificarlo
         if (currentState === 'thinking' && responseText === '') {
@@ -2512,13 +2606,25 @@ async function startQwenResponseCapture() {
 
               // Enviar texto al renderer con tipo específico (según plan)
               if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('qwen:response', {
-                  type: executingCode ? 'code' : 'text',  // NUEVO: tipo específico
+                const payload = {
+                  type: (executingCode || hasCode) ? 'code' : 'text',  // NUEVO: tipo específico
                   content: newContent,
                   state: currentState,
                   stream: true,
-                  isCode: executingCode  // NUEVO: flag adicional
-                });
+                  isCode: executingCode || hasCode  // NUEVO: flag adicional
+                };
+                
+                // NUEVO: Si tiene código, incluir bloques de código formateados
+                if (hasCode && codeBlocks.length > 0) {
+                  payload.codeBlocks = codeBlocks;
+                  payload.codeContent = codeBlocks.map(block => 
+                    block.format === 'markdown' 
+                      ? \`\\\`\\\`\\\`\${block.language}\\n\${block.code}\\n\\\`\\\`\\\`\`
+                      : block.code
+                  ).join('\\n\\n');
+                }
+                
+                mainWindow.webContents.send('qwen:response', payload);
               }
             }
           } else {
