@@ -3404,6 +3404,161 @@
       setupComposerDock();
       // QWEN usa BrowserView desde main.js, no necesita setup aquí
 
+      // ============ QWEN RESPONSE LISTENER ============
+      // Escuchar respuestas de QWEN y mostrarlas en el chat
+      if (window.sandraAPI?.onQwenResponse) {
+        console.log('[QWEN Listener] 🎧 Configurando listener de respuestas...');
+        
+        let qwenMessageId = null; // ID del mensaje actual de QWEN
+        let qwenFullText = ''; // Texto acumulado de la respuesta
+        
+        window.sandraAPI.onQwenResponse((data) => {
+          console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state);
+          
+          const chatContainer = document.getElementById('chatContainer');
+          if (!chatContainer) return;
+          
+          // Si es "thinking", mostrar indicador
+          if (data.type === 'thinking') {
+            // Buscar el último mensaje de QWEN o crear uno nuevo
+            let lastQwenMsg = document.querySelector('.qwen-streaming-message');
+            if (!lastQwenMsg) {
+              // Crear nuevo mensaje
+              const msgDiv = document.createElement('div');
+              msgDiv.className = 'message-row assistant qwen-streaming-message';
+              msgDiv.innerHTML = `
+                <div class="message-bubble assistant">
+                  <div class="message-header">
+                    <span class="message-role">Qwen3-Max</span>
+                  </div>
+                  <div class="message-content qwen-response-content">
+                    <span class="thinking-indicator">🤔 Pensando...</span>
+                  </div>
+                </div>
+              `;
+              chatContainer.appendChild(msgDiv);
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+              qwenMessageId = Date.now();
+              qwenFullText = '';
+            }
+            return;
+          }
+          
+          // Si es texto, actualizar el contenido
+          if (data.type === 'text' && data.content) {
+            let msgEl = document.querySelector('.qwen-streaming-message');
+            if (!msgEl) {
+              // Crear si no existe
+              const msgDiv = document.createElement('div');
+              msgDiv.className = 'message-row assistant qwen-streaming-message';
+              msgDiv.innerHTML = `
+                <div class="message-bubble assistant">
+                  <div class="message-header">
+                    <span class="message-role">Qwen3-Max</span>
+                  </div>
+                  <div class="message-content qwen-response-content"></div>
+                </div>
+              `;
+              chatContainer.appendChild(msgDiv);
+              msgEl = msgDiv;
+              qwenFullText = '';
+            }
+            
+            // Añadir el nuevo texto
+            if (data.stream) {
+              qwenFullText += data.content;
+            } else {
+              qwenFullText = data.content;
+            }
+            
+            const contentEl = msgEl.querySelector('.qwen-response-content');
+            if (contentEl) {
+              contentEl.innerHTML = qwenFullText.replace(/\n/g, '<br>');
+            }
+            
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+          
+          // Si es imagen, añadirla
+          if (data.type === 'image' && data.content) {
+            let msgEl = document.querySelector('.qwen-streaming-message');
+            if (msgEl) {
+              const contentEl = msgEl.querySelector('.qwen-response-content');
+              if (contentEl) {
+                const img = document.createElement('img');
+                img.src = data.content;
+                img.style.maxWidth = '100%';
+                img.style.borderRadius = '8px';
+                img.style.marginTop = '10px';
+                contentEl.appendChild(img);
+              }
+            }
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+          
+          // Si es video, añadirlo
+          if (data.type === 'video' && data.content) {
+            let msgEl = document.querySelector('.qwen-streaming-message');
+            if (msgEl) {
+              const contentEl = msgEl.querySelector('.qwen-response-content');
+              if (contentEl) {
+                const video = document.createElement('video');
+                video.src = data.content;
+                video.controls = true;
+                video.style.maxWidth = '100%';
+                video.style.borderRadius = '8px';
+                video.style.marginTop = '10px';
+                contentEl.appendChild(video);
+              }
+            }
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+          
+          // Si es audio, añadirlo
+          if (data.type === 'audio' && data.content) {
+            let msgEl = document.querySelector('.qwen-streaming-message');
+            if (msgEl) {
+              const contentEl = msgEl.querySelector('.qwen-response-content');
+              if (contentEl) {
+                const audio = document.createElement('audio');
+                audio.src = data.content;
+                audio.controls = true;
+                audio.style.marginTop = '10px';
+                contentEl.appendChild(audio);
+              }
+            }
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+          
+          // Si está completo, finalizar el mensaje
+          if (data.type === 'complete') {
+            const msgEl = document.querySelector('.qwen-streaming-message');
+            if (msgEl) {
+              msgEl.classList.remove('qwen-streaming-message');
+              // Guardar en historial
+              if (qwenFullText) {
+                state.chatHistory.push({
+                  role: 'assistant',
+                  content: qwenFullText,
+                  provider: 'qwen',
+                  model: 'qwen3-max',
+                  timestamp: Date.now()
+                });
+                saveChatHistory();
+              }
+            }
+            qwenFullText = '';
+            qwenMessageId = null;
+            console.log('[QWEN Listener] ✅ Respuesta completa');
+          }
+        });
+        
+        console.log('[QWEN Listener] ✅ Listener configurado correctamente');
+      } else {
+        console.warn('[QWEN Listener] ⚠️ sandraAPI.onQwenResponse no disponible');
+      }
+      // ============ FIN QWEN RESPONSE LISTENER ============
+
       // Inicializar buttons de proveedores (Groq por defecto)
       initProviderButtons();
 
