@@ -1132,6 +1132,49 @@
       cursor: pointer;
       transition: all 0.15s ease;
       background: none;
+    }
+
+    /* Botones de acción de QWEN (según plan) */
+    .qwen-action-buttons {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-color);
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
+    }
+
+    .qwen-response-content:hover .qwen-action-buttons {
+      opacity: 1;
+    }
+
+    .qwen-action-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 16px;
+      padding: 0;
+    }
+
+    .qwen-action-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      transform: scale(1.05);
+    }
+
+    .qwen-action-btn:active {
+      transform: scale(0.95);
+    }
       border: none;
       font-size: 14px;
     }
@@ -3535,6 +3578,26 @@
             const msgEl = document.querySelector('.qwen-streaming-message');
             if (msgEl) {
               msgEl.classList.remove('qwen-streaming-message');
+              
+              // Añadir botones de acción (según plan: copiar, regenerar, compartir)
+              const contentEl = msgEl.querySelector('.qwen-response-content');
+              if (contentEl && !contentEl.querySelector('.qwen-action-buttons')) {
+                const actionButtons = document.createElement('div');
+                actionButtons.className = 'qwen-action-buttons';
+                actionButtons.innerHTML = `
+                  <button class="qwen-action-btn" onclick="qwenCopyMessage(this)" title="Copiar">
+                    <span>📋</span>
+                  </button>
+                  <button class="qwen-action-btn" onclick="qwenRegenerateMessage(this)" title="Regenerar">
+                    <span>🔄</span>
+                  </button>
+                  <button class="qwen-action-btn" onclick="qwenShareMessage(this)" title="Compartir">
+                    <span>📤</span>
+                  </button>
+                `;
+                contentEl.appendChild(actionButtons);
+              }
+              
               // Guardar en historial
               if (qwenFullText) {
                 state.chatHistory.push({
@@ -6385,6 +6448,118 @@
         addTerminalLine(`👁️ Review recibido (${data?.rating || '?'}/10)`);
       });
     }
+
+    // ============ FUNCIONES PARA BOTONES DE ACCIÓN QWEN (según plan) ============
+    function qwenCopyMessage(btn) {
+      try {
+        const msgEl = btn.closest('.message-row');
+        if (!msgEl) return;
+        
+        const contentEl = msgEl.querySelector('.qwen-response-content');
+        if (!contentEl) return;
+        
+        // Obtener texto sin los botones
+        const textToCopy = Array.from(contentEl.childNodes)
+          .filter(node => node.nodeType === Node.TEXT_NODE || 
+                         (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('qwen-action-buttons')))
+          .map(node => node.textContent || '')
+          .join('')
+          .trim();
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            // Feedback visual
+            const originalText = btn.querySelector('span').textContent;
+            btn.querySelector('span').textContent = '✓';
+            btn.style.color = 'var(--success)';
+            setTimeout(() => {
+              btn.querySelector('span').textContent = originalText;
+              btn.style.color = '';
+            }, 2000);
+            console.log('[QWEN] ✅ Mensaje copiado');
+          }).catch(err => {
+            console.error('[QWEN] ❌ Error copiando:', err);
+          });
+        } else {
+          // Fallback para navegadores antiguos
+          const textArea = document.createElement('textarea');
+          textArea.value = textToCopy;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          console.log('[QWEN] ✅ Mensaje copiado (fallback)');
+        }
+      } catch (error) {
+        console.error('[QWEN] ❌ Error en qwenCopyMessage:', error);
+      }
+    }
+
+    function qwenRegenerateMessage(btn) {
+      try {
+        // Obtener el último mensaje del usuario del historial
+        const chatHistory = state.chatHistory || [];
+        const lastUserMessage = chatHistory.filter(msg => msg.role === 'user').pop();
+        
+        if (lastUserMessage && lastUserMessage.content) {
+          console.log('[QWEN] 🔄 Regenerando mensaje:', lastUserMessage.content.substring(0, 50));
+          
+          // Reenviar el mensaje a QWEN
+          if (window.sandraAPI?.sendToQWEN) {
+            window.sandraAPI.sendToQWEN(lastUserMessage.content);
+          } else if (window.sandraAPI?.callAssistant) {
+            // Usar callAssistant como fallback
+            window.sandraAPI.callAssistant(lastUserMessage.content, 'qwen');
+          } else {
+            console.warn('[QWEN] ⚠️ No hay método disponible para regenerar');
+          }
+        } else {
+          console.warn('[QWEN] ⚠️ No se encontró último mensaje del usuario para regenerar');
+        }
+      } catch (error) {
+        console.error('[QWEN] ❌ Error en qwenRegenerateMessage:', error);
+      }
+    }
+
+    function qwenShareMessage(btn) {
+      try {
+        const msgEl = btn.closest('.message-row');
+        if (!msgEl) return;
+        
+        const contentEl = msgEl.querySelector('.qwen-response-content');
+        if (!contentEl) return;
+        
+        // Obtener texto sin los botones
+        const textToShare = Array.from(contentEl.childNodes)
+          .filter(node => node.nodeType === Node.TEXT_NODE || 
+                         (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('qwen-action-buttons')))
+          .map(node => node.textContent || '')
+          .join('')
+          .trim();
+        
+        if (navigator.share) {
+          navigator.share({
+            title: 'Mensaje de QWEN',
+            text: textToShare
+          }).then(() => {
+            console.log('[QWEN] ✅ Mensaje compartido');
+          }).catch(err => {
+            if (err.name !== 'AbortError') {
+              console.error('[QWEN] ❌ Error compartiendo:', err);
+              // Fallback: copiar al portapapeles
+              qwenCopyMessage(btn);
+            }
+          });
+        } else {
+          // Fallback: copiar al portapapeles
+          console.log('[QWEN] ⚠️ Web Share API no disponible, copiando al portapapeles');
+          qwenCopyMessage(btn);
+        }
+      } catch (error) {
+        console.error('[QWEN] ❌ Error en qwenShareMessage:', error);
+      }
+    }
+    // ============ FIN FUNCIONES BOTONES QWEN ============
   </script>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
