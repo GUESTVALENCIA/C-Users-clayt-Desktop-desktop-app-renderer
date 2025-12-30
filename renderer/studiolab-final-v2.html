@@ -6,9 +6,9 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* https://* ws://localhost:*; frame-src 'self' https://*; child-src 'self' https://*;">
   <title>StudioLab - Multimodal Intelligence</title>
   <!-- Markdown-it and Highlight.js for code formatting -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
   <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.0.0/dist/markdown-it.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <style>
     /* ============================================
        STUDIOLAB 8.0 PRO - FINAL POLISHED VERSION
@@ -3524,12 +3524,97 @@
       if (window.sandraAPI?.onQwenResponse) {
         console.log('[QWEN Listener] 🎧 Configurando listener de respuestas...');
         
+        // Función mejorada para detectar lenguaje de código
+        const detectCodeLanguage = (str) => {
+          if (!str || typeof str !== 'string') return null;
+          
+          // Patrones específicos para Python (más robustos)
+          const pythonPatterns = [
+            /^#!\/usr\/bin\/(env\s+)?python/i,
+            /^import\s+(os|sys|subprocess|json|re|datetime|numpy|pandas|matplotlib)/i,
+            /^from\s+\w+\s+import/i,
+            /^def\s+\w+\s*\(/m,
+            /^class\s+\w+/m,
+            /^if\s+__name__\s*==\s*['"]__main__['"]/m,
+            /subprocess\.(run|call|Popen)/,
+            /os\.(system|path|getenv|environ)/,
+            /sys\.(platform|argv|exit)/,
+            /^\s{2,}(def |class |import |from |if |for |while |return |print|subprocess|os\.|sys\.)/m
+          ];
+          
+          // Patrones para Batch
+          const batchPatterns = [
+            /^@echo\s+off/i,
+            /^[\s]*::/m,
+            /^[\s]*@/m,
+            /^[\s]*echo\s+/mi,
+            /^[\s]*pause[\s]*$/mi,
+            /^[\s]*rem\s+/mi,
+            /\.bat|\.cmd/i
+          ];
+          
+          // Patrones para PowerShell
+          const powershellPatterns = [
+            /Write-Host|Get-|Set-|Stop-Process|Start-Process/i,
+            /\$[A-Za-z]+\s*=/,
+            /# SCRIPT/i,
+            /\.ps1/i
+          ];
+          
+          // Patrones para JavaScript/TypeScript
+          const jsPatterns = [
+            /^(function|const|let|var|async|export|import)\s+/m,
+            /=>\s*\{/,
+            /\.js|\.ts|\.jsx|\.tsx/i
+          ];
+          
+          // Patrones para Bash/Shell
+          const bashPatterns = [
+            /^#!\/bin\/(bash|sh)/,
+            /^(echo|cd|ls|grep|awk|sed)\s+/m,
+            /\.sh/i
+          ];
+          
+          // Verificar Python primero (más específico)
+          if (pythonPatterns.some(p => p.test(str))) return 'python';
+          if (batchPatterns.some(p => p.test(str))) return 'batch';
+          if (powershellPatterns.some(p => p.test(str))) return 'powershell';
+          if (jsPatterns.some(p => p.test(str))) return 'javascript';
+          if (bashPatterns.some(p => p.test(str))) return 'bash';
+          
+          return null;
+        };
+        
         // Configurar markdown-it con highlight.js para formateo de código
         const md = window.markdownit({
           html: true,
           linkify: true,
           typographer: true,
           highlight: function (str, lang) {
+            // Si lang es 'text' o vacío, intentar detección automática mejorada
+            if (!lang || lang === 'text' || lang.trim() === '') {
+              const detectedLang = detectCodeLanguage(str);
+              if (detectedLang && window.hljs.getLanguage(detectedLang)) {
+                try {
+                  return '<pre class="hljs"><code class="language-' + detectedLang + '">' +
+                         window.hljs.highlight(str, { language: detectedLang, ignoreIllegals: true }).value +
+                         '</code></pre>';
+                } catch (__) {}
+              }
+              // Si no se detectó, usar highlightAuto de highlight.js
+              try {
+                const auto = window.hljs.highlightAuto(str, ['python', 'javascript', 'bash', 'powershell', 'batch', 'html', 'css', 'json']);
+                return '<pre class="hljs"><code class="language-' + (auto.language || 'text') + '">' +
+                       auto.value +
+                       '</code></pre>';
+              } catch (__) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return '<pre class="hljs"><code>' + div.innerHTML + '</code></pre>';
+              }
+            }
+            
+            // Si lang está especificado y es válido
             if (lang && window.hljs.getLanguage(lang)) {
               try {
                 return '<pre class="hljs"><code class="language-' + lang + '">' +
@@ -3537,9 +3622,10 @@
                        '</code></pre>';
               } catch (__) {}
             }
-            // Si lang es 'text' o no se especifica, intentar detección automática
+            
+            // Fallback: intentar detección automática
             try {
-              const auto = window.hljs.highlightAuto(str);
+              const auto = window.hljs.highlightAuto(str, ['python', 'javascript', 'bash', 'powershell', 'batch', 'html', 'css', 'json']);
               return '<pre class="hljs"><code class="language-' + (auto.language || 'text') + '">' +
                      auto.value +
                      '</code></pre>';
@@ -3554,6 +3640,9 @@
         let qwenMessages = new Map(); // Mapa de mensajes por messageId
         let lastProcessedMessageId = null; // Último messageId procesado
         let processedContentHashes = new Set(); // Para evitar duplicados
+        let lastMessageTimestamp = 0; // Timestamp del último mensaje procesado
+        let messageIdToTimestamp = new Map(); // Mapa de messageId a timestamp
+        let qwenTimeoutId = null; // Timeout global para cancelar cuando llegue respuesta completa
         
         window.sandraAPI.onQwenResponse((data) => {
           console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state, 'MessageID:', data.messageId?.substring(0, 10));
@@ -3563,22 +3652,107 @@
           
           // Usar messageId del sistema (más confiable que hash)
           const messageId = data.messageId || null;
-          const isNewMessage = data.isNewMessage === true || (messageId && messageId !== lastProcessedMessageId);
+          const currentTimestamp = Date.now();
+          
+          // CRÍTICO: Detectar si es mensaje nuevo de forma más robusta
+          // 1. Si viene flag isNewMessage explícito, usarlo
+          // 2. Si messageId es diferente al último procesado, es nuevo
+          // 3. Si no hay messageId pero han pasado más de 2 segundos desde el último mensaje, puede ser nuevo
+          // 4. Si el contenido es completamente diferente (menos del 20% de similitud), es nuevo
+          let isNewMessage = false;
+          
+          if (data.isNewMessage === true) {
+            isNewMessage = true;
+          } else if (messageId) {
+            // Si hay messageId, comparar con el último procesado
+            if (messageId !== lastProcessedMessageId) {
+              isNewMessage = true;
+            } else {
+              // Mismo messageId: verificar si es un mensaje muy antiguo (más de 30 segundos)
+              const msgTimestamp = messageIdToTimestamp.get(messageId) || 0;
+              if (currentTimestamp - msgTimestamp > 30000) {
+                isNewMessage = true; // Mensaje muy antiguo, probablemente es nuevo
+              }
+            }
+          } else {
+            // Sin messageId: usar timestamp y similitud de contenido
+            if (!lastProcessedMessageId) {
+              isNewMessage = true; // Primer mensaje
+            } else if (currentTimestamp - lastMessageTimestamp > 2000) {
+              // Han pasado más de 2 segundos desde el último mensaje
+              isNewMessage = true;
+            } else if (data.content) {
+              // Comparar similitud con el último mensaje
+              const lastMsg = qwenMessages.get(lastProcessedMessageId);
+              if (lastMsg && lastMsg.text) {
+                const similarity = calculateSimilarity(data.content, lastMsg.text);
+                if (similarity < 0.2) {
+                  // Menos del 20% de similitud, es un mensaje nuevo
+                  isNewMessage = true;
+                }
+              }
+            }
+          }
           
           // CRÍTICO: Evitar procesar el mismo contenido múltiples veces
-          if (data.content) {
-            const contentHash = messageId ? `${messageId}-${data.content.length}` : `${data.content.substring(0, 50)}-${data.content.length}`;
-            if (processedContentHashes.has(contentHash) && !isNewMessage) {
-              console.log('[QWEN Listener] ⚠️ Contenido duplicado ignorado:', contentHash.substring(0, 20));
+          // Pero solo si NO es un mensaje nuevo
+          if (data.content && !isNewMessage && messageId) {
+            const contentHash = `${messageId}-${data.content.length}-${data.content.substring(0, 100)}`;
+            if (processedContentHashes.has(contentHash)) {
+              console.log('[QWEN Listener] ⚠️ Contenido duplicado ignorado:', contentHash.substring(0, 30));
               return; // Ignorar contenido duplicado
             }
             processedContentHashes.add(contentHash);
             
-            // Limpiar hashes antiguos (mantener solo los últimos 10)
-            if (processedContentHashes.size > 10) {
+            // Limpiar hashes antiguos (mantener solo los últimos 20)
+            if (processedContentHashes.size > 20) {
               const firstHash = processedContentHashes.values().next().value;
               processedContentHashes.delete(firstHash);
             }
+          }
+          
+          // Si es mensaje nuevo, limpiar hashes y actualizar timestamp
+          if (isNewMessage) {
+            processedContentHashes.clear();
+            lastMessageTimestamp = currentTimestamp;
+            if (messageId) {
+              messageIdToTimestamp.set(messageId, currentTimestamp);
+            }
+          }
+          
+          // Función auxiliar para calcular similitud entre dos textos
+          function calculateSimilarity(str1, str2) {
+            if (!str1 || !str2) return 0;
+            const longer = str1.length > str2.length ? str1 : str2;
+            const shorter = str1.length > str2.length ? str2 : str1;
+            if (longer.length === 0) return 1.0;
+            const distance = levenshteinDistance(longer, shorter);
+            return (longer.length - distance) / longer.length;
+          }
+          
+          // Función auxiliar para calcular distancia de Levenshtein
+          function levenshteinDistance(str1, str2) {
+            const matrix = [];
+            for (let i = 0; i <= str2.length; i++) {
+              matrix[i] = [i];
+            }
+            for (let j = 0; j <= str1.length; j++) {
+              matrix[0][j] = j;
+            }
+            for (let i = 1; i <= str2.length; i++) {
+              for (let j = 1; j <= str1.length; j++) {
+                if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                  matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                  matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                  );
+                }
+              }
+            }
+            return matrix[str2.length][str1.length];
           }
           
           // Si es "thinking", mostrar indicador
@@ -3612,11 +3786,15 @@
             // CRÍTICO: Usar messageId del sistema
             const msgId = messageId || Date.now().toString();
             
-            // CRÍTICO: Verificar si es un mensaje nuevo ANTES de actualizar lastProcessedMessageId
-            const isActuallyNewMessage = isNewMessage && lastProcessedMessageId && msgId !== lastProcessedMessageId;
+            // CRÍTICO: Detectar si es realmente un mensaje nuevo
+            // Es nuevo si: viene flag isNewMessage, o messageId es diferente, o no existe elemento con ese ID
+            const existingMsgEl = document.querySelector(`[data-message-id="${msgId}"]`);
+            const isActuallyNewMessage = isNewMessage || 
+                                        (lastProcessedMessageId && msgId !== lastProcessedMessageId) ||
+                                        (!existingMsgEl && lastProcessedMessageId !== null);
             
-            // Si es un mensaje nuevo, marcar el anterior como completo y crear uno nuevo
-            if (isActuallyNewMessage) {
+            // Si es un mensaje nuevo, marcar el anterior como completo
+            if (isActuallyNewMessage && lastProcessedMessageId && msgId !== lastProcessedMessageId) {
               // Marcar mensaje anterior como completo (NO borrarlo)
               const prevMsg = qwenMessages.get(lastProcessedMessageId);
               if (prevMsg) {
@@ -3628,15 +3806,12 @@
                 }
               }
               console.log('[QWEN Render] 🆕 Creando NUEVO mensaje (ID:', msgId.substring(0, 10) + '), anterior se mantiene');
-              
-              // CRÍTICO: Actualizar lastProcessedMessageId ANTES de crear el nuevo mensaje
-              lastProcessedMessageId = msgId;
             }
             
             // Buscar o crear elemento del mensaje
-            let msgEl = document.querySelector(`[data-message-id="${msgId}"]`);
+            let msgEl = existingMsgEl;
             if (!msgEl) {
-              // Crear nuevo mensaje
+              // CRÍTICO: Si es mensaje nuevo, SIEMPRE crear nuevo elemento
               const msgDiv = document.createElement('div');
               msgDiv.className = 'message-row assistant qwen-message qwen-streaming-message';
               msgDiv.dataset.messageId = msgId;
@@ -3650,31 +3825,38 @@
               `;
               chatContainer.appendChild(msgDiv);
               msgEl = msgDiv;
-              qwenMessages.set(msgId, { text: '', isComplete: false });
+              qwenMessages.set(msgId, { text: '', isComplete: false, timestamp: currentTimestamp });
               
-              // Si es un mensaje nuevo, actualizar lastProcessedMessageId
-              if (!lastProcessedMessageId || lastProcessedMessageId !== msgId) {
-                lastProcessedMessageId = msgId;
-              }
+              // Actualizar lastProcessedMessageId cuando se crea nuevo mensaje
+              lastProcessedMessageId = msgId;
+              messageIdToTimestamp.set(msgId, currentTimestamp);
+              lastMessageTimestamp = currentTimestamp;
             }
             
             // Obtener texto acumulado del mensaje actual
-            const msgData = qwenMessages.get(msgId) || { text: '', isComplete: false };
+            let msgData = qwenMessages.get(msgId);
+            if (!msgData) {
+              msgData = { text: '', isComplete: false, timestamp: currentTimestamp };
+              qwenMessages.set(msgId, msgData);
+            }
             
             // CRÍTICO: Solo actualizar si el mensaje pertenece al messageId actual
             // Si es un mensaje nuevo, inicializar con el contenido nuevo
             if (isActuallyNewMessage) {
               // Mensaje nuevo: establecer contenido inicial
-              msgData.text = data.content;
+              msgData.text = data.content || '';
+              msgData.timestamp = currentTimestamp;
               qwenMessages.set(msgId, msgData);
             } else if (data.content) {
               // Mensaje existente: actualizar solo si es más largo (streaming) o si no hay contenido previo
               if (data.content.length > msgData.text.length) {
                 msgData.text = data.content; // Actualizar con versión completa (streaming)
+                msgData.timestamp = currentTimestamp;
                 qwenMessages.set(msgId, msgData);
               } else if (!msgData.text) {
                 // Si no hay texto previo, establecer el nuevo
                 msgData.text = data.content;
+                msgData.timestamp = currentTimestamp;
                 qwenMessages.set(msgId, msgData);
               }
             }
@@ -3684,6 +3866,7 @@
             // Actualizar lastProcessedMessageId solo si no se actualizó antes
             if (!lastProcessedMessageId || lastProcessedMessageId !== msgId) {
               lastProcessedMessageId = msgId;
+              messageIdToTimestamp.set(msgId, currentTimestamp);
             }
             
             const contentEl = msgEl.querySelector('.qwen-response-content');
@@ -3776,6 +3959,13 @@
           // Si está completo, finalizar el mensaje (detectar por type='complete' o partial=false)
           const isComplete = data.type === 'complete' || (data.partial === false && data.content);
           if (isComplete) {
+            // CRÍTICO: Cancelar cualquier timeout pendiente
+            if (qwenTimeoutId) {
+              clearTimeout(qwenTimeoutId);
+              qwenTimeoutId = null;
+              console.log('[QWEN Listener] ⏱️ Timeout cancelado - respuesta completa recibida');
+            }
+            
             // Buscar el mensaje actual por messageId
             const currentMsgId = messageId || lastProcessedMessageId;
             let msgEl = currentMsgId ? document.querySelector(`[data-message-id="${currentMsgId}"]`) : document.querySelector('.qwen-streaming-message');
