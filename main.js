@@ -2619,11 +2619,15 @@ async function startQwenResponseCapture() {
                 // NUEVO: Si tiene código, incluir bloques de código formateados
                 if (hasCode && codeBlocks.length > 0) {
                   payload.codeBlocks = codeBlocks;
-                  payload.codeContent = codeBlocks.map(block => 
-                    block.format === 'markdown' 
-                      ? \`\\\`\\\`\\\`\${block.language}\\n\${block.code}\\n\\\`\\\`\\\`\`
-                      : block.code
-                  ).join('\\n\\n');
+                  // Usar concatenación de strings en lugar de template literal anidado
+                  const backtick = String.fromCharCode(96);
+                  payload.codeContent = codeBlocks.map(block => {
+                    if (block.format === 'markdown') {
+                      return backtick + backtick + backtick + (block.language || '') + '\\n' + block.code + '\\n' + backtick + backtick + backtick;
+                    } else {
+                      return block.code;
+                    }
+                  }).join('\\n\\n');
                 }
                 
                 mainWindow.webContents.send('qwen:response', payload);
