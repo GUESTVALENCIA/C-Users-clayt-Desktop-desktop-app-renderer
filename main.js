@@ -1922,24 +1922,53 @@ function setupQwenBidirectionalCommunication(browserView) {
           }
           
           // ESTRATEGIA 2: Si no encontramos con selectores específicos, buscar en main
+          // MEJORADO: Más estricto para evitar capturar botones y UI
           if (allMessages.length === 0) {
             const mainContent = document.querySelector('main') || document.body;
             const allDivs = mainContent.querySelectorAll('div');
             
             allDivs.forEach(div => {
+              // FILTROS ESTRICTOS: Ignorar cualquier cosa que parezca UI
               if (isPureUIElement(div)) return;
               if (div.querySelector('textarea, input[type="text"]')) return;
               if (div.offsetHeight < 30) return;
               
               // Verificar que no sea un contenedor de UI (muchos botones hijos)
-              const buttons = div.querySelectorAll('button');
-              if (buttons.length > 2) return;
+              const buttons = div.querySelectorAll('button, [role="button"], [class*="btn"], [class*="button"]');
+              if (buttons.length > 0) return; // CAMBIO: Si tiene CUALQUIER botón, ignorar
               
+              // Verificar que no tenga chips, tags, badges (UI de QWEN)
+              const chips = div.querySelectorAll('[class*="chip"], [class*="tag"], [class*="badge"]');
+              if (chips.length > 0) return;
+              
+              // Verificar que no sea un toolbar o menú
+              const cls = (div.className || '').toLowerCase();
+              if (cls.includes('toolbar') || cls.includes('menu') || cls.includes('nav') || 
+                  cls.includes('header') || cls.includes('footer') || cls.includes('sidebar')) return;
+              
+              // Verificar que el texto no sea solo nombres de botones
               const rawText = (div.innerText || '').trim();
+              const lowerText = rawText.toLowerCase();
+              
+              // Ignorar si el texto contiene solo nombres de botones conocidos
+              const buttonNames = ['video', 'imagen', 'artefacto', 'edición', 'web', 'pensamiento', 'buscar',
+                                   'copy', 'like', 'dislike', 'share', 'regenerate', 'edit', 'delete'];
+              const isOnlyButtonNames = buttonNames.some(btn => {
+                const regex = new RegExp(`^\\s*${btn}\\s*$`, 'i');
+                return regex.test(rawText);
+              });
+              if (isOnlyButtonNames) return;
+              
               const cleanedText = cleanUIText(rawText);
               
-              // Solo mensajes con contenido sustancial
+              // Solo mensajes con contenido sustancial Y que no sean solo UI
               if (cleanedText.length > 50 && cleanedText.split(' ').length > 10) {
+                // Verificar que no sea principalmente texto de UI después de limpiar
+                const uiWords = ['generación', 'video', 'imagen', 'artefacto', 'edición', 'web', 
+                                'pensamiento', 'buscar', 'copy', 'like', 'dislike'];
+                const uiWordCount = uiWords.filter(word => lowerText.includes(word)).length;
+                if (uiWordCount > 3) return; // Si tiene más de 3 palabras de UI, ignorar
+                
                 allMessages.push({
                   text: cleanedText,
                   raw: rawText,
