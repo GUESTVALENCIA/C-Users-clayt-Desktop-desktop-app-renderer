@@ -1490,10 +1490,10 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         }
       });
 
-      // PROTECCIÓN: Deshabilitar interacción del usuario para mantener comunicación bidireccional
-      // Los clicks pasan a través pero la comunicación se mantiene activa
-      qwenBrowserView.webContents.setIgnoreMouseEvents(true, { forward: true });
-      console.log('[QWEN3] 🔒 BrowserView protegido - interacción deshabilitada para mantener comunicación');
+      // NOTA: setIgnoreMouseEvents no está disponible en BrowserView.webContents
+      // El BrowserView se mantiene visible mediante setBrowserView y bounds
+      // La comunicación bidireccional se mantiene activa mediante los scripts inyectados
+      console.log('[QWEN3] ✅ BrowserView creado - comunicación bidireccional activa');
 
       // Cargar cookies guardadas si existen
       const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
@@ -1579,11 +1579,6 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       qwenBrowserView.webContents.on('did-finish-load', () => {
         console.log('[QWEN3] ✅ QWEN cargado exitosamente en BrowserView');
         
-        // Asegurar que la protección sigue activa después de cargar
-        if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-          qwenBrowserView.webContents.setIgnoreMouseEvents(true, { forward: true });
-        }
-        
         // Guardar cookies después de cargar (por si hay nuevas)
         saveQwenCookies(qwenSession, cookiesPath).catch(e => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
@@ -1621,17 +1616,13 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       qwenBrowserView.webContents.on('will-navigate', (event, url) => {
         console.log('[QWEN3] 🧭 Navegación detectada:', url.substring(0, 50));
         // Mantener comunicación activa durante navegaciones
-        if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-          qwenBrowserView.webContents.setIgnoreMouseEvents(true, { forward: true });
-        }
+        // El BrowserView se mantiene visible mediante setBrowserView en el código
       });
 
       // Guardar cookies periódicamente (cada 30 segundos) - LIMPIAR cuando se oculte
       if (qwenCookieInterval) clearInterval(qwenCookieInterval);
       qwenCookieInterval = setInterval(() => {
         if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-          // Asegurar protección en cada guardado
-          qwenBrowserView.webContents.setIgnoreMouseEvents(true, { forward: true });
           saveQwenCookies(qwenSession, cookiesPath).catch(e => {
             // Silenciar errores en guardado automático
           });
