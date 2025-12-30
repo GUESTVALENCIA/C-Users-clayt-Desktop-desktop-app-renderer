@@ -3520,8 +3520,9 @@
       if (window.sandraAPI?.onQwenResponse) {
         console.log('[QWEN Listener] 🎧 Configurando listener de respuestas...');
         
-        let qwenMessageId = null; // ID del mensaje actual de QWEN
-        let qwenFullText = ''; // Texto acumulado de la respuesta
+        let qwenMessages = new Map(); // Mapa de mensajes por ID
+        let currentMessageId = null; // ID del mensaje actual
+        let lastMessageHash = ''; // Hash del último mensaje para detectar nuevos
         
         window.sandraAPI.onQwenResponse((data) => {
           console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state);
@@ -3529,14 +3530,26 @@
           const chatContainer = document.getElementById('chatContainer');
           if (!chatContainer) return;
           
+          // Función para generar hash simple del contenido
+          function simpleHash(text) {
+            if (!text) return '';
+            return text.length.toString() + text.substring(0, 30);
+          }
+          
+          // Usar flag isNewMessage del sistema (más confiable)
+          const isNewMessage = data.isNewMessage === true;
+          
           // Si es "thinking", mostrar indicador
           if (data.type === 'thinking') {
-            // Buscar el último mensaje de QWEN o crear uno nuevo
-            let lastQwenMsg = document.querySelector('.qwen-streaming-message');
-            if (!lastQwenMsg) {
-              // Crear nuevo mensaje
+            // Solo crear si no hay mensaje actual
+            if (!currentMessageId) {
+              const msgId = Date.now();
+              currentMessageId = msgId;
+              qwenMessages.set(msgId, { text: '', isComplete: false });
+              
               const msgDiv = document.createElement('div');
-              msgDiv.className = 'message-row assistant qwen-streaming-message';
+              msgDiv.className = 'message-row assistant qwen-message';
+              msgDiv.dataset.messageId = msgId;
               msgDiv.innerHTML = `
                 <div class="message-bubble assistant">
                   <div class="message-header">
@@ -3549,19 +3562,43 @@
               `;
               chatContainer.appendChild(msgDiv);
               chatContainer.scrollTop = chatContainer.scrollHeight;
-              qwenMessageId = Date.now();
-              qwenFullText = '';
             }
             return;
           }
           
-          // Si es texto o código, actualizar el contenido
+          // Si es texto o código
           if ((data.type === 'text' || data.type === 'code') && data.content) {
-            let msgEl = document.querySelector('.qwen-streaming-message');
+            // CRÍTICO: Si es un mensaje nuevo, crear NUEVO elemento (NUNCA borrar el anterior)
+            if (isNewMessage && currentMessageId) {
+              // Marcar mensaje anterior como completo (NO borrarlo)
+              const prevMsg = qwenMessages.get(currentMessageId);
+              if (prevMsg) {
+                prevMsg.isComplete = true;
+                const prevEl = document.querySelector(`[data-message-id="${currentMessageId}"]`);
+                if (prevEl) {
+                  prevEl.classList.remove('qwen-streaming-message');
+                  prevEl.classList.add('qwen-complete-message');
+                }
+              }
+              
+              // Crear NUEVO mensaje (el anterior se mantiene intacto)
+              currentMessageId = Date.now();
+              lastMessageHash = simpleHash(data.content);
+              console.log('[QWEN Render] 🆕 Creando NUEVO mensaje, anterior se mantiene');
+            }
+            
+            // Si no hay mensaje actual, crear uno
+            if (!currentMessageId) {
+              currentMessageId = Date.now();
+              lastMessageHash = simpleHash(data.content);
+            }
+            
+            let msgEl = document.querySelector(`[data-message-id="${currentMessageId}"]`);
             if (!msgEl) {
-              // Crear si no existe
+              // Crear nuevo mensaje
               const msgDiv = document.createElement('div');
-              msgDiv.className = 'message-row assistant qwen-streaming-message';
+              msgDiv.className = 'message-row assistant qwen-message qwen-streaming-message';
+              msgDiv.dataset.messageId = currentMessageId;
               msgDiv.innerHTML = `
                 <div class="message-bubble assistant">
                   <div class="message-header">
@@ -3572,25 +3609,28 @@
               `;
               chatContainer.appendChild(msgDiv);
               msgEl = msgDiv;
-              qwenFullText = '';
+              qwenMessages.set(currentMessageId, { text: '', isComplete: false });
             }
             
-            // STREAMING MEJORADO: Manejar chunks en tiempo real
-            if (data.isStreaming) {
-              // En modo streaming, agregar chunks incrementalmente
-              if (data.isFirstChunk) {
-                qwenFullText = data.content;
-              } else {
-                qwenFullText += data.content;
+            // Obtener texto acumulado del mensaje actual
+            const msgData = qwenMessages.get(currentMessageId) || { text: '', isComplete: false };
+            
+            // AGREGAR contenido nuevo (NUNCA reemplazar)
+            if (data.content && data.content.length > 0) {
+              // Solo agregar si el contenido es nuevo (no duplicado)
+              if (!msgData.text.includes(data.content) || data.content.length > msgData.text.length) {
+                // Si el nuevo contenido es más largo, es una actualización
+                if (data.content.length > msgData.text.length) {
+                  msgData.text = data.content; // Actualizar con versión completa
+                } else if (!msgData.text.includes(data.content)) {
+                  // Agregar contenido nuevo
+                  msgData.text += data.content;
+                }
+                qwenMessages.set(currentMessageId, msgData);
               }
-              console.log('[QWEN Streaming] 🌊 Chunk recibido:', data.content.length, 'chars, Total:', qwenFullText.length);
-            } else if (data.stream) {
-              // Modo stream normal (no optimizado)
-              qwenFullText += data.content;
-            } else {
-              // Modo completo (respuesta única)
-              qwenFullText = data.content;
             }
+            
+            const qwenFullText = msgData.text;
             
             const contentEl = msgEl.querySelector('.qwen-response-content');
             if (contentEl) {
@@ -3623,34 +3663,34 @@
                 return 'text';
               };
               
-              // Si está en streaming y es código, renderizar progresivamente (MEJORADO)
-              if (data.isStreaming && (data.isCode || hasCodeInText(qwenFullText))) {
+              // CRÍTICO: NUNCA borrar contenido existente, solo actualizar
+              // Si está en streaming y es código, renderizar progresivamente
+              if (data.isCode || hasCodeInText(qwenFullText)) {
                 // Buscar o crear el bloque de código
-                let codeBlock = contentEl.querySelector('.qwen-code-block.streaming');
+                let codeBlock = contentEl.querySelector('.qwen-code-block');
                 if (!codeBlock) {
-                  // Crear nuevo bloque de código
+                  // Crear nuevo bloque de código (solo si no existe)
                   codeBlock = document.createElement('pre');
                   codeBlock.className = 'qwen-code-block streaming';
                   const codeEl = document.createElement('code');
                   codeEl.className = `language-${detectLanguage(qwenFullText)}`;
                   codeBlock.appendChild(codeEl);
-                  contentEl.innerHTML = '';  // Limpiar contenido previo
+                  // NO limpiar contenido previo - solo agregar
                   contentEl.appendChild(codeBlock);
                 }
                 
-                // Actualizar solo el contenido del código (NO reemplazar todo)
+                // Actualizar SOLO el contenido del código (textContent NO borra)
                 const codeEl = codeBlock.querySelector('code');
                 if (codeEl) {
-                  codeEl.textContent = qwenFullText;  // Usar textContent para evitar problemas
-                  // Actualizar clase de lenguaje si cambió
+                  codeEl.textContent = qwenFullText;  // textContent actualiza sin borrar estructura
                   const detectedLang = detectLanguage(qwenFullText);
                   codeEl.className = `language-${detectedLang}`;
+                  codeBlock.className = 'qwen-code-block streaming'; // Mantener clase streaming
                 }
                 
-                // Scroll automático al final
                 chatContainer.scrollTop = chatContainer.scrollHeight;
               }
-              // Si tiene código completo, renderizar con formato
+              // Si tiene código completo con bloques detectados, renderizar con formato
               else if (data.type === 'code' && data.codeBlocks && data.codeBlocks.length > 0) {
                 // Renderizar bloques de código con formato
                 let htmlContent = '';
@@ -3680,19 +3720,53 @@
               } 
               // Si detectamos código pero no viene en codeBlocks, renderizarlo directamente
               else if (hasCodeInText(qwenFullText) && !data.type) {
-                // Hay código en el texto pero no se detectó correctamente, renderizarlo
-                const codeHtml = escapeHtml(qwenFullText);
-                const detectedLang = detectLanguage(qwenFullText);
-                contentEl.innerHTML = `<pre class="qwen-code-block"><code class="language-${detectedLang}">${codeHtml}</code></pre>`;
-                console.log('[QWEN Render] 💻 Código detectado manualmente, lenguaje:', detectedLang);
+                // Hay código en el texto pero no se detectó correctamente
+                let codeBlock = contentEl.querySelector('.qwen-code-block');
+                if (!codeBlock) {
+                  // Crear bloque solo si no existe
+                  codeBlock = document.createElement('pre');
+                  codeBlock.className = 'qwen-code-block';
+                  const codeEl = document.createElement('code');
+                  codeEl.className = `language-${detectLanguage(qwenFullText)}`;
+                  codeBlock.appendChild(codeEl);
+                  contentEl.appendChild(codeBlock);
+                }
+                const codeEl = codeBlock.querySelector('code');
+                if (codeEl) {
+                  codeEl.textContent = qwenFullText; // textContent NO borra
+                }
+                console.log('[QWEN Render] 💻 Código detectado manualmente, lenguaje:', detectLanguage(qwenFullText));
               }
               else if (data.codeContent) {
-                // Si viene código formateado en markdown, renderizarlo
-                const codeHtml = escapeHtml(data.codeContent);
-                contentEl.innerHTML = `<pre class="qwen-code-block"><code>${codeHtml}</code></pre>`;
+                // Si viene código formateado en markdown
+                let codeBlock = contentEl.querySelector('.qwen-code-block');
+                if (!codeBlock) {
+                  codeBlock = document.createElement('pre');
+                  codeBlock.className = 'qwen-code-block';
+                  const codeEl = document.createElement('code');
+                  codeBlock.appendChild(codeEl);
+                  contentEl.appendChild(codeBlock);
+                }
+                const codeEl = codeBlock.querySelector('code');
+                if (codeEl) {
+                  codeEl.textContent = data.codeContent; // textContent NO borra
+                }
               } else {
-                // Texto normal
-                contentEl.innerHTML = qwenFullText.replace(/\n/g, '<br>');
+                // Texto normal - NUNCA borrar, solo actualizar si hay contenido nuevo
+                const currentText = contentEl.textContent || '';
+                
+                // Solo actualizar si el nuevo texto es diferente Y más largo (contenido nuevo)
+                if (qwenFullText !== currentText && qwenFullText.length >= currentText.length) {
+                  // Crear/actualizar elemento de texto sin borrar estructura existente
+                  let textNode = contentEl.querySelector('.qwen-text-content');
+                  if (!textNode) {
+                    textNode = document.createElement('div');
+                    textNode.className = 'qwen-text-content';
+                    contentEl.appendChild(textNode);
+                  }
+                  // Actualizar solo el contenido del texto (NO borrar otros elementos)
+                  textNode.innerHTML = qwenFullText.replace(/\n/g, '<br>');
+                }
               }
             }
             
