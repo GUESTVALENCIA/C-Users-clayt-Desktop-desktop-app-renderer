@@ -1777,9 +1777,10 @@ function setupQwenBidirectionalCommunication(browserView) {
             'generación de imágenes', 'generación de video', 'artefactos',
             'thinking', 'search', 'image editing', 'web development',
             'image generation', 'video generation', 'artifacts',
-            // Acciones
+            // Acciones y botones (EXPANDIDO)
             'copy', 'like', 'dislike', 'regenerate', 'share', 'edit', 'delete',
             'copiar', 'me gusta', 'no me gusta', 'regenerar', 'compartir', 'editar', 'eliminar',
+            '[image:', '[image]', 'image:', 'img.alicdn.com', 'alicdn.com',
             // Saludos/UI
             '¿cómo puedo ayudarte hoy?', '¿cómo puedo ayudarte', 
             '¿en qué puedo ayudarte?', 'how can i help',
@@ -1801,8 +1802,18 @@ function setupQwenBidirectionalCommunication(browserView) {
           
           // ============ FILTROS DE LIMPIEZA AVANZADOS (Pipeline QWEN + Claude) ============
           const NOISE_PATTERNS = [
-            /https?:\\/\\/[^\\s]+/gi,           // URLs completas
+            // URLs (PRIORIDAD ALTA - eliminar primero)
+            /https?:\\/\\/[^\\s]+/gi,           // URLs completas (incluye alicdn.com)
             /www\\.[^\\s]+/gi,                   // URLs sin protocolo
+            /img\\.alicdn\\.com[^\\s]*/gi,       // URLs específicas de Alibaba
+            /\\[IMAGE:[^\\]]+\\]/gi,             // [IMAGE: url] tags
+            /\\[IMAGE\\]/gi,                     // [IMAGE] tags sueltos
+            
+            // Botones y acciones de QWEN
+            /\\b(Copy|Like|Dislike|Share|Regenerate|Edit|Delete)\\b/gi,  // Botones de acción
+            /\\b(Copiar|Me gusta|No me gusta|Compartir|Regenerar|Editar|Eliminar)\\b/gi,  // Botones en español
+            
+            // HTML y atributos
             /\\[.*?\\]/g,                        // [botones], [iconos], etc.
             /data-[\\w-]+="[^"]*"/gi,           // atributos data-*
             /class="[^"]*"/gi,                  // clases CSS
@@ -1812,11 +1823,15 @@ function setupQwenBidirectionalCommunication(browserView) {
             /style="[^"]*"/gi,                  // estilos inline
             /id="[^"]*"/gi,                     // IDs
             /onclick="[^"]*"/gi,                // eventos
+            
+            // Caracteres especiales
             /&nbsp;/gi,                         // espacios HTML
             /&[a-z]+;/gi,                       // entidades HTML
             /\\\\n|\\\\r|\\\\t/g,                    // escapes de línea
             /^\\s*[-•●○▪▸►]\\s*/gm,              // bullets de lista
             /\\s{3,}/g,                          // 3+ espacios → uno
+            
+            // Timestamps y fechas
             /\\d{1,2}:\\d{2}\\s*(AM|PM|am|pm)?\\s*\\.?/g,  // Timestamps (3:51 AM)
             /\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}/g,    // Fechas (12/30/2024)
             /^\\s*\\.\\s*/gm,                     // Puntos sueltos al inicio
@@ -1856,10 +1871,20 @@ function setupQwenBidirectionalCommunication(browserView) {
               const trimmed = line.trim();
               if (!trimmed) return false;
               if (trimmed.length < 5) return false;
+              
               // Descartar líneas que son solo emojis
               if (/^[\\p{Emoji}\\s]+$/u.test(trimmed)) return false;
-              // Descartar líneas que parecen botones
-              if (/^(copy|like|dislike|share|regenerate|edit|delete)$/i.test(trimmed)) return false;
+              
+              // Descartar líneas que parecen botones (expandido)
+              const buttonPattern = /^(copy|like|dislike|share|regenerate|edit|delete|copiar|me gusta|no me gusta|compartir|regenerar|editar|eliminar)$/i;
+              if (buttonPattern.test(trimmed)) return false;
+              
+              // Descartar líneas que contienen URLs de imágenes
+              if (/https?:\\/\\//i.test(trimmed) || /img\\.alicdn\\.com/i.test(trimmed) || /\\[IMAGE:/i.test(trimmed)) return false;
+              
+              // Descartar líneas que son solo URLs
+              if (/^https?:\\/\\/[^\\s]+$/i.test(trimmed)) return false;
+              
               return true;
             });
             
@@ -1905,7 +1930,16 @@ function setupQwenBidirectionalCommunication(browserView) {
                 if (isPureUIElement(el)) return;
                 if (el.querySelector('textarea, input[type="text"]')) return;
                 
+                // IGNORAR elementos que contienen imágenes o botones de acción
+                const hasImages = el.querySelector('img[src*="alicdn"], img[src*="http"]');
+                const hasActionButtons = el.querySelector('button, [role="button"]');
+                if (hasImages || hasActionButtons) return;
+                
                 const rawText = (el.innerText || '').trim();
+                
+                // Verificar que el texto no sea solo URLs o botones
+                if (/^https?:\\/\\//i.test(rawText) || /^\\s*(copy|like|dislike|share|regenerate|edit|delete)\\s*$/i.test(rawText)) return;
+                
                 const cleanedText = cleanUIText(rawText);
                 
                 // Solo considerar si tiene contenido real después de limpiar
@@ -1954,8 +1988,10 @@ function setupQwenBidirectionalCommunication(browserView) {
               const buttonNames = ['video', 'imagen', 'artefacto', 'edición', 'web', 'pensamiento', 'buscar',
                                    'copy', 'like', 'dislike', 'share', 'regenerate', 'edit', 'delete'];
               const isOnlyButtonNames = buttonNames.some(btn => {
-                const regex = new RegExp(`^\\s*${btn}\\s*$`, 'i');
-                return regex.test(rawText);
+                // Verificar si el texto es solo el nombre del botón (case-insensitive)
+                const trimmed = rawText.trim().toLowerCase();
+                const btnLower = btn.toLowerCase();
+                return trimmed === btnLower;
               });
               if (isOnlyButtonNames) return;
               
