@@ -3852,6 +3852,7 @@
             container.querySelectorAll('pre code').forEach((codeBlock) => {
               const pre = codeBlock.parentElement;
               // Verificar si ya está dentro de un wrapper procesado
+              // IMPORTANTE: No re-procesar bloques ya procesados durante streaming
               if (pre && !pre.closest('.qwen-code-wrapper') && !pre.classList.contains('qwen-processed')) {
                 pre.classList.add('qwen-processed');
                 
@@ -4075,51 +4076,31 @@
             
             const contentEl = msgEl.querySelector('.qwen-response-content');
             if (contentEl) {
-              // CRÍTICO: Preservar contenido anterior si es parte del mismo mensaje
-              // Solo reemplazar si es un mensaje completamente nuevo
-              if (isActuallyNewMessage) {
-                // Mensaje nuevo: renderizar completo
+              // CRÍTICO: Para streaming real, siempre actualizar con el contenido completo acumulado
+              // Esto permite ver el texto escribiéndose en tiempo real
+              
+              // Verificar si es streaming (partial = true)
+              const isStreaming = data.isStreaming === true || data.state === 'streaming' || data.isPartial === true || data.isStreaming === true;
+              
+              // Para streaming real, siempre renderizar el contenido completo acumulado
+              // Esto permite ver el texto escribiéndose carácter por carácter
+              if (isActuallyNewMessage || isStreaming || qwenFullText.length > 0) {
+                // Renderizar completo (el contenido acumulado se actualiza en tiempo real)
                 contentEl.innerHTML = md.render(qwenFullText);
-              } else {
-                // Mensaje existente (streaming): actualizar solo si hay contenido nuevo
-                const currentText = contentEl.textContent || '';
-                const currentHtml = contentEl.innerHTML || '';
                 
-                // Si el nuevo contenido es más largo, actualizar
-                if (qwenFullText.length > currentText.length) {
-                  // CRÍTICO: Verificar si el contenido anterior tiene bloques de código procesados
-                  // Si los tiene, preservarlos y solo actualizar el texto nuevo
-                  const hasProcessedCode = currentHtml.includes('qwen-code-wrapper');
-                  
-                  if (hasProcessedCode) {
-                    // Si ya hay código procesado, solo actualizar el texto nuevo que viene después
-                    // Esto evita que el código sobrescriba el texto anterior
-                    const newContent = md.render(qwenFullText);
-                    contentEl.innerHTML = newContent;
-                  } else {
-                    // Si no hay código procesado, actualizar normalmente
-                    contentEl.innerHTML = md.render(qwenFullText);
-                  }
-                } else if (!currentText) {
-                  // Si no hay contenido previo, establecer el nuevo
-                  contentEl.innerHTML = md.render(qwenFullText);
+                // Aplicar highlighting a los bloques de código después del renderizado
+                if (window.hljs) {
+                  contentEl.querySelectorAll('pre code').forEach((block) => {
+                    if (!block.classList.contains('hljs')) {
+                      window.hljs.highlightElement(block);
+                    }
+                  });
                 }
-                // Si el contenido no es más largo y ya hay contenido, no hacer nada
-                // Esto preserva el contenido anterior
+                
+                // Procesar bloques de código: agregar numeración, etiqueta y botones
+                // IMPORTANTE: Solo procesar bloques nuevos, no re-procesar los existentes
+                processCodeBlocks(contentEl);
               }
-              
-              // Aplicar highlighting a los bloques de código después del renderizado
-              if (window.hljs) {
-                contentEl.querySelectorAll('pre code').forEach((block) => {
-                  if (!block.classList.contains('hljs')) {
-                    window.hljs.highlightElement(block);
-                  }
-                });
-              }
-              
-              // Procesar bloques de código: agregar numeración, etiqueta y botones
-              // Solo procesar bloques que no han sido procesados antes
-              processCodeBlocks(contentEl);
             }
             
             chatContainer.scrollTop = chatContainer.scrollHeight;
