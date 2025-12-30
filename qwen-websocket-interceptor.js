@@ -181,6 +181,9 @@ async function handleLoadingFinished(params) {
   activeRequestIds.delete(params.requestId);
 }
 
+// Buffer global para acumular contenido por requestId (para streaming real)
+const streamingBuffers = new Map();
+
 /**
  * Procesa chunks de streaming en tiempo real
  */
@@ -188,19 +191,24 @@ function processStreamingChunk(data, requestInfo) {
   try {
     // Si el endpoint es /chat/completions, procesar como SSE
     if (requestInfo.url.includes('/chat/completions')) {
+      // Inicializar buffer para este request si no existe
+      if (!streamingBuffers.has(requestInfo.url)) {
+        streamingBuffers.set(requestInfo.url, '');
+      }
+      const accumulatedContent = streamingBuffers.get(requestInfo.url);
+      
       // QWEN usa formato SSE: data: {...}\n\n
       const lines = data.split('\n');
-      let accumulatedContent = '';
       
       for (const line of lines) {
         if (line.startsWith('data:')) {
           const jsonStr = line.substring(5).trim();
           if (jsonStr === '[DONE]') {
-            // Fin del streaming
+            // Fin del streaming - enviar lo que quede
             if (accumulatedContent.length > 0) {
               console.log('[QWEN-NET] ✅ STREAMING COMPLETO:', accumulatedContent.length, 'chars');
-              sendToRenderer(accumulatedContent);
-              accumulatedContent = '';
+              sendToRenderer(accumulatedContent, false); // false = completo
+              streamingBuffers.delete(requestInfo.url);
             }
             continue;
           }
@@ -209,40 +217,37 @@ function processStreamingChunk(data, requestInfo) {
             const parsed = JSON.parse(jsonStr);
             
             // Varios formatos posibles de QWEN
-            let content = '';
+            let deltaContent = '';
             if (parsed.choices?.[0]?.delta?.content) {
-              content = parsed.choices[0].delta.content;
+              deltaContent = parsed.choices[0].delta.content;
             } else if (parsed.delta?.content) {
-              content = parsed.delta.content;
+              deltaContent = parsed.delta.content;
             } else if (parsed.content) {
-              content = parsed.content;
+              deltaContent = parsed.content;
             } else if (parsed.message?.content) {
-              content = parsed.message.content;
+              deltaContent = parsed.message.content;
             } else if (parsed.text) {
-              content = parsed.text;
+              deltaContent = parsed.text;
             }
             
-            if (content) {
-              accumulatedContent += content;
-              console.log('[QWEN-NET] 📝 Chunk acumulado:', accumulatedContent.length, 'chars');
+            // ⭐ ENVIAR CADA DELTA INMEDIATAMENTE (streaming real)
+            if (deltaContent) {
+              const newContent = accumulatedContent + deltaContent;
+              streamingBuffers.set(requestInfo.url, newContent);
               
-              // ⭐ ENVIAR CHUNKS PARCIALES (streaming real)
-              if (accumulatedContent.length > 50) {
-                sendToRenderer(accumulatedContent, true); // true = partial
-              }
+              // Enviar inmediatamente cada chunk (sin esperar acumulación)
+              console.log('[QWEN-NET] 📝 Delta recibido:', deltaContent.length, 'chars');
+              sendToRenderer(newContent, true); // true = partial (streaming)
             }
           } catch (e) {
             // No es JSON válido, puede ser texto plano
-            if (jsonStr.length > 0) {
-              accumulatedContent += jsonStr;
+            if (jsonStr.length > 0 && jsonStr !== '[DONE]') {
+              const newContent = accumulatedContent + jsonStr;
+              streamingBuffers.set(requestInfo.url, newContent);
+              sendToRenderer(newContent, true); // Enviar inmediatamente
             }
           }
         }
-      }
-      
-      // Si hay contenido acumulado al final, enviarlo
-      if (accumulatedContent.length > 0) {
-        sendToRenderer(accumulatedContent);
       }
     }
   } catch (err) {
