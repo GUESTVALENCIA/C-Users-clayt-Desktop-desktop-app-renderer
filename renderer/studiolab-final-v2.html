@@ -3522,6 +3522,7 @@
         
         let qwenMessages = new Map(); // Mapa de mensajes por messageId
         let lastProcessedMessageId = null; // Último messageId procesado
+        let processedContentHashes = new Set(); // Para evitar duplicados
         
         window.sandraAPI.onQwenResponse((data) => {
           console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state, 'MessageID:', data.messageId?.substring(0, 10));
@@ -3532,6 +3533,22 @@
           // Usar messageId del sistema (más confiable que hash)
           const messageId = data.messageId || null;
           const isNewMessage = data.isNewMessage === true || (messageId && messageId !== lastProcessedMessageId);
+          
+          // CRÍTICO: Evitar procesar el mismo contenido múltiples veces
+          if (data.content) {
+            const contentHash = messageId ? `${messageId}-${data.content.length}` : `${data.content.substring(0, 50)}-${data.content.length}`;
+            if (processedContentHashes.has(contentHash) && !isNewMessage) {
+              console.log('[QWEN Listener] ⚠️ Contenido duplicado ignorado:', contentHash.substring(0, 20));
+              return; // Ignorar contenido duplicado
+            }
+            processedContentHashes.add(contentHash);
+            
+            // Limpiar hashes antiguos (mantener solo los últimos 10)
+            if (processedContentHashes.size > 10) {
+              const firstHash = processedContentHashes.values().next().value;
+              processedContentHashes.delete(firstHash);
+            }
+          }
           
           // Si es "thinking", mostrar indicador
           if (data.type === 'thinking') {
@@ -3694,7 +3711,7 @@
               // Función para extraer bloques de código del texto
               const extractCodeBlocks = (text) => {
                 const blocks = [];
-                // Buscar bloques markdown ```code```
+                // Buscar bloques markdown ```code``` (mejorado para detectar lenguaje correcto)
                 const markdownPattern = /```(\w+)?\n?([\s\S]*?)```/g;
                 let match;
                 let lastIndex = 0;
@@ -3704,11 +3721,24 @@
                   if (match.index > lastIndex) {
                     blocks.push({ type: 'text', content: text.substring(lastIndex, match.index) });
                   }
+                  
+                  // Detectar lenguaje: si viene como "text" pero el contenido es código, detectarlo
+                  let detectedLang = match[1] || 'text';
+                  const codeContent = match[2].trim();
+                  
+                  // Si el lenguaje es "text" pero el contenido es claramente código, detectar el lenguaje real
+                  if (detectedLang === 'text' || !detectedLang) {
+                    const realLang = detectLanguage(codeContent);
+                    if (realLang !== 'text') {
+                      detectedLang = realLang;
+                    }
+                  }
+                  
                   // Añadir bloque de código
                   blocks.push({ 
                     type: 'code', 
-                    language: match[1] || detectLanguage(match[2]), 
-                    content: match[2].trim() 
+                    language: detectedLang, 
+                    content: codeContent
                   });
                   lastIndex = match.index + match[0].length;
                 }
