@@ -3905,7 +3905,8 @@
           }
           
           // Si es texto o código (aceptar también sin tipo si tiene content)
-          if (data.content && (data.type === 'text' || data.type === 'code' || !data.type)) {
+          // CRÍTICO: Aceptar incluso si data.content está vacío pero data.type existe (puede ser señal de finalización)
+          if (data.content !== undefined && (data.type === 'text' || data.type === 'code' || !data.type)) {
             // CRÍTICO: Usar messageId del sistema
             const msgId = messageId || Date.now().toString();
             
@@ -3987,8 +3988,8 @@
               msgData.text = data.content || '';
               msgData.timestamp = currentTimestamp;
               qwenMessages.set(msgId, msgData);
-              console.log('[QWEN Listener] 🆕 Nuevo mensaje inicializado:', msgId.substring(0, 15), 'contenido:', (data.content || '').substring(0, 50));
-            } else if (data.content) {
+              console.log('[QWEN Listener] 🆕 Nuevo mensaje inicializado:', msgId.substring(0, 15), 'contenido:', (data.content || '').substring(0, 50), 'isPartial:', data.isPartial);
+            } else if (data.content !== undefined && data.content !== null) {
               // Mensaje existente (streaming): SIEMPRE actualizar si el contenido es más largo
               // Esto permite ver el streaming en tiempo real
               if (data.content.length >= msgData.text.length) {
@@ -4019,9 +4020,10 @@
               // Verificar si es streaming (partial = true)
               const isStreaming = data.isStreaming === true || data.state === 'streaming' || data.isPartial === true;
               
-              // CRÍTICO: Para streaming real, SIEMPRE actualizar el contenido inmediatamente
-              // Esto permite ver el texto escribiéndose carácter por carácter en tiempo real
-              if (qwenFullText.length > 0) {
+              // CRÍTICO: SIEMPRE renderizar si hay contenido, sea streaming o completo
+              // Esto asegura que las respuestas completas también se muestren
+              if (qwenFullText && qwenFullText.length > 0) {
+                console.log('[QWEN Render] 🎨 Renderizando contenido:', qwenFullText.length, 'chars, isStreaming:', isStreaming, 'isPartial:', data.isPartial);
                 // ⭐ RENDERIZAR INMEDIATAMENTE (síncrono, sin requestAnimationFrame, sin setTimeout)
                 // El contenido acumulado se actualiza en tiempo real, carácter por carácter
                 try {
@@ -4093,7 +4095,11 @@
                 } catch (renderErr) {
                   console.error('[QWEN Render] ⚠️ Error renderizando:', renderErr.message);
                 }
+              } else {
+                console.warn('[QWEN Render] ⚠️ No hay contenido para renderizar. qwenFullText:', qwenFullText?.length || 0, 'data.content:', data.content?.length || 0);
               }
+            } else {
+              console.error('[QWEN Render] ⚠️ No se encontró .qwen-response-content en msgEl');
             }
             
             // ⭐ SCROLL INMEDIATAMENTE (sin requestAnimationFrame)
