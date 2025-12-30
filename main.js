@@ -1779,42 +1779,91 @@ function setupQwenBidirectionalCommunication(browserView) {
         messageCount: 0
       };
 
-      // Función para extraer bloques de código con formato (NUEVO)
+      // Función MEJORADA para extraer bloques de código con formato
       function extractCodeBlocks(element) {
         const codeBlocks = [];
         try {
-          // Buscar bloques de código en el elemento
-          const codeElements = element.querySelectorAll('pre code, pre, [class*="code-block"], [class*="syntax-highlight"]');
+          // Buscar bloques de código en el elemento (ampliado)
+          const codeElements = element.querySelectorAll('pre code, pre, [class*="code"], [class*="syntax"], [class*="highlight"], [data-language]');
           
           codeElements.forEach(codeEl => {
             const codeText = codeEl.textContent || codeEl.innerText || '';
             if (!codeText.trim()) return;
             
-            // Detectar lenguaje si está en la clase o en el elemento padre
+            // Detectar lenguaje con múltiples estrategias
             let language = 'text';
-            const classList = Array.from(codeEl.classList);
-            const parentPre = codeEl.closest('pre');
-            const parentClassList = parentPre ? Array.from(parentPre.classList) : [];
             
-            // Buscar lenguaje en clases (common patterns)
-            const langMatch = [...classList, ...parentClassList].find(cls => 
-              cls.includes('language-') || cls.includes('lang-') || 
-              cls.match(/^(javascript|python|powershell|bash|shell|html|css|json|xml|sql|typescript|java|cpp|csharp|go|rust|php|ruby|swift|kotlin)$/i)
-            );
+            // Estrategia 1: Atributo data-language (QWEN lo usa)
+            if (codeEl.dataset.language) {
+              language = codeEl.dataset.language.toLowerCase();
+            } 
+            // Estrategia 2: Clases CSS
+            else {
+              const classList = Array.from(codeEl.classList);
+              const parentPre = codeEl.closest('pre');
+              const parentClassList = parentPre ? Array.from(parentPre.classList) : [];
+              
+              // Buscar lenguaje en clases
+              const langMatch = [...classList, ...parentClassList].find(cls => 
+                cls.includes('language-') || cls.includes('lang-') || 
+                cls.match(/^(javascript|js|python|py|powershell|ps1|bash|shell|sh|html|css|json|xml|sql|typescript|ts|java|cpp|c\\+\\+|csharp|cs|go|rust|php|ruby|rb|swift|kotlin|kt)$/i)
+              );
+              
+              if (langMatch) {
+                language = langMatch.replace(/^(language-|lang-)/i, '').toLowerCase()
+                  .replace('js', 'javascript')
+                  .replace('py', 'python')
+                  .replace('ps1', 'powershell')
+                  .replace('sh', 'shell')
+                  .replace('ts', 'typescript')
+                  .replace('cs', 'csharp')
+                  .replace('rb', 'ruby')
+                  .replace('kt', 'kotlin')
+                  .replace('c++', 'cpp');
+              }
+            }
             
-            if (langMatch) {
-              language = langMatch.replace(/^(language-|lang-)/i, '').toLowerCase();
-            } else if (parentPre) {
-              // Intentar detectar desde el primer hijo (común en markdown)
-              const firstChild = parentPre.firstElementChild;
-              if (firstChild && firstChild.classList.contains('language-')) {
-                language = firstChild.className.replace('language-', '').toLowerCase();
+            // Estrategia 3: Detectar lenguaje por contenido si no se encontró
+            if (language === 'text') {
+              // JavaScript/TypeScript
+              if (codeText.match(/\\b(const|let|var|function|=>|async|await|import|export|class|extends)\\b/)) {
+                language = codeText.includes('interface ') || codeText.includes(': string') || codeText.includes(': number') ? 'typescript' : 'javascript';
+              }
+              // Python
+              else if (codeText.match(/\\b(def |class |import |from |print\\(|if __name__|elif |except:|finally:|with )\\b/)) {
+                language = 'python';
+              }
+              // PowerShell (MEJORADO - más patrones)
+              else if (codeText.match(/\\$[A-Za-z]|Get-|Set-|New-|Write-Host|Write-Output|Stop-Process|Start-Process|Remove-Item|Test-Path|-eq|-ne|-gt|-lt|-like|-match|\\$processesToKill|\\$processes|\\$ErrorActionPreference|# SCRIPT|# Compatible con Windows/)) {
+                language = 'powershell';
+              }
+              // PowerShell también por comentarios característicos
+              else if (codeText.match(/^#.*SCRIPT.*\\n|^#.*Compatible con Windows/i)) {
+                language = 'powershell';
+              }
+              // Bash/Shell
+              else if (codeText.match(/^#!/) || codeText.match(/\\b(echo |cd |ls |grep |sed |awk |chmod |sudo )\\b/)) {
+                language = 'bash';
+              }
+              // HTML
+              else if (codeText.match(/<\\/?[a-z][\\s\\S]*>/i)) {
+                language = 'html';
+              }
+              // CSS
+              else if (codeText.match(/\\{[^}]*:[^}]*\\}/) && codeText.match(/[#.]\\w+|^\\w+\\s*\\{/m)) {
+                language = 'css';
+              }
+              // JSON
+              else if (codeText.trim().match(/^[\\[\\{]/) && codeText.trim().match(/[\\]\\}]$/)) {
+                try {
+                  JSON.parse(codeText);
+                  language = 'json';
+                } catch (e) {}
               }
             }
             
             // Detectar si es markdown (triple backticks con lenguaje)
-            // Usar new RegExp con construcción de string para evitar problemas con backticks
-            const backtick = String.fromCharCode(96); // backtick character
+            const backtick = String.fromCharCode(96);
             const markdownPattern = new RegExp('^' + backtick + backtick + backtick + '(\\w+)?\\n([\\s\\S]*?)' + backtick + backtick + backtick + '$', 'm');
             const markdownMatch = codeText.match(markdownPattern);
             if (markdownMatch) {
@@ -1834,6 +1883,25 @@ function setupQwenBidirectionalCommunication(browserView) {
               });
             }
           });
+          
+          // También buscar bloques de código inline en el texto (backticks simples)
+          if (codeBlocks.length === 0) {
+            const backtick = String.fromCharCode(96);
+            const inlinePattern = new RegExp(backtick + '([^' + backtick + ']+)' + backtick, 'g');
+            const text = element.textContent || '';
+            let match;
+            while ((match = inlinePattern.exec(text)) !== null) {
+              if (match[1] && match[1].length > 3) { // Solo código inline significativo
+                codeBlocks.push({
+                  code: match[1],
+                  language: 'inline',
+                  format: 'inline',
+                  raw: match[0]
+                });
+              }
+            }
+          }
+          
         } catch (e) {
           console.error('[QWEN Code Extract] Error:', e);
         }
@@ -2246,7 +2314,7 @@ function setupQwenBidirectionalCommunication(browserView) {
             if (img.src && !img.src.startsWith('data:') && img.width > 100) {
               // FILTRAR imágenes de Alibaba/alicdn.com
               if (!img.src.includes('alicdn.com') && !img.src.includes('alibaba')) {
-                media.images.push(img.src);
+              media.images.push(img.src);
               } else {
                 console.log('[QWEN Observer] 🚫 Imagen de Alibaba filtrada:', img.src.substring(0, 50));
               }
@@ -2268,7 +2336,7 @@ function setupQwenBidirectionalCommunication(browserView) {
         return media;
       }
 
-      // Actualizar estado global
+      // Actualizar estado global con eventos de debug
       function updateState(state, text) {
         const media = extractMedia();
         window.qwenState.currentState = state;
@@ -2278,22 +2346,58 @@ function setupQwenBidirectionalCommunication(browserView) {
         window.qwenState.videos = media.videos;
         window.qwenState.audio = media.audio;
         
+        // Detectar bloques de código en el estado actual
+        const codeBlocks = window.qwenState.lastCodeBlocks || [];
+        const hasCode = window.qwenState.hasCode || false;
+        
         window.qwenLastResponse = {
           text: text || '',
           state: state,
           images: media.images,
           videos: media.videos,
           audio: media.audio,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          codeBlocks: codeBlocks,  // Incluir bloques de código
+          hasCode: hasCode  // Flag de código
         };
+        
+        // Emitir evento para el monitor de debug
+        if (window.qwenObserverDebug) {
+          window.qwenObserverDebug({
+            type: 'state_change',
+            state: state,
+            text: text,
+            hasCode: hasCode,
+            codeBlockCount: codeBlocks.length,
+            mediaCount: media.images.length + media.videos.length + media.audio.length
+          });
+        }
         
         console.log('[QWEN Observer V2] Estado:', state, '- Texto:', (text || '').substring(0, 50) + '...');
       }
 
-      // Observador principal con idempotencia mejorada
+      // Observador principal con STREAMING en tiempo real y detección de estabilidad
       let lastText = '';
       let lastTextHash = '';
       let stableCount = 0;
+      let thinkingStartTime = 0;
+      let isFirstMessage = true;
+      let firstMessageRetries = 0;
+      let streamBuffer = '';  // Buffer para acumular el stream
+      let lastStreamPosition = 0;  // Última posición enviada
+      let isStreaming = false;  // Flag para saber si estamos en modo stream
+      let streamStartTime = 0;  // Tiempo de inicio del stream
+      let lastChunkTime = 0;  // Tiempo del último chunk enviado
+      
+      // NUEVO: Sistema de estabilidad para código (evitar capturar estados transitorios)
+      let codeStability = {
+        lastCodeText: '',
+        lastCodeHash: '',
+        stableSince: 0,
+        isStable: false,
+        stabilityThreshold: 2000,  // 2 segundos sin cambios = estable
+        unstableCount: 0  // Contador de cambios rápidos (QWEN editando)
+      };
       
       // Función simple para generar hash (idempotencia)
       function simpleHash(text) {
@@ -2307,35 +2411,334 @@ function setupQwenBidirectionalCommunication(browserView) {
         return hash.toString(36);
       }
       
-      const checkForChanges = () => {
-        const thinking = isThinking();
-        const executingCode = isExecutingCode();  // NUEVO según plan
-        const currentText = extractLastAssistantMessage();
-        const currentHash = simpleHash(currentText);
+      // NUEVA función para detectar si QWEN está realmente pensando o atascado
+      function isReallyThinking() {
+        // Buscar indicadores visuales de pensamiento activo
+        const indicators = [
+          '[class*="loading"]',
+          '[class*="spinner"]', 
+          '[class*="thinking"]',
+          '[class*="generating"]',
+          '.dots-loader',
+          '.typing-indicator'
+        ];
         
-        // Si está ejecutando código, marcar como tipo 'code' (según plan)
-        if (executingCode) {
-          updateState('executing-code', currentText);
-          return; // No procesar como texto normal
+        for (const selector of indicators) {
+          const elements = document.querySelectorAll(selector);
+          for (const el of elements) {
+            // Verificar que el elemento es visible
+            if (el.offsetParent !== null && el.offsetWidth > 0 && el.offsetHeight > 0) {
+              // Verificar si tiene animación activa
+              const style = window.getComputedStyle(el);
+              if (style.animationName !== 'none' || style.animation !== 'none') {
+                return true;
+              }
+            }
+          }
         }
         
+        // También verificar por texto de "thinking" pero solo si es visible
+        const textElements = Array.from(document.querySelectorAll('*')).filter(el => {
+          const text = (el.textContent || '').toLowerCase();
+          return (text === 'thinking' || text === 'pensando' || text === 'generando...' || text === 'generating...') &&
+                 el.offsetParent !== null;
+        });
+        
+        return textElements.length > 0;
+      }
+      
+      const checkForChanges = () => {
+        const thinking = isReallyThinking();
+        const executingCode = isExecutingCode();
+        const currentText = extractLastAssistantMessage();
+        const currentHash = simpleHash(currentText);
+        const now = Date.now();
+        
+        // ========= DETECCIÓN DE CÓDIGO Y ESTABILIDAD =========
+        // Primero, detectar si hay código en el mensaje actual
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = currentText;
+        const currentCodeBlocks = extractCodeBlocks(tempDiv);
+        const hasCodeNow = currentCodeBlocks.length > 0 || executingCode;
+        
+        // Si hay código, verificar estabilidad (evitar capturar mientras QWEN edita/borra)
+        if (hasCodeNow && currentText) {
+          const currentCodeText = currentCodeBlocks.map(b => b.code).join('\n\n');
+          const currentCodeHash = simpleHash(currentCodeText);
+          
+          // Si el código cambió, resetear contador de estabilidad
+          if (currentCodeHash !== codeStability.lastCodeHash) {
+            codeStability.lastCodeText = currentCodeText;
+            codeStability.lastCodeHash = currentCodeHash;
+            codeStability.stableSince = now;
+            codeStability.isStable = false;
+            codeStability.unstableCount++;
+            
+            // Si hay muchos cambios rápidos (< 500ms), QWEN está editando activamente
+            if (codeStability.unstableCount > 3 && (now - codeStability.stableSince) < 500) {
+              console.log('[QWEN Observer] ⚠️ Código inestable (QWEN editando), esperando estabilidad...');
+              return; // NO capturar mientras está editando
+            }
+          } else {
+            // Código no cambió, verificar si ya está estable
+            const timeSinceLastChange = now - codeStability.stableSince;
+            if (timeSinceLastChange >= codeStability.stabilityThreshold) {
+              if (!codeStability.isStable) {
+                codeStability.isStable = true;
+                codeStability.unstableCount = 0;
+                console.log('[QWEN Observer] ✅ Código ESTABLE detectado, listo para capturar');
+              }
+            }
+          }
+        } else {
+          // No hay código, resetear sistema de estabilidad
+          codeStability.isStable = false;
+          codeStability.unstableCount = 0;
+        }
+        
+        // ========= DETECCIÓN DE BORRADO/EDICIÓN =========
+        // Si el texto se redujo, QWEN está editando/borrando (estado transitorio)
+        if (currentText && lastText && currentText.length < lastText.length) {
+          console.log('[QWEN Observer] ⚠️ Texto reducido (QWEN editando), ignorando estado transitorio');
+          // Resetear estabilidad porque está editando
+          if (hasCodeNow) {
+            codeStability.isStable = false;
+            codeStability.stableSince = now;
+            codeStability.unstableCount++;
+          }
+          return; // NO capturar mientras está borrando
+        }
+        
+        // ========= STREAMING DETECTION =========
+        // Si el texto está creciendo, estamos en modo streaming
+        if (currentText && currentText.length > lastText.length) {
+          if (!isStreaming) {
+            isStreaming = true;
+            streamStartTime = now;
+            streamBuffer = currentText;
+            lastStreamPosition = 0;
+            console.log('[QWEN Observer] 🚀 STREAMING iniciado, longitud inicial:', currentText.length);
+          }
+          
+          // Extraer solo la parte nueva del texto
+          const newContent = currentText.substring(lastStreamPosition);
+          
+          // Si hay contenido nuevo Y ha pasado suficiente tiempo desde el último chunk (100ms para fluidez)
+          if (newContent && (now - lastChunkTime) > 100) {
+            // Si es código, verificar que esté estable antes de enviar
+            if (hasCodeNow && !codeStability.isStable) {
+              // Código aún no está estable, esperar más
+              console.log('[QWEN Observer] ⏳ Código en edición, esperando estabilidad...');
+              return;
+            }
+            
+            // Actualizar estado con el chunk nuevo
+            window.qwenState.currentState = 'streaming';
+            window.qwenState.lastResponseText = currentText; // Texto completo
+            window.qwenState.lastChangeTime = now;
+            
+            // Preparar payload para streaming
+            const streamPayload = {
+              text: newContent,  // Solo el chunk nuevo
+              fullText: currentText,  // Texto completo para referencia
+              state: 'streaming',
+              isCode: hasCodeNow || executingCode,
+              codeBlocks: currentCodeBlocks,  // Usar bloques detectados
+              timestamp: now,
+              chunkIndex: Math.floor(lastStreamPosition / 100),  // Índice del chunk
+              isFirstChunk: lastStreamPosition === 0,
+              isStable: codeStability.isStable  // Indicar si el código está estable
+            };
+            
+            // Actualizar window.qwenLastResponse para el sistema principal
+            window.qwenLastResponse = streamPayload;
+            
+            // Actualizar posiciones
+            lastStreamPosition = currentText.length;
+            lastText = currentText;
+            lastTextHash = currentHash;
+            lastChunkTime = now;
+            streamBuffer = currentText;
+            
+            console.log('[QWEN Observer] 📤 STREAM chunk:', newContent.length, 'chars, total:', currentText.length, hasCodeNow ? '(código)' : '');
+            
+            // Emitir evento de debug
+            if (window.qwenObserverDebug) {
+              window.qwenObserverDebug({
+                type: 'stream_chunk',
+                chunkSize: newContent.length,
+                totalSize: currentText.length,
+                hasCode: hasCodeNow,
+                isStable: codeStability.isStable
+              });
+            }
+            
+            return; // Salir temprano, estamos en streaming
+          }
+        }
+        // Si el texto dejó de crecer, verificar si está completo
+        else if (isStreaming && currentText && (now - lastChunkTime) > 1000) {
+          // Si hay código, esperar a que esté estable antes de marcar como completo
+          if (hasCodeNow && !codeStability.isStable) {
+            // Código aún no está estable, seguir esperando
+            console.log('[QWEN Observer] ⏳ Esperando código estable antes de completar...');
+            return;
+          }
+          
+          // Código está estable o no hay código, marcar como completo
+          isStreaming = false;
+          console.log('[QWEN Observer] ✅ STREAMING completado, longitud final:', currentText.length, hasCodeNow ? '(código estable)' : '');
+          updateState('complete', currentText);
+          
+          // Reset variables de streaming
+          streamBuffer = '';
+          lastStreamPosition = 0;
+          streamStartTime = 0;
+          codeStability.isStable = false;  // Reset para próximo mensaje
+          codeStability.unstableCount = 0;
+          
+          if (window.qwenObserverDebug) {
+            window.qwenObserverDebug({
+              type: 'stream_complete',
+              totalSize: currentText.length,
+              duration: now - streamStartTime,
+              hadCode: hasCodeNow,
+              wasStable: codeStability.isStable
+            });
+          }
+          return;
+        }
+        
+        // ========= LÓGICA NORMAL (NO STREAMING) =========
+        // DEBUG: Enviar evento al monitor
+        if (window.qwenObserverDebug && !isStreaming) {
+          window.qwenObserverDebug({
+            type: 'check',
+            thinking,
+            executingCode,
+            hasText: !!currentText,
+            textLength: currentText?.length || 0,
+            isFirstMessage,
+            thinkingTime: thinking ? Date.now() - thinkingStartTime : 0
+          });
+        }
+        
+        // Si está ejecutando código, marcar como tipo 'code'
+        if (executingCode && currentText) {
+          updateState('executing-code', currentText);
+          isFirstMessage = false;
+          return;
+        }
+        
+        // NUEVO: Manejo especial del primer mensaje
+        if (isFirstMessage) {
         if (thinking && !currentText) {
+            if (thinkingStartTime === 0) {
+              thinkingStartTime = Date.now();
+              console.log('[QWEN Observer] 🤔 Primer saludo: Empezando a pensar...');
+            }
+            
+            // Si lleva más de 8 segundos pensando sin respuesta, intentar forzar actualización
+            const thinkingTime = Date.now() - thinkingStartTime;
+            if (thinkingTime > 8000) {
+              console.warn('[QWEN Observer] ⚠️ Primer saludo atascado por', Math.floor(thinkingTime/1000), 'segundos');
+              
+              // Intentar buscar respuesta de otra forma
+              const alternativeText = (function() {
+                // Buscar en todo el documento por patrones de saludo
+                const possibleGreetings = [
+                  '¡hola',
+                  'hola,',
+                  'buenos días',
+                  'buenas tardes', 
+                  'buenas noches',
+                  '¿cómo puedo ayudarte',
+                  '¿en qué puedo',
+                  'hello',
+                  'hi,',
+                  'good morning',
+                  'good afternoon',
+                  'good evening',
+                  'how can i help'
+                ];
+                
+                const allText = document.body.innerText.toLowerCase();
+                for (const greeting of possibleGreetings) {
+                  const index = allText.lastIndexOf(greeting);
+                  if (index !== -1) {
+                    // Encontrado un saludo, extraer el mensaje completo
+                    const start = Math.max(0, index - 50);
+                    const end = Math.min(allText.length, index + 200);
+                    const extracted = document.body.innerText.substring(start, end);
+                    console.log('[QWEN Observer] 🔍 Saludo alternativo encontrado:', extracted.substring(0, 50));
+                    return extracted;
+                  }
+                }
+                return null;
+              })();
+              
+              if (alternativeText) {
+                // Forzar actualización con el texto encontrado
+                lastText = alternativeText;
+                lastTextHash = simpleHash(alternativeText);
+                updateState('responding', alternativeText);
+                isFirstMessage = false;
+                thinkingStartTime = 0;
+                firstMessageRetries = 0;
+                return;
+              }
+              
+              // Si han pasado más de 15 segundos, resetear
+              if (thinkingTime > 15000 && firstMessageRetries < 3) {
+                console.warn('[QWEN Observer] ⚠️ Reseteando detección del primer saludo (intento', firstMessageRetries + 1, ')');
+                thinkingStartTime = 0;
+                firstMessageRetries++;
+                // Emitir evento para debug
+                if (window.qwenObserverDebug) {
+                  window.qwenObserverDebug({
+                    type: 'first_greeting_stuck',
+                    retries: firstMessageRetries
+                  });
+                }
+              }
+            }
+            
           updateState('thinking', '');
           stableCount = 0;
-          lastTextHash = ''; // Reset hash cuando está pensando
-        } else if (currentText && currentHash !== lastTextHash) {
-          // Hash diferente = contenido realmente nuevo
+            lastTextHash = '';
+          } else if (currentText) {
+            // ¡Primer mensaje recibido!
+            console.log('[QWEN Observer] ✅ Primer saludo recibido:', currentText.substring(0, 50));
           lastText = currentText;
-          lastTextHash = currentHash;
+            lastTextHash = currentHash;
           window.qwenState.messageCount++;
           updateState('responding', currentText);
           stableCount = 0;
-        } else if (currentText && currentHash === lastTextHash && !thinking) {
-          // Hash igual = mismo contenido, incrementar contador de estabilidad
+            isFirstMessage = false;
+            thinkingStartTime = 0;
+            firstMessageRetries = 0;
+          }
+        }
+        // Manejo normal para mensajes posteriores
+        else {
+          if (thinking && !currentText) {
+            updateState('thinking', '');
+            stableCount = 0;
+            lastTextHash = '';
+          } else if (currentText && currentHash !== lastTextHash) {
+            // Hash diferente = contenido realmente nuevo
+            lastText = currentText;
+            lastTextHash = currentHash;
+            window.qwenState.messageCount++;
+            updateState('responding', currentText);
+            stableCount = 0;
+          } else if (currentText && currentHash === lastTextHash && !thinking) {
+            // Hash igual = mismo contenido, incrementar contador de estabilidad
           stableCount++;
           // Si el texto no cambia por 3 checks (1.5s), considerarlo completo
           if (stableCount >= 3) {
             updateState('complete', currentText);
+            }
           }
         }
       };
@@ -2366,6 +2769,12 @@ function setupQwenBidirectionalCommunication(browserView) {
         characterData: true
       });
 
+      // Configurar función de debug para enviar eventos al monitor
+      window.qwenObserverDebug = function(data) {
+        console.log('[QWEN Debug]', data);
+        // Esta función será sobrescrita desde el main process
+      };
+      
       console.log('[QWEN Observer V2] ✅ Sistema iniciado correctamente (observer desconectado previo si existía)');
       checkForChanges(); // Primera verificación
     })();
@@ -2374,6 +2783,14 @@ function setupQwenBidirectionalCommunication(browserView) {
   browserView.webContents.executeJavaScript(communicationScript).catch(err => {
     console.error('[QWEN] Error configurando comunicación bidireccional:', err);
   });
+  
+  // Configurar canal de debug para el monitor
+  browserView.webContents.executeJavaScript(`
+    window.qwenObserverDebug = function(data) {
+      // Enviar al main process para reenviar al monitor
+      console.log('[QWEN Debug Event]', data);
+    };
+  `);
 }
 
 // ============ QWEN: INYECTAR OBSERVADOR DE RESPUESTAS (MEJORADO) ============
@@ -2488,6 +2905,12 @@ async function startQwenResponseCapture() {
             timestamp: 0 
           };
           
+          // STREAMING: Si el estado es streaming, incluir información adicional
+          if (lastResponse.state === 'streaming') {
+            // En modo streaming, el response ya tiene la estructura correcta
+            return lastResponse;
+          }
+          
           // Detectar estado actual si no está en lastResponse
           if (!lastResponse.state || lastResponse.state === 'idle') {
             const bodyText = (document.body.innerText || '').toLowerCase();
@@ -2496,7 +2919,7 @@ async function startQwenResponseCapture() {
             }
           }
           
-          // Detectar si está ejecutando código (según plan)
+          // Detectar si está ejecutando código
           const isExecutingCode = (function() {
             const codeBlocks = document.querySelectorAll('pre code, [class*="code"], [class*="syntax"]');
             if (codeBlocks.length > 0) {
@@ -2515,13 +2938,13 @@ async function startQwenResponseCapture() {
             return false;
           })();
           
-          // NUEVO: Obtener bloques de código del estado global
+          // Obtener bloques de código del estado global
           const codeBlocks = window.qwenState?.lastCodeBlocks || [];
           const hasCode = window.qwenState?.hasCode || false;
           
           lastResponse.isExecutingCode = isExecutingCode;
-          lastResponse.codeBlocks = codeBlocks;  // NUEVO: incluir bloques de código
-          lastResponse.hasCode = hasCode;  // NUEVO: flag de código
+          lastResponse.codeBlocks = codeBlocks;
+          lastResponse.hasCode = hasCode;
           return lastResponse;
         })();
       `);
@@ -2540,17 +2963,22 @@ async function startQwenResponseCapture() {
           if (lastState !== 'thinking') {
             console.log('[QWEN Capture] 🤔 Estado: Pensando...');
             lastState = 'thinking';
-            
-            // FIX PRIMER SALUDO: Detectar si es el primer mensaje y está atascado
-            if (greetingRetryCount === 0 && captureCount < 30) { // Primeros 15 segundos
-              if (firstGreetingTimeout) clearTimeout(firstGreetingTimeout);
-              firstGreetingTimeout = setTimeout(() => {
-                console.log('[QWEN Capture] ⚠️ Primer saludo atascado en "thinking", puede necesitar reintento');
-                greetingRetryCount++;
-                // No reintentamos automáticamente, solo logueamos para debug
-                // El usuario puede reintentar manualmente
-              }, 10000); // 10 segundos de timeout
-            }
+                
+                // FIX PRIMER SALUDO: Detectar si es el primer mensaje y está atascado
+                if (greetingRetryCount === 0 && captureCount < 30) { // Primeros 15 segundos
+                  if (firstGreetingTimeout) clearTimeout(firstGreetingTimeout);
+                  firstGreetingTimeout = setTimeout(() => {
+                    console.log('[QWEN Capture] ⚠️ Primer saludo atascado en "thinking", puede necesitar reintento');
+                    greetingRetryCount++;
+                    // Emitir evento de debug
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                      mainWindow.webContents.send('qwen:observer:event', {
+                        type: 'first_greeting_stuck',
+                        retries: greetingRetryCount
+                      });
+                    }
+                  }, 10000); // 10 segundos de timeout
+                }
           }
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('qwen:response', {
@@ -2558,80 +2986,126 @@ async function startQwenResponseCapture() {
               content: 'Pensando...',
               state: 'thinking'
             });
+                // Emitir evento para el monitor
+                mainWindow.webContents.send('qwen:observer:event', {
+                  type: 'state_change',
+                  data: { state: 'thinking' }
+                });
+              }
+        } else if (currentState === 'streaming' && response.text) {
+          // ========= MODO STREAMING =========
+          // En modo streaming, el response ya tiene la estructura correcta con chunks
+          const streamChunk = response.text;  // Este es el chunk nuevo
+          const fullText = response.fullText || responseText;  // Texto completo
+          
+          console.log('[QWEN Capture] 🌊 STREAMING - Chunk:', streamChunk?.length, 'chars, Total:', fullText?.length);
+          
+          // Enviar el chunk al renderer
+          if (mainWindow && !mainWindow.isDestroyed() && streamChunk) {
+            const payload = {
+              type: response.hasCode ? 'code' : 'text',
+              content: streamChunk,  // Solo el chunk nuevo
+              fullText: fullText,  // Texto completo para referencia
+              state: 'streaming',
+              stream: true,
+              isStreaming: true,  // Flag especial para streaming
+              isCode: response.hasCode || executingCode,
+              chunkIndex: response.chunkIndex || 0,
+              isFirstChunk: response.isFirstChunk || false
+            };
+            
+            // Si tiene código, incluir bloques
+            if (response.codeBlocks && response.codeBlocks.length > 0) {
+              payload.codeBlocks = response.codeBlocks;
+            }
+            
+            mainWindow.webContents.send('qwen:response', payload);
+            
+            // Emitir evento de debug
+            mainWindow.webContents.send('qwen:observer:event', {
+              type: 'stream_chunk',
+              data: {
+                chunkSize: streamChunk.length,
+                totalSize: fullText.length,
+                hasCode: response.hasCode
+              }
+            });
           }
+          
+          // Actualizar variables para evitar duplicados
+          lastCapturedText = fullText;
+          lastState = 'streaming';
+          
         } else if (responseText) {
+          // ========= MODO NORMAL (NO STREAMING) =========
           // Limpiar timeout del primer saludo si hay respuesta
           if (firstGreetingTimeout) {
             clearTimeout(firstGreetingTimeout);
             firstGreetingTimeout = null;
-            greetingRetryCount = 0; // Reset contador
+            greetingRetryCount = 0;
           }
           
-          // Calcular hash mejorado del texto actual para idempotencia (evita duplicados)
-          const currentHash = enhancedHash(responseText, currentState);
-          
-          // Verificar si es realmente contenido nuevo (hash diferente)
-          if (currentHash !== lastTextHash && currentHash !== lastSentHash) {
-            // FIX RESPUESTAS DOBLES: Debounce más agresivo
-            const now = Date.now();
-            if (now - lastSentTime < DEBOUNCE_MS) {
-              console.log('[QWEN Capture] ⏸️ Debounce activo, esperando...');
-              return;
-            }
+          // Solo procesar si NO estamos en streaming
+          if (currentState !== 'streaming') {
+            // Calcular hash para evitar duplicados
+            const currentHash = enhancedHash(responseText, currentState);
             
-            // Hay nueva respuesta (hash diferente = contenido realmente nuevo)
-            console.log('[QWEN Capture] 📥 Nueva respuesta detectada! Longitud:', responseText.length);
-            
-            // Solo enviar si el texto es más largo (streaming) o es completamente diferente
-            if (responseText.length > lastCapturedText.length || currentHash !== enhancedHash(lastCapturedText, lastState)) {
-              const newContent = responseText.length > lastCapturedText.length 
-                ? responseText.slice(lastCapturedText.length)  // Solo la parte nueva
-                : responseText;  // Todo el texto si es completamente diferente
-              
-              lastCapturedText = responseText;
-              lastTextHash = currentHash;
-              lastSentHash = currentHash; // Guardar hash del mensaje enviado
-              lastSentTime = now; // Guardar timestamp
-              lastState = currentState;
-              consecutiveDuplicates = 0; // Reset contador de duplicados
-              
-              console.log('[QWEN Capture] 📤 Enviando al renderer:', newContent.substring(0, 50) + '...');
-
-              // Enviar texto al renderer con tipo específico (según plan)
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                const payload = {
-                  type: (executingCode || hasCode) ? 'code' : 'text',  // NUEVO: tipo específico
-                  content: newContent,
-                  state: currentState,
-                  stream: true,
-                  isCode: executingCode || hasCode  // NUEVO: flag adicional
-                };
-                
-                // NUEVO: Si tiene código, incluir bloques de código formateados
-                if (hasCode && codeBlocks.length > 0) {
-                  payload.codeBlocks = codeBlocks;
-                  // Usar concatenación de strings en lugar de template literal anidado
-                  const backtick = String.fromCharCode(96);
-                  payload.codeContent = codeBlocks.map(block => {
-                    if (block.format === 'markdown') {
-                      return backtick + backtick + backtick + (block.language || '') + '\\n' + block.code + '\\n' + backtick + backtick + backtick;
-                    } else {
-                      return block.code;
-                    }
-                  }).join('\\n\\n');
-                }
-                
-                mainWindow.webContents.send('qwen:response', payload);
+            // Verificar si es contenido nuevo
+            if (currentHash !== lastTextHash && currentHash !== lastSentHash) {
+              const now = Date.now();
+              if (now - lastSentTime < DEBOUNCE_MS) {
+                console.log('[QWEN Capture] ⏸️ Debounce activo, esperando...');
+                return;
               }
-            }
-          } else {
-            // Hash igual = mismo contenido (duplicado)
-            consecutiveDuplicates++;
+              
+              console.log('[QWEN Capture] 📥 Nueva respuesta (no streaming):', responseText.length, 'chars');
+              
+              // Enviar respuesta completa
+              if (responseText.length > lastCapturedText.length || currentHash !== enhancedHash(lastCapturedText, lastState)) {
+                const newContent = responseText.length > lastCapturedText.length 
+                  ? responseText.slice(lastCapturedText.length)
+                  : responseText;
+                
+            lastCapturedText = responseText;
+                lastTextHash = currentHash;
+                lastSentHash = currentHash;
+                lastSentTime = now;
+            lastState = currentState;
+                consecutiveDuplicates = 0;
             
-            // Si hay muchos duplicados consecutivos, puede ser un bucle
-            if (consecutiveDuplicates > 5) {
-              console.warn('[QWEN Capture] ⚠️ Detectados múltiples duplicados consecutivos, posible bucle');
-              consecutiveDuplicates = 0; // Reset para evitar spam de logs
+                console.log('[QWEN Capture] 📤 Enviando (no streaming):', newContent.substring(0, 50) + '...');
+
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                  const payload = {
+                    type: (executingCode || hasCode) ? 'code' : 'text',
+                content: newContent,
+                state: currentState,
+                    stream: true,
+                    isStreaming: false,  // NO es streaming
+                    isCode: executingCode || hasCode
+                  };
+                  
+                  if (hasCode && codeBlocks.length > 0) {
+                    payload.codeBlocks = codeBlocks;
+                    const backtick = String.fromCharCode(96);
+                    payload.codeContent = codeBlocks.map(block => {
+                      if (block.format === 'markdown') {
+                        return backtick + backtick + backtick + (block.language || '') + '\\n' + block.code + '\\n' + backtick + backtick + backtick;
+                      } else {
+                        return block.code;
+                      }
+                    }).join('\\n\\n');
+                  }
+                  
+                  mainWindow.webContents.send('qwen:response', payload);
+                }
+              }
+            } else {
+              consecutiveDuplicates++;
+              if (consecutiveDuplicates > 5) {
+                console.warn('[QWEN Capture] ⚠️ Múltiples duplicados detectados');
+                consecutiveDuplicates = 0;
+              }
             }
           }
 
@@ -2640,12 +3114,12 @@ async function startQwenResponseCapture() {
             response.images.forEach(img => {
               // FILTRAR imágenes de Alibaba
               if (img && !img.includes('alicdn.com') && !img.includes('alibaba')) {
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                  mainWindow.webContents.send('qwen:response', {
-                    type: 'image',
-                    content: img,
-                    state: currentState
-                  });
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('qwen:response', {
+                  type: 'image',
+                  content: img,
+                  state: currentState
+                });
                 }
               } else {
                 console.log('[QWEN Capture] 🚫 Imagen de Alibaba filtrada:', img?.substring(0, 50));
@@ -3020,7 +3494,9 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: 'Mensaje inválido' };
     }
 
-    console.log(`[QWEN] 📤 Enviando mensaje con sendInputEvent: "${message.substring(0, 50)}..."`);
+    const lineCount = (message.match(/\n/g) || []).length + 1;
+    const isLongMessage = lineCount >= 2 || message.length > 100;
+    console.log(`[QWEN] 📤 Enviando mensaje (${lineCount} líneas, ${message.length} chars): "${message.substring(0, 50)}..."`);
 
     const wc = qwenBrowserView.webContents;
 
@@ -3193,21 +3669,107 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     // Pequeña pausa para asegurar que el focus se aplicó
     await new Promise(r => setTimeout(r, 100));
 
-    // PASO 2: Escribir el mensaje carácter por carácter con sendInputEvent
-    // Esto simula teclas REALES que React detecta
-    for (const char of message) {
-      wc.sendInputEvent({
-        type: 'char',
-        keyCode: char
-      });
+    // PASO 2: Usar inserción en bloque si el mensaje es largo (ya calculado arriba)
+    
+    if (isLongMessage) {
+      // ========= INSERCIÓN EN BLOQUE (RÁPIDO) =========
+      console.log(`[QWEN] 📦 Mensaje largo detectado (${lineCount} líneas, ${message.length} chars) - Insertando en BLOQUE`);
+      
+      const insertResult = await wc.executeJavaScript(`
+        (function() {
+          const message = ${JSON.stringify(message)};
+          const selectors = [
+            'textarea[placeholder*="ayuda" i]',
+            'textarea[placeholder*="mensaje" i]',
+            'textarea[placeholder*="pregunta" i]',
+            'textarea[placeholder*="Cuéntame" i]',
+            '#chat-input',
+            'textarea:not([disabled])',
+            'div[contenteditable="true"]',
+            'textarea'
+          ];
+          
+          for (const sel of selectors) {
+            const el = document.querySelector(sel);
+            if (el && el.offsetParent !== null) {
+              // Método 1: Si es textarea/input, usar value
+              if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                // Usar el setter nativo para que React lo detecte
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                  window.HTMLTextAreaElement.prototype,
+                  'value'
+                )?.set;
+                
+                if (nativeInputValueSetter) {
+                  nativeInputValueSetter.call(el, message);
+                } else {
+                  el.value = message;
+                }
+                
+                // Disparar eventos para que React detecte el cambio
+                el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                
+                // También disparar eventos de React si están disponibles
+                const reactEvent = new Event('input', { bubbles: true });
+                Object.defineProperty(reactEvent, 'target', { value: el, enumerable: true });
+                el.dispatchEvent(reactEvent);
+                
+                console.log('[QWEN Block Insert] ✅ Texto insertado en bloque:', message.length, 'chars');
+                return { success: true, method: 'value', selector: sel };
+              }
+              // Método 2: Si es contenteditable, usar textContent/innerHTML
+              else if (el.contentEditable === 'true' || el.getAttribute('contenteditable') === 'true') {
+                el.textContent = message;
+                el.innerHTML = message.replace(/\\n/g, '<br>');
+                
+                // Disparar eventos
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                console.log('[QWEN Block Insert] ✅ Texto insertado en contenteditable:', message.length, 'chars');
+                return { success: true, method: 'contenteditable', selector: sel };
+              }
+            }
+          }
+          
+          return { success: false, error: 'No se encontró input válido' };
+        })();
+      `);
+      
+      if (!insertResult.success) {
+        console.error('[QWEN] ❌ Error insertando en bloque, fallback a carácter por carácter');
+        // Fallback al método anterior si falla
+        for (const char of message) {
+          wc.sendInputEvent({
+            type: 'char',
+            keyCode: char
+          });
+          await new Promise(r => setTimeout(r, 5));
+        }
+      } else {
+        console.log(`[QWEN] ✅ Mensaje insertado en BLOQUE usando método: ${insertResult.method}`);
+        // Pequeña pausa para que React procese el cambio
+        await new Promise(r => setTimeout(r, 150));
+      }
+    } else {
+      // ========= MÉTODO CARÁCTER POR CARÁCTER (PARA MENSAJES CORTOS) =========
+      console.log(`[QWEN] ⌨️ Mensaje corto (${lineCount} línea, ${message.length} chars) - Enviando carácter por carácter`);
+      
+      for (const char of message) {
+        wc.sendInputEvent({
+          type: 'char',
+          keyCode: char
+        });
       // Pequeña pausa entre caracteres para estabilidad
       await new Promise(r => setTimeout(r, 5));
+      }
     }
 
-    console.log(`[QWEN] ✅ Mensaje escrito (${message.length} caracteres)`);
+    console.log(`[QWEN] ✅ Mensaje escrito (${message.length} caracteres, método: ${isLongMessage ? 'BLOQUE' : 'carácter por carácter'})`);
 
-    // Pausa antes de enviar Enter
-    await new Promise(r => setTimeout(r, 150));
+    // Pausa antes de enviar Enter (más corta si fue en bloque)
+    await new Promise(r => setTimeout(r, isLongMessage ? 100 : 150));
 
     // PASO 3: Enviar Enter para enviar el mensaje
     wc.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
@@ -3217,8 +3779,10 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
     return { 
       success: true, 
-      message: 'Mensaje enviado con sendInputEvent (método VS Code)',
-      strategy: 'sendInputEvent-real-keys',
+      message: `Mensaje enviado (${isLongMessage ? 'BLOQUE' : 'carácter por carácter'})`,
+      strategy: isLongMessage ? 'block-insert' : 'sendInputEvent-real-keys',
+      method: isLongMessage ? 'block' : 'char-by-char',
+      lineCount: lineCount,
       buttonActivated: buttonToClick?.type || null
     };
 
