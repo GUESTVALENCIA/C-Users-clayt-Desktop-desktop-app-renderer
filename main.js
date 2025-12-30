@@ -638,26 +638,43 @@ app.whenReady().then(() => {
 
   createWindow();
 
-  // ============ REGISTRAR ATAJO CTRL+SHIFT+I COMO FALLBACK ============
-  // Registrar Ctrl+Shift+I como alternativa si F12 no funciona (interceptado por sistema)
-  // También intentar registrar F12 con globalShortcut (puede no funcionar si Windows lo captura primero)
+  // ============ REGISTRAR ATAJO F12 Y CTRL+SHIFT+I ============
+  // Intentar registrar F12 - puede fallar si Windows lo captura (ej: Calculator)
+  const openQwenDevTools = () => {
+    if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+      if (qwenBrowserView.webContents.isDevToolsOpened()) {
+        qwenBrowserView.webContents.closeDevTools();
+        console.log('[QWEN] 🔧 DevTools cerrado');
+      } else {
+        qwenBrowserView.webContents.openDevTools({ mode: 'detach' });
+        console.log('[QWEN] 🔧 DevTools abierto');
+      }
+      return true;
+    }
+    return false;
+  };
+
+  // Intentar registrar F12 como atajo global
   try {
     const f12Registered = globalShortcut.register('F12', () => {
-      console.log('[Global F12] ✅ Atajo global F12 activado');
-      if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-        if (qwenBrowserView.webContents.isDevToolsOpened()) {
-          qwenBrowserView.webContents.closeDevTools();
-          console.log('[QWEN] 🔧 DevTools cerrado (F12 global)');
+      console.log('[Global F12] ✅ Tecla F12 presionada');
+      if (!openQwenDevTools() && mainWindow && !mainWindow.isDestroyed()) {
+        // Si QWEN no está disponible, abrir DevTools de la ventana principal
+        if (mainWindow.webContents.isDevToolsOpened()) {
+          mainWindow.webContents.closeDevTools();
         } else {
-          qwenBrowserView.webContents.openDevTools({ mode: 'detach' });
-          console.log('[QWEN] 🔧 DevTools abierto (F12 global)');
+          mainWindow.webContents.openDevTools({ mode: 'detach' });
         }
       }
     });
-    if (f12Registered) {
-      console.log('[Main] ✅ Atajo global F12 registrado');
+    
+    // Verificar si realmente se registró
+    const isF12Registered = globalShortcut.isRegistered('F12');
+    if (f12Registered && isF12Registered) {
+      console.log('[Main] ✅ Atajo global F12 registrado correctamente');
     } else {
-      console.warn('[Main] ⚠️ No se pudo registrar F12 (probablemente capturado por Windows)');
+      console.warn('[Main] ⚠️ F12 NO se pudo registrar - Windows puede estar capturándolo');
+      console.warn('[Main] 💡 SOLUCIÓN: Desactiva el atajo F12 en Windows Calculator o usa Ctrl+Shift+I');
     }
   } catch (e) {
     console.warn('[Main] ⚠️ Error registrando F12:', e.message);
@@ -1622,35 +1639,34 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
 
       // ============ INTERCEPTAR F12 EN BROWSERVIEW ============
       // Interceptar F12 directamente en el BrowserView para abrir DevTools
+      // NOTA: Si Windows Calculator u otra app captura F12, este handler puede no ejecutarse
       qwenBrowserView.webContents.on('before-input-event', (event, input) => {
-        // Log de diagnóstico
-        if (input.key === 'F12') {
-          console.log('[QWEN F12] Evento detectado:', input.type, 'key:', input.key, 'code:', input.code);
-        }
-        
         // Si se presiona F12, abrir/cerrar DevTools
         if (input.key === 'F12' && input.type === 'keyDown') {
           event.preventDefault(); // Prevenir que llegue a la página
-          console.log('[QWEN F12] ✅ Interceptado, abriendo DevTools...');
+          event.stopImmediatePropagation(); // Detener propagación
+          console.log('[QWEN F12] ✅ Interceptado en BrowserView, abriendo DevTools...');
           if (qwenBrowserView.webContents.isDevToolsOpened()) {
             qwenBrowserView.webContents.closeDevTools();
-            console.log('[QWEN] 🔧 DevTools cerrado (F12)');
+            console.log('[QWEN] 🔧 DevTools cerrado (F12 desde BrowserView)');
           } else {
             qwenBrowserView.webContents.openDevTools({ mode: 'detach' });
-            console.log('[QWEN] 🔧 DevTools abierto (F12)');
+            console.log('[QWEN] 🔧 DevTools abierto (F12 desde BrowserView)');
           }
         }
       });
       
       // También interceptar en la ventana principal cuando QWEN tiene foco
+      // Esto es un fallback si el BrowserView no captura el evento
       if (mainWindow) {
         mainWindow.webContents.on('before-input-event', (event, input) => {
           // Solo si QWEN está visible y activo
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed() && 
               mainWindow.getBrowserView() === qwenBrowserView) {
             if (input.key === 'F12' && input.type === 'keyDown') {
-              console.log('[Main F12] Evento F12 detectado en ventana principal, redirigiendo a QWEN...');
               event.preventDefault();
+              event.stopImmediatePropagation();
+              console.log('[Main F12] ✅ Evento F12 detectado en ventana principal, redirigiendo a QWEN...');
               if (qwenBrowserView.webContents.isDevToolsOpened()) {
                 qwenBrowserView.webContents.closeDevTools();
                 console.log('[QWEN] 🔧 DevTools cerrado (F12 desde main)');
@@ -1671,27 +1687,23 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
         });
 
-        // ============ NUEVO: INTERCEPTOR WEBSOCKET (reemplaza DOM scraping) ============
+        // ============ CONFIGURAR OBSERVER DE QWEN ============
         // Esperar a que la página esté completamente lista
         setTimeout(async () => {
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
             try {
-              // Activar interceptor WebSocket para capturar respuestas EN BLOQUE
-              const result = await setupQwenWebSocketInterceptor(qwenBrowserView, mainWindow);
-              if (result.success) {
-                console.log('[QWEN3] ✅ WebSocket Interceptor ACTIVO - Captura en bloque habilitada');
-              } else {
-                console.warn('[QWEN3] ⚠️ WebSocket Interceptor falló, usando fallback DOM');
-                // Fallback al sistema anterior si falla
-                setupSimplifiedQwenObserver(qwenBrowserView);
-                setTimeout(() => {
-                  if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-                    startSimplifiedQwenCapture();
-                  }
-                }, 2000);
-              }
+              // Configurar comunicación bidireccional
+              setupQwenBidirectionalCommunication(qwenBrowserView);
+              // Inyectar observador de respuestas
+              injectQwenResponseObserver(qwenBrowserView);
+              // Iniciar captura de respuestas después de un delay adicional
+              setTimeout(() => {
+                if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+                  startQwenResponseCapture();
+                }
+              }, 2000);
             } catch (error) {
-              console.error('[QWEN3] ⚠️ Error configurando interceptor:', error.message);
+              console.error('[QWEN3] ⚠️ Error configurando observer:', error.message);
               // Fallback al sistema anterior
               setupSimplifiedQwenObserver(qwenBrowserView);
               startSimplifiedQwenCapture();
