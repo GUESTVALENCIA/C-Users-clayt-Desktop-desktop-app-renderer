@@ -2227,8 +2227,9 @@ function setupQwenBidirectionalCommunication(browserView) {
         for (const msg of assistantMessages) {
           const text = msg.textContent || '';
           // Detectar bloques de código markdown con indicadores de ejecución
-          // Usar new RegExp para evitar problemas con backticks en template literal
-          const codeBlockPattern = new RegExp('\\`\\`\\`[\\s\\S]*?\\`\\`\\`');
+          // Usar String.fromCharCode para evitar problemas con backticks en template literal
+          const backtick = String.fromCharCode(96); // backtick character
+          const codeBlockPattern = new RegExp(backtick + backtick + backtick + '[\\s\\S]*?' + backtick + backtick + backtick);
           if (codeBlockPattern.test(text) && (text.includes('>>>') || text.includes('$') || 
               text.includes('Output:') || text.includes('Result:'))) {
             return true;
