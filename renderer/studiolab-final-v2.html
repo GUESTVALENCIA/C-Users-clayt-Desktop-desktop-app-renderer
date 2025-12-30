@@ -3559,8 +3559,8 @@
             return;
           }
           
-          // Si es texto o código
-          if ((data.type === 'text' || data.type === 'code') && data.content) {
+          // Si es texto o código (aceptar también sin tipo si tiene content)
+          if (data.content && (data.type === 'text' || data.type === 'code' || !data.type)) {
             // CRÍTICO: Usar messageId del sistema
             const msgId = messageId || Date.now().toString();
             
@@ -3647,7 +3647,7 @@
                 return div.innerHTML;
               };
               
-              // Detectar si hay código en el texto (mejorado con soporte .bat)
+              // Detectar si hay código en el texto (mejorado con soporte .bat y Python)
               const hasCodeInText = (text) => {
                 // Detectar bloques de código por patrones comunes
                 const codePatterns = [
@@ -3662,17 +3662,27 @@
                   /^[\s]*echo\s+/gmi,  // Batch echo commands
                   /^[\s]*pause[\s]*$/gmi,  // Batch pause
                   /^[\s]*rem\s+/gmi,  // Batch rem comments
-                  /\.bat|\.cmd|\.ps1|\.sh|\.py|\.js|\.ts|\.html|\.css/i  // File extensions
+                  /\.bat|\.cmd|\.ps1|\.sh|\.py|\.js|\.ts|\.html|\.css/i,  // File extensions
+                  // Patrones específicos de Python
+                  /#!/usr\/bin\/env python|#!/usr\/bin\/python/i,  // Python shebang
+                  /import\s+(os|sys|subprocess|json|re|datetime)/i,  // Python imports comunes
+                  /def\s+\w+\s*\(/i,  // Python function definitions
+                  /subprocess\.(run|call|Popen)/i,  // Python subprocess
+                  /os\.(system|path|getenv|environ)/i,  // Python os module
+                  /sys\.(platform|argv|exit)/i,  // Python sys module
+                  /if __name__\s*==\s*['"]__main__['"]/i,  // Python main guard
+                  /^\s{2,}(def |class |import |from |if |for |while |return |print|subprocess|os\.|sys\.)/gm  // Líneas indentadas con código Python
                 ];
                 return codePatterns.some(pattern => pattern.test(text));
               };
               
-              // Detectar lenguaje del código (mejorado con soporte .bat)
+              // Detectar lenguaje del código (mejorado con soporte .bat y Python)
               const detectLanguage = (text) => {
-                // Detectar .bat primero (más específico)
+                // Detectar Python primero (más específico - buscar múltiples patrones)
+                if (/#!/usr\/bin\/env python|#!/usr\/bin\/python|import os|import sys|import subprocess|def get_|def |from |import |\.py[^a-z]|subprocess\.|os\.|sys\./i.test(text)) return 'python';
+                // Detectar .bat (más específico)
                 if (/@echo\s+off|^[\s]*::|^[\s]*@|\.bat|\.cmd/i.test(text)) return 'batch';
                 if (/Write-Host|Get-|Set-|Stop-Process|\$[A-Za-z]|# SCRIPT|\.ps1/i.test(text)) return 'powershell';
-                if (/def |import |class |from |print\(|\.py/i.test(text)) return 'python';
                 if (/function |const |let |var |=>|async |\.js|\.ts/i.test(text)) return 'javascript';
                 if (/#!/.test(text) || /echo |cd |ls |grep |\.sh/i.test(text)) return 'bash';
                 if (/<html|<!DOCTYPE|\.html/i.test(text)) return 'html';
@@ -3709,46 +3719,61 @@
                   const lines = text.split('\n');
                   let codeStart = -1;
                   let codeLines = [];
+                  let textBeforeCode = [];
                   
                   for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
-                    const isCodeLine = /@echo|::|@|echo\s+|pause|rem\s+|function\s+|def\s+|const\s+|let\s+|var\s+|class\s+|import\s+/.test(line);
+                    // Detectar código: batch, Python, JS, etc. (más específico para Python)
+                    const isCodeLine = /@echo|::|@|echo\s+|pause|rem\s+|function\s+|def\s+|const\s+|let\s+|var\s+|class\s+|import\s+|#!/usr\/bin|#!/usr\/env|subprocess\.|os\.|sys\.|from\s+\w+\s+import|if __name__|return\s+|print\(/.test(line);
+                    // También detectar líneas que son claramente código (indentación + palabras clave)
+                    const isIndentedCode = /^\s{2,}(def |class |import |from |if |for |while |return |print|subprocess|os\.|sys\.)/.test(line);
                     
-                    if (isCodeLine && codeStart === -1) {
+                    if ((isCodeLine || isIndentedCode) && codeStart === -1) {
+                      // Guardar texto antes del código
+                      if (textBeforeCode.length > 0) {
+                        blocks.push({ type: 'text', content: textBeforeCode.join('\n') });
+                        textBeforeCode = [];
+                      }
                       codeStart = i;
                       codeLines = [line];
-                    } else if (isCodeLine && codeStart !== -1) {
+                    } else if ((isCodeLine || isIndentedCode || (codeStart !== -1 && /^\s{2,}/.test(line))) && codeStart !== -1) {
+                      // Continuar bloque de código (incluye líneas indentadas después de código)
                       codeLines.push(line);
-                    } else if (!isCodeLine && codeStart !== -1 && codeLines.length >= 2) {
-                      // Tenemos un bloque de código
-                      const textBefore = lines.slice(0, codeStart).join('\n');
-                      if (textBefore.trim()) {
-                        blocks.push({ type: 'text', content: textBefore });
+                    } else if (!isCodeLine && !isIndentedCode && codeStart !== -1) {
+                      // Fin del bloque de código
+                      if (codeLines.length >= 2 || (codeLines.length === 1 && codeLines[0].trim().length > 20)) {
+                        blocks.push({ 
+                          type: 'code', 
+                          language: detectLanguage(codeLines.join('\n')), 
+                          content: codeLines.join('\n').trim() 
+                        });
+                      } else {
+                        // Si es muy corto, puede ser texto
+                        textBeforeCode.push(...codeLines);
                       }
-                      blocks.push({ 
-                        type: 'code', 
-                        language: detectLanguage(codeLines.join('\n')), 
-                        content: codeLines.join('\n') 
-                      });
                       codeStart = -1;
                       codeLines = [];
-                    } else if (codeStart !== -1) {
-                      codeStart = -1;
-                      codeLines = [];
+                      textBeforeCode.push(line);
+                    } else {
+                      // Texto normal
+                      if (codeStart === -1) {
+                        textBeforeCode.push(line);
+                      }
                     }
                   }
                   
                   // Si quedó código al final
-                  if (codeStart !== -1 && codeLines.length >= 2) {
-                    const textBefore = lines.slice(0, codeStart).join('\n');
-                    if (textBefore.trim()) {
-                      blocks.push({ type: 'text', content: textBefore });
+                  if (codeStart !== -1 && codeLines.length >= 1) {
+                    if (textBeforeCode.length > 0) {
+                      blocks.push({ type: 'text', content: textBeforeCode.join('\n') });
                     }
                     blocks.push({ 
                       type: 'code', 
                       language: detectLanguage(codeLines.join('\n')), 
-                      content: codeLines.join('\n') 
+                      content: codeLines.join('\n').trim() 
                     });
+                  } else if (textBeforeCode.length > 0) {
+                    blocks.push({ type: 'text', content: textBeforeCode.join('\n') });
                   }
                   
                   // Si no se encontraron bloques pero hay código, tratar todo como código
@@ -3989,11 +4014,24 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
           }
           
-          // Si está completo, finalizar el mensaje
-          if (data.type === 'complete') {
-            const msgEl = document.querySelector('.qwen-streaming-message');
+          // Si está completo, finalizar el mensaje (detectar por type='complete' o partial=false)
+          const isComplete = data.type === 'complete' || (data.partial === false && data.content);
+          if (isComplete) {
+            // Buscar el mensaje actual por messageId
+            const currentMsgId = messageId || lastProcessedMessageId;
+            let msgEl = currentMsgId ? document.querySelector(`[data-message-id="${currentMsgId}"]`) : document.querySelector('.qwen-streaming-message');
+            
             if (msgEl) {
               msgEl.classList.remove('qwen-streaming-message');
+              msgEl.classList.add('qwen-complete-message');
+              
+              // Marcar como completo en el mapa
+              if (currentMsgId) {
+                const msgData = qwenMessages.get(currentMsgId);
+                if (msgData) {
+                  msgData.isComplete = true;
+                }
+              }
               
               // Añadir botones de acción (según plan: copiar, regenerar, compartir)
               const contentEl = msgEl.querySelector('.qwen-response-content');
@@ -4015,20 +4053,21 @@
               }
               
               // Guardar en historial
-              if (qwenFullText) {
+              const finalText = currentMsgId ? (qwenMessages.get(currentMsgId)?.text || '') : '';
+              if (finalText) {
                 state.chatHistory.push({
                   role: 'assistant',
-                  content: qwenFullText,
+                  content: finalText,
                   provider: 'qwen',
                   model: 'qwen3-max',
                   timestamp: Date.now()
                 });
-                saveChatHistory();
+                if (typeof saveChatHistory === 'function') {
+                  saveChatHistory();
+                }
               }
             }
-            qwenFullText = '';
-            qwenMessageId = null;
-            console.log('[QWEN Listener] ✅ Respuesta completa');
+            console.log('[QWEN Listener] ✅ Respuesta completa (partial: false)');
           }
         });
         
@@ -5871,31 +5910,53 @@
                 return;
               }
               
-              if (data.type === 'text' && data.content) {
+              // Detectar si la respuesta está completa (por type='complete' o partial=false)
+              const isComplete = data.type === 'complete' || (data.partial === false && data.content);
+              
+              // Aceptar contenido con o sin tipo específico
+              if ((data.type === 'text' || data.type === 'code' || !data.type) && data.content) {
                 responseReceived = true;
                 if (checkInterval) {
                   clearInterval(checkInterval);
                   checkInterval = null;
                 }
                 
-                accumulatedText += data.content;
+                // Si es respuesta completa, usar el contenido completo
+                if (isComplete) {
+                  accumulatedText = data.content;
+                } else {
+                  // Si es streaming, acumular
+                  accumulatedText = data.content; // El interceptor ya envía el texto completo acumulado
+                }
                 
                 // Actualizar el div en tiempo real
                 updateMessageDiv(assistantDiv, accumulatedText);
                 scrollChatToBottom();
                 
-                // Reset timeout cada vez que llega contenido
-                if (timeoutId) clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => {
-                  // Después de 3 segundos sin nuevas respuestas, considerar que terminó
+                // Si está completo, finalizar inmediatamente
+                if (isComplete) {
+                  // Limpiar timeout y finalizar
+                  if (timeoutId) clearTimeout(timeoutId);
                   if (window.sandraAPI?.off) {
                     window.sandraAPI.off('qwen:response', qwenResponseHandler);
                   }
                   maybeApplyCanvasFromResponse(accumulatedText);
                   updateModelUI();
-                }, 3000);
-              } else if (data.type === 'complete') {
-                // Respuesta completa
+                  console.log('[QWEN] ✅ Respuesta completa (partial: false)');
+                } else {
+                  // Reset timeout cada vez que llega contenido (streaming)
+                  if (timeoutId) clearTimeout(timeoutId);
+                  timeoutId = setTimeout(() => {
+                    // Después de 3 segundos sin nuevas respuestas, considerar que terminó
+                    if (window.sandraAPI?.off) {
+                      window.sandraAPI.off('qwen:response', qwenResponseHandler);
+                    }
+                    maybeApplyCanvasFromResponse(accumulatedText);
+                    updateModelUI();
+                  }, 3000);
+                }
+              } else if (data.type === 'complete' || isComplete) {
+                // Respuesta completa (fallback)
                 responseReceived = true;
                 if (checkInterval) {
                   clearInterval(checkInterval);
@@ -5903,8 +5964,8 @@
                 }
                 
                 // Si hay texto completo, usarlo
-                if (data.fullText) {
-                  accumulatedText = data.fullText;
+                if (data.fullText || data.content) {
+                  accumulatedText = data.fullText || data.content;
                   updateMessageDiv(assistantDiv, accumulatedText);
                 }
                 
