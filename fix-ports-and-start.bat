@@ -27,7 +27,7 @@ start "MCP Server" cmd /c "cd /d "C:\Users\clayt\Desktop\desktop-app" && node st
 
 echo.
 echo Iniciando servidor MCP Neon en segundo plano...
-start "MCP Neon" cmd /c ""C:\Users\clayt\AppData\Local\Programs\Python\Python314\python.exe" "C:\Users\clayt\Desktop\desktop-app\mcp-server-neon-final.py""
+start "MCP Neon" cmd /c ""C:\Users\clayt\AppData\Local\Programs\Python\Python314\python.exe" "C:\Users\clayt\Desktop\desktop-app\mcp-server-neon.py""
 
 echo.
 echo Esperando 5 segundos para que los servidores se inicien...
