@@ -1777,6 +1777,12 @@ function setupQwenBidirectionalCommunication(browserView) {
             'generación de imágenes', 'generación de video', 'artefactos',
             'thinking', 'search', 'image editing', 'web development',
             'image generation', 'video generation', 'artifacts',
+            // Textos exactos de botones mágicos (añadidos según plan)
+            'Edición de imagen',
+            'desarrollo web',
+            'Generación de imágenes',
+            'Generación de Video',
+            'Artefactos',
             // Acciones y botones (EXPANDIDO)
             'copy', 'like', 'dislike', 'regenerate', 'share', 'edit', 'delete',
             'copiar', 'me gusta', 'no me gusta', 'regenerar', 'compartir', 'editar', 'eliminar',
@@ -1802,12 +1808,14 @@ function setupQwenBidirectionalCommunication(browserView) {
           
           // ============ FILTROS DE LIMPIEZA AVANZADOS (Pipeline QWEN + Claude) ============
           const NOISE_PATTERNS = [
-            // URLs (PRIORIDAD ALTA - eliminar primero)
+            // URLs (PRIORIDAD ALTA - eliminar primero) - MEJORADOS según plan
             /https?:\\/\\/[^\\s]+/gi,           // URLs completas (incluye alicdn.com)
             /www\\.[^\\s]+/gi,                   // URLs sin protocolo
-            /img\\.alicdn\\.com[^\\s]*/gi,       // URLs específicas de Alibaba
-            /\\[IMAGE:[^\\]]+\\]/gi,             // [IMAGE: url] tags
+            /img\\.alicdn\\.com[^\\s\)\\]]+/gi,       // URLs específicas de Alibaba (más completo)
+            /https?:\\/\\/img\\.alicdn\\.com[^\\s\)\\]]+/gi,  // URLs completas de Alibaba
+            /\\[IMAGE:\\s*[^\\]]+\\]/gi,             // [IMAGE: url] tags con espacios
             /\\[IMAGE\\]/gi,                     // [IMAGE] tags sueltos
+            /IMAGE:\\s*https?:\\/\\/[^\\s]+/gi,       // IMAGE: url (sin corchetes)
             
             // Botones y acciones de QWEN
             /\\b(Copy|Like|Dislike|Share|Regenerate|Edit|Delete)\\b/gi,  // Botones de acción
@@ -1866,11 +1874,17 @@ function setupQwenBidirectionalCommunication(browserView) {
               .replace(/^\\s+|\\s+$/gm, '')        // Trim cada línea
               .trim();
             
-            // Paso 4: Filtrar líneas muy cortas o sospechosas
+            // Paso 4: Filtrar líneas muy cortas o sospechosas (MEJORADO según plan)
             const lines = cleaned.split('\\n').filter(line => {
               const trimmed = line.trim();
               if (!trimmed) return false;
               if (trimmed.length < 5) return false;
+              
+              // Descartar líneas que son solo URLs o tags de imagen (según plan)
+              if (/^\\[IMAGE:/.test(trimmed)) return false;
+              if (/^IMAGE:/.test(trimmed)) return false;
+              if (/img\\.alicdn\\.com/.test(trimmed)) return false;
+              if (/^https?:\\/\\/img\\.alicdn\\.com/.test(trimmed)) return false;
               
               // Descartar líneas que son solo emojis
               if (/^[\\p{Emoji}\\s]+$/u.test(trimmed)) return false;
@@ -1891,7 +1905,7 @@ function setupQwenBidirectionalCommunication(browserView) {
             return lines.join(' ').trim();
           }
           
-          // Función para detectar si es texto de UI (botones/menús)
+          // Función para detectar si es texto de UI (botones/menús) - MEJORADA según plan
           function isPureUIElement(el) {
             // Si es un botón, es UI
             if (el.tagName === 'BUTTON') return true;
@@ -1905,6 +1919,12 @@ function setupQwenBidirectionalCommunication(browserView) {
             if (cls.includes('btn') || cls.includes('button') || cls.includes('nav') || 
                 cls.includes('toolbar') || cls.includes('menu') || cls.includes('chip') ||
                 cls.includes('tag') || cls.includes('badge')) return true;
+            
+            // NUEVO: Detectar botones mágicos usando selectores de QWEN_BUTTONS (según plan)
+            const magicButtonSelectors = 'button[aria-label*="video" i], button[aria-label*="imagen" i], button[aria-label*="artefacto" i], button[aria-label*="edición" i], button[aria-label*="web" i], [class*="chip"], [class*="tag"]';
+            const magicButtons = el.querySelectorAll(magicButtonSelectors);
+            if (magicButtons.length > 0) return true; // Es un contenedor de botones mágicos
+            
             return false;
           }
           
@@ -1941,6 +1961,19 @@ function setupQwenBidirectionalCommunication(browserView) {
                 if (/^https?:\\/\\//i.test(rawText) || /^\\s*(copy|like|dislike|share|regenerate|edit|delete)\\s*$/i.test(rawText)) return;
                 
                 const cleanedText = cleanUIText(rawText);
+                
+                // Validación final: asegurar que NO es principalmente botones mágicos (según plan)
+                const magicButtonTexts = [
+                  'edición de imagen', 'desarrollo web', 'generación de imágenes',
+                  'generación de video', 'artefactos', 'image editing', 'web development',
+                  'image generation', 'video generation', 'artifacts'
+                ];
+                const lowerCleaned = cleanedText.toLowerCase();
+                const isMostlyMagicButtons = magicButtonTexts.some(btnText => {
+                  return lowerCleaned.includes(btnText.toLowerCase()) && 
+                         cleanedText.length < 200; // Si es corto y contiene botón mágico, ignorar
+                });
+                if (isMostlyMagicButtons) return; // Ignorar este mensaje
                 
                 // Solo considerar si tiene contenido real después de limpiar
                 if (cleanedText.length > 30) {
@@ -1997,6 +2030,19 @@ function setupQwenBidirectionalCommunication(browserView) {
               
               const cleanedText = cleanUIText(rawText);
               
+              // Validación final: asegurar que NO es principalmente botones mágicos (según plan)
+              const magicButtonTexts = [
+                'edición de imagen', 'desarrollo web', 'generación de imágenes',
+                'generación de video', 'artefactos', 'image editing', 'web development',
+                'image generation', 'video generation', 'artifacts'
+              ];
+              const lowerCleaned = cleanedText.toLowerCase();
+              const isMostlyMagicButtons = magicButtonTexts.some(btnText => {
+                return lowerCleaned.includes(btnText.toLowerCase()) && 
+                       cleanedText.length < 200; // Si es corto y contiene botón mágico, ignorar
+              });
+              if (isMostlyMagicButtons) return; // Ignorar este mensaje
+              
               // Solo mensajes con contenido sustancial Y que no sean solo UI
               if (cleanedText.length > 50 && cleanedText.split(' ').length > 10) {
                 // Verificar que no sea principalmente texto de UI después de limpiar
@@ -2049,22 +2095,55 @@ function setupQwenBidirectionalCommunication(browserView) {
         return false;
       }
 
-      // Extraer media
+      // Detectar si QWEN está ejecutando código (NUEVO según plan)
+      function isExecutingCode() {
+        // Buscar bloques de código
+        const codeBlocks = document.querySelectorAll('pre code, [class*="code"], [class*="syntax"]');
+        if (codeBlocks.length > 0) {
+          // Verificar si hay indicadores de ejecución
+          const hasExecution = Array.from(codeBlocks).some(block => {
+            const text = block.textContent || '';
+            return text.includes('>>>') || text.includes('$') || 
+                   text.includes('Running') || text.includes('Executing');
+          });
+          if (hasExecution) return true;
+        }
+        
+        // Buscar indicadores de ejecución en el texto
+        const bodyText = document.body.innerText || '';
+        if (bodyText.includes('Ejecutando') || bodyText.includes('Running') ||
+            bodyText.includes('>>>') || bodyText.match(/\\$\\s+\\w+/)) {
+          return true;
+        }
+        
+        return false;
+      }
+
+      // Extraer media (FILTRADO: solo imágenes locales, NO alicdn.com)
       function extractMedia() {
         const media = { images: [], videos: [], audio: [] };
         try {
           document.querySelectorAll('img[src]').forEach(img => {
             if (img.src && !img.src.startsWith('data:') && img.width > 100) {
-              media.images.push(img.src);
+              // FILTRAR imágenes de Alibaba/alicdn.com
+              if (!img.src.includes('alicdn.com') && !img.src.includes('alibaba')) {
+                media.images.push(img.src);
+              } else {
+                console.log('[QWEN Observer] 🚫 Imagen de Alibaba filtrada:', img.src.substring(0, 50));
+              }
             }
           });
           document.querySelectorAll('video[src], video source[src]').forEach(v => {
             const src = v.src || v.getAttribute('src');
-            if (src) media.videos.push(src);
+            if (src && !src.includes('alicdn.com') && !src.includes('alibaba')) {
+              media.videos.push(src);
+            }
           });
           document.querySelectorAll('audio[src], audio source[src]').forEach(a => {
             const src = a.src || a.getAttribute('src');
-            if (src) media.audio.push(src);
+            if (src && !src.includes('alicdn.com') && !src.includes('alibaba')) {
+              media.audio.push(src);
+            }
           });
         } catch (e) {}
         return media;
@@ -2092,23 +2171,48 @@ function setupQwenBidirectionalCommunication(browserView) {
         console.log('[QWEN Observer V2] Estado:', state, '- Texto:', (text || '').substring(0, 50) + '...');
       }
 
-      // Observador principal
+      // Observador principal con idempotencia mejorada
       let lastText = '';
+      let lastTextHash = '';
       let stableCount = 0;
+      
+      // Función simple para generar hash (idempotencia)
+      function simpleHash(text) {
+        if (!text) return '';
+        let hash = 0;
+        for (let i = 0; i < text.length; i++) {
+          const char = text.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash;
+        }
+        return hash.toString(36);
+      }
       
       const checkForChanges = () => {
         const thinking = isThinking();
+        const executingCode = isExecutingCode();  // NUEVO según plan
         const currentText = extractLastAssistantMessage();
+        const currentHash = simpleHash(currentText);
+        
+        // Si está ejecutando código, marcar como tipo 'code' (según plan)
+        if (executingCode) {
+          updateState('executing-code', currentText);
+          return; // No procesar como texto normal
+        }
         
         if (thinking && !currentText) {
           updateState('thinking', '');
           stableCount = 0;
-        } else if (currentText && currentText !== lastText) {
+          lastTextHash = ''; // Reset hash cuando está pensando
+        } else if (currentText && currentHash !== lastTextHash) {
+          // Hash diferente = contenido realmente nuevo
           lastText = currentText;
+          lastTextHash = currentHash;
           window.qwenState.messageCount++;
           updateState('responding', currentText);
           stableCount = 0;
-        } else if (currentText && currentText === lastText && !thinking) {
+        } else if (currentText && currentHash === lastTextHash && !thinking) {
+          // Hash igual = mismo contenido, incrementar contador de estabilidad
           stableCount++;
           // Si el texto no cambia por 3 checks (1.5s), considerarlo completo
           if (stableCount >= 3) {
@@ -2117,21 +2221,33 @@ function setupQwenBidirectionalCommunication(browserView) {
         }
       };
 
-      // Verificación cada 500ms
-      setInterval(checkForChanges, 500);
+      // 🔄 DESCONECTAR OBSERVER ANTERIOR SI EXISTE (evitar bucles)
+      if (window.qwenObserverInstance) {
+        console.log('[QWEN Observer] 🔄 Desconectando observer anterior...');
+        window.qwenObserverInstance.disconnect();
+        window.qwenObserverInstance = null;
+      }
+      
+      if (window.qwenCheckInterval) {
+        clearInterval(window.qwenCheckInterval);
+        window.qwenCheckInterval = null;
+      }
 
-      // MutationObserver para cambios del DOM
-      const observer = new MutationObserver(() => {
+      // Verificación cada 500ms (con guardia de idempotencia)
+      window.qwenCheckInterval = setInterval(checkForChanges, 500);
+
+      // MutationObserver para cambios del DOM (con disconnect previo)
+      window.qwenObserverInstance = new MutationObserver(() => {
         checkForChanges();
       });
 
-      observer.observe(document.body, {
+      window.qwenObserverInstance.observe(document.body, {
         childList: true,
         subtree: true,
         characterData: true
       });
 
-      console.log('[QWEN Observer V2] ✅ Sistema iniciado correctamente');
+      console.log('[QWEN Observer V2] ✅ Sistema iniciado correctamente (observer desconectado previo si existía)');
       checkForChanges(); // Primera verificación
     })();
   `;
@@ -2160,10 +2276,24 @@ async function startQwenResponseCapture() {
   if (qwenResponseInterval) return; // Ya está capturando
   
   let lastCapturedText = '';
+  let lastTextHash = ''; // Hash para idempotencia
   let lastState = 'idle';
   let captureCount = 0;
+  let consecutiveDuplicates = 0; // Contador de duplicados consecutivos
   
   console.log('[QWEN Capture] 🚀 Iniciando captura de respuestas...');
+  
+  // Función simple para generar hash del texto (para idempotencia)
+  function simpleHash(text) {
+    let hash = 0;
+    if (!text) return '';
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convertir a 32bit integer
+    }
+    return hash.toString(36);
+  }
   
   // Esperar a que el BrowserView esté completamente listo
   qwenBrowserViewReady = false;
@@ -2233,6 +2363,26 @@ async function startQwenResponseCapture() {
             }
           }
           
+          // Detectar si está ejecutando código (según plan)
+          const isExecutingCode = (function() {
+            const codeBlocks = document.querySelectorAll('pre code, [class*="code"], [class*="syntax"]');
+            if (codeBlocks.length > 0) {
+              const hasExecution = Array.from(codeBlocks).some(block => {
+                const text = block.textContent || '';
+                return text.includes('>>>') || text.includes('$') || 
+                       text.includes('Running') || text.includes('Executing');
+              });
+              if (hasExecution) return true;
+            }
+            const bodyText = document.body.innerText || '';
+            if (bodyText.includes('Ejecutando') || bodyText.includes('Running') ||
+                bodyText.includes('>>>') || bodyText.match(/\\$\\s+\\w+/)) {
+              return true;
+            }
+            return false;
+          })();
+          
+          lastResponse.isExecutingCode = isExecutingCode;
           return lastResponse;
         })();
       `);
@@ -2241,6 +2391,7 @@ async function startQwenResponseCapture() {
         // Detectar cambios de estado
         const currentState = response.state || 'idle';
         const responseText = response.text || '';
+        const executingCode = response.isExecutingCode || false;  // NUEVO según plan
         
         // Si hay un cambio de estado, notificarlo
         if (currentState === 'thinking' && responseText === '') {
@@ -2256,37 +2407,64 @@ async function startQwenResponseCapture() {
               state: 'thinking'
             });
           }
-        } else if (responseText && responseText !== lastCapturedText) {
-          // Hay nueva respuesta
-          console.log('[QWEN Capture] 📥 Nueva respuesta detectada! Longitud:', responseText.length);
+        } else if (responseText) {
+          // Calcular hash del texto actual para idempotencia
+          const currentHash = simpleHash(responseText);
           
-          if (responseText.length > lastCapturedText.length) {
-            const newContent = responseText.slice(lastCapturedText.length);
-            lastCapturedText = responseText;
-            lastState = currentState;
+          // Verificar si es realmente contenido nuevo (hash diferente)
+          if (currentHash !== lastTextHash) {
+            // Hay nueva respuesta (hash diferente = contenido realmente nuevo)
+            console.log('[QWEN Capture] 📥 Nueva respuesta detectada! Longitud:', responseText.length);
             
-            console.log('[QWEN Capture] 📤 Enviando al renderer:', newContent.substring(0, 50) + '...');
+            // Solo enviar si el texto es más largo (streaming) o es completamente diferente
+            if (responseText.length > lastCapturedText.length || currentHash !== simpleHash(lastCapturedText)) {
+              const newContent = responseText.length > lastCapturedText.length 
+                ? responseText.slice(lastCapturedText.length)  // Solo la parte nueva
+                : responseText;  // Todo el texto si es completamente diferente
+              
+              lastCapturedText = responseText;
+              lastTextHash = currentHash;
+              lastState = currentState;
+              consecutiveDuplicates = 0; // Reset contador de duplicados
+              
+              console.log('[QWEN Capture] 📤 Enviando al renderer:', newContent.substring(0, 50) + '...');
 
-            // Enviar texto al renderer
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('qwen:response', {
-                type: 'text',
-                content: newContent,
-                state: currentState,
-                stream: true
-              });
+              // Enviar texto al renderer con tipo específico (según plan)
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('qwen:response', {
+                  type: executingCode ? 'code' : 'text',  // NUEVO: tipo específico
+                  content: newContent,
+                  state: currentState,
+                  stream: true,
+                  isCode: executingCode  // NUEVO: flag adicional
+                });
+              }
+            }
+          } else {
+            // Hash igual = mismo contenido (duplicado)
+            consecutiveDuplicates++;
+            
+            // Si hay muchos duplicados consecutivos, puede ser un bucle
+            if (consecutiveDuplicates > 5) {
+              console.warn('[QWEN Capture] ⚠️ Detectados múltiples duplicados consecutivos, posible bucle');
+              consecutiveDuplicates = 0; // Reset para evitar spam de logs
             }
           }
 
-          // Enviar media si existe
+          // Enviar media si existe (FILTRADO: NO imágenes de Alibaba)
           if (response.images && response.images.length > 0) {
             response.images.forEach(img => {
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('qwen:response', {
-                  type: 'image',
-                  content: img,
-                  state: currentState
-                });
+              // FILTRAR imágenes de Alibaba
+              if (img && !img.includes('alicdn.com') && !img.includes('alibaba')) {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('qwen:response', {
+                    type: 'image',
+                    content: img,
+                    state: currentState
+                  });
+                }
+              } else {
+                console.log('[QWEN Capture] 🚫 Imagen de Alibaba filtrada:', img?.substring(0, 50));
               }
             });
           }
