@@ -97,25 +97,31 @@ function handleDebuggerMessage(event, method, params) {
             contentType.includes('text/event-stream') || 
             contentType.includes('application/json') ||
             contentType.includes('text/plain')) {
+          // Generar messageId único para este request
+          const messageId = `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
           activeRequestIds.set(params.requestId, {
             url: url,
             contentType: contentType || 'unknown',
-            buffer: ''
+            buffer: '',
+            messageId: messageId, // ⭐ CRÍTICO: messageId único por request
+            startTime: Date.now()
           });
-          console.log('[QWEN-NET] 🎯 Tracking CHAT request:', params.requestId);
+          console.log('[QWEN-NET] 🎯 Tracking CHAT request:', params.requestId, 'MessageID:', messageId);
         }
       }
     }
 
     // ============ DATA RECEIVED (SSE chunks) ============
+    // ⭐ STREAMING REAL: Procesar inmediatamente sin ningún delay
     if (method === 'Network.dataReceived') {
       if (activeRequestIds.has(params.requestId)) {
         const requestInfo = activeRequestIds.get(params.requestId);
-        console.log('[QWEN-NET] 📦 Data chunk recibido para:', requestInfo.url.substring(0, 50));
+        const dataLength = params.dataLength || 0;
         
-        // ⭐ INTENTAR OBTENER EL BODY INMEDIATAMENTE (mientras está streaming)
-        // Reducir delay para streaming más rápido
-        setTimeout(async () => {
+        // ⭐ CRÍTICO: Intentar obtener el body INMEDIATAMENTE (sin delay)
+        // Usar Promise.resolve().then() para ejecutar async pero sin delay de frame
+        Promise.resolve().then(async () => {
           try {
             const response = await currentBrowserView.webContents.debugger.sendCommand(
               'Network.getResponseBody',
@@ -124,20 +130,26 @@ function handleDebuggerMessage(event, method, params) {
             
             if (response && response.body) {
               const newData = response.body;
+              const previousLength = requestInfo.buffer.length;
+              
               // Solo procesar si hay datos nuevos
-              if (newData.length > requestInfo.buffer.length) {
-                const deltaData = newData.substring(requestInfo.buffer.length);
-                console.log('[QWEN-NET] 📄 Nuevo chunk streaming:', deltaData.length, 'bytes');
+              if (newData.length > previousLength) {
+                const deltaData = newData.substring(previousLength);
+                console.log('[QWEN-NET] 📄 Chunk streaming inmediato:', deltaData.length, 'bytes (total:', newData.length, ')');
                 requestInfo.buffer = newData;
                 
-                // Procesar solo el nuevo delta (no todo el buffer)
+                // ⭐ PROCESAR Y ENVIAR INMEDIATAMENTE (sin acumular)
                 processStreamingChunk(deltaData, requestInfo);
               }
             }
           } catch (err) {
-            // Es normal que falle durante streaming, seguiremos intentando
+            // Es normal que falle durante streaming activo
+            // Intentar de nuevo en el siguiente chunk
+            if (err.message && !err.message.includes('No resource with given identifier')) {
+              console.log('[QWEN-NET] ⚠️ Error obteniendo body (normal durante streaming):', err.message.substring(0, 50));
+            }
           }
-        }, 50); // Reducido de 100ms a 50ms para streaming más rápido
+        }).catch(() => {}); // Silenciar errores no críticos
       }
     }
 
@@ -185,23 +197,28 @@ async function handleLoadingFinished(params) {
   activeRequestIds.delete(params.requestId);
 }
 
-// Buffer global para acumular contenido por requestId (para streaming real)
+// Buffer global para acumular contenido por messageId (para streaming real)
 const streamingBuffers = new Map();
 
 /**
- * Procesa chunks de streaming en tiempo real
+ * Procesa chunks de streaming en tiempo real - SIN DELAYS
+ * ⭐ STREAMING REAL: Cada delta se envía inmediatamente al renderer
  */
 function processStreamingChunk(data, requestInfo) {
   try {
     // Si el endpoint es /chat/completions, procesar como SSE
     if (requestInfo.url.includes('/chat/completions')) {
-      // Inicializar buffer para este request si no existe
-      if (!streamingBuffers.has(requestInfo.url)) {
-        streamingBuffers.set(requestInfo.url, '');
+      const messageId = requestInfo.messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Inicializar buffer para este messageId si no existe
+      if (!streamingBuffers.has(messageId)) {
+        streamingBuffers.set(messageId, '');
+        console.log('[QWEN-NET] 🆕 Nuevo stream iniciado, MessageID:', messageId.substring(0, 20));
       }
-      const accumulatedContent = streamingBuffers.get(requestInfo.url);
+      const accumulatedContent = streamingBuffers.get(messageId);
       
       // QWEN usa formato SSE: data: {...}\n\n
+      // Procesar línea por línea para extraer cada delta
       const lines = data.split('\n');
       
       for (const line of lines) {
@@ -211,8 +228,8 @@ function processStreamingChunk(data, requestInfo) {
             // Fin del streaming - enviar lo que quede
             if (accumulatedContent.length > 0) {
               console.log('[QWEN-NET] ✅ STREAMING COMPLETO:', accumulatedContent.length, 'chars');
-              sendToRenderer(accumulatedContent, false); // false = completo
-              streamingBuffers.delete(requestInfo.url);
+              sendToRenderer(accumulatedContent, false, messageId, false); // false = completo
+              streamingBuffers.delete(messageId);
             }
             continue;
           }
@@ -234,23 +251,35 @@ function processStreamingChunk(data, requestInfo) {
               deltaContent = parsed.text;
             }
             
-            // ⭐ ENVIAR CADA DELTA INMEDIATAMENTE (streaming real)
-            if (deltaContent) {
+            // ⭐ STREAMING REAL: Enviar CADA DELTA inmediatamente sin acumular
+            if (deltaContent && deltaContent.length > 0) {
               const newContent = accumulatedContent + deltaContent;
-              streamingBuffers.set(requestInfo.url, newContent);
+              streamingBuffers.set(messageId, newContent);
               
-              // Enviar inmediatamente cada chunk (sin esperar acumulación)
-              console.log('[QWEN-NET] 📝 Delta recibido:', deltaContent.length, 'chars');
-              sendToRenderer(newContent, true); // true = partial (streaming)
+              // ⭐ ENVIAR INMEDIATAMENTE (sin ningún delay)
+              // Solo marcar como nuevo mensaje en el primer chunk
+              const isFirstChunk = accumulatedContent.length === 0;
+              
+              // Enviar síncronamente al renderer (sin await, sin delay)
+              sendToRenderer(newContent, true, messageId, isFirstChunk); // true = partial (streaming)
             }
           } catch (e) {
             // No es JSON válido, puede ser texto plano
             if (jsonStr.length > 0 && jsonStr !== '[DONE]') {
               const newContent = accumulatedContent + jsonStr;
-              streamingBuffers.set(requestInfo.url, newContent);
-              sendToRenderer(newContent, true); // Enviar inmediatamente
+              streamingBuffers.set(messageId, newContent);
+              const isFirstChunk = accumulatedContent.length === 0;
+              // Enviar inmediatamente
+              sendToRenderer(newContent, true, messageId, isFirstChunk);
             }
           }
+        } else if (line.trim().length > 0 && !line.startsWith('event:') && !line.startsWith('id:')) {
+          // Líneas que no son parte del formato SSE pero pueden contener datos
+          // Procesar como texto plano si no es formato SSE estándar
+          const newContent = accumulatedContent + line + '\n';
+          streamingBuffers.set(messageId, newContent);
+          const isFirstChunk = accumulatedContent.length === 0;
+          sendToRenderer(newContent, true, messageId, isFirstChunk);
         }
       }
     }
@@ -309,7 +338,8 @@ function processResponseBody(body, requestInfo) {
       
       if (fullContent.length > 0) {
         console.log('[QWEN-NET] ✅ Contenido extraído de /chat/completions:', fullContent.length, 'chars');
-        sendToRenderer(fullContent);
+        const messageId = requestInfo.messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        sendToRenderer(fullContent, false, messageId, true); // false = completo, true = nuevo mensaje
         return;
       }
     }
@@ -344,7 +374,8 @@ function processResponseBody(body, requestInfo) {
       }
       
       if (fullContent.length > 0) {
-        sendToRenderer(fullContent);
+        const messageId = requestInfo.messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        sendToRenderer(fullContent, false, messageId, true);
       }
     } 
     // Si es JSON normal
@@ -362,7 +393,8 @@ function processResponseBody(body, requestInfo) {
         else if (parsed.content) content = parsed.content;
         
         if (content.length > 0) {
-          sendToRenderer(content);
+          const messageId = requestInfo.messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          sendToRenderer(content, false, messageId, true);
         }
       } catch (e) {
         console.log('[QWEN-NET] ⚠️ No es JSON válido, probando como texto plano');
@@ -378,14 +410,16 @@ function processResponseBody(body, requestInfo) {
             } catch (e2) {}
           }
           if (fullContent.length > 0) {
-            sendToRenderer(fullContent);
+            const messageId = requestInfo.messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            sendToRenderer(fullContent, false, messageId, true);
           }
         }
       }
     }
     // Texto plano
     else if (body.length > 10) {
-      sendToRenderer(body);
+      const messageId = requestInfo.messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      sendToRenderer(body, false, messageId, true);
     }
   } catch (err) {
     console.error('[QWEN-NET] ⚠️ Error procesando body:', err.message);
@@ -417,8 +451,8 @@ function handleSSEMessage(params) {
   }
 }
 
-// Buffer global para WebSocket streaming
-let wsStreamingBuffer = '';
+// Buffer global para WebSocket streaming por messageId
+const wsStreamingBuffers = new Map();
 
 /**
  * Procesa un frame WebSocket
@@ -435,29 +469,42 @@ function handleWebSocketFrame(params, direction) {
     try {
       const data = JSON.parse(payloadData);
       
+      // Generar messageId único para este WebSocket stream
+      const wsMessageId = `qwen-ws-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Inicializar buffer si no existe
+      if (!wsStreamingBuffers.has(wsMessageId)) {
+        wsStreamingBuffers.set(wsMessageId, '');
+      }
+      const wsStreamingBuffer = wsStreamingBuffers.get(wsMessageId);
+      
       // ⭐ ENVIAR CADA DELTA INMEDIATAMENTE (streaming real)
       if (data.delta?.content) {
-        wsStreamingBuffer += data.delta.content;
+        const newContent = wsStreamingBuffer + data.delta.content;
+        wsStreamingBuffers.set(wsMessageId, newContent);
         console.log('[QWEN-NET] 📝 Delta WS:', data.delta.content.substring(0, 30));
         
         // Enviar inmediatamente cada chunk
-        sendToRenderer(wsStreamingBuffer, true); // true = partial (streaming)
+        const isFirstChunk = wsStreamingBuffer.length === 0;
+        sendToRenderer(newContent, true, wsMessageId, isFirstChunk); // true = partial (streaming)
       }
 
       // Cuando termina, enviar como completo
       if (data.done === true || data.finish_reason === 'stop' || data.choices?.[0]?.finish_reason === 'stop') {
         if (wsStreamingBuffer.length > 0) {
-          sendToRenderer(wsStreamingBuffer, false); // false = completo
-          wsStreamingBuffer = '';
+          sendToRenderer(wsStreamingBuffer, false, wsMessageId, false); // false = completo
+          wsStreamingBuffers.delete(wsMessageId);
         }
       }
 
       // Formatos alternativos (enviar inmediatamente)
       if (data.message?.content && !data.delta) {
-        sendToRenderer(data.message.content, false);
+        const altMessageId = `qwen-ws-alt-${Date.now()}`;
+        sendToRenderer(data.message.content, false, altMessageId, true);
       }
       if (data.text || data.output?.text) {
-        sendToRenderer(data.text || data.output.text, false);
+        const altMessageId = `qwen-ws-alt-${Date.now()}`;
+        sendToRenderer(data.text || data.output.text, false, altMessageId, true);
       }
 
     } catch (parseErr) {
@@ -470,30 +517,44 @@ function handleWebSocketFrame(params, direction) {
 }
 
 /**
- * Envía la respuesta al renderer
+ * Envía la respuesta al renderer - STREAMING REAL SIN DELAYS
+ * ⭐ CRÍTICO: Esta función se ejecuta síncronamente para streaming real
  */
-function sendToRenderer(content, isPartial = false) {
+function sendToRenderer(content, isPartial = false, messageId = null, isNewMessage = false) {
   if (!content || content.length === 0) return;
   
-  const statusText = isPartial ? 'CHUNK PARCIAL' : 'RESPUESTA COMPLETA';
-  console.log(`[QWEN-NET] ✅ ${statusText}:`, content.length, 'caracteres');
-  console.log('[QWEN-NET] 📝 Preview:', content.substring(0, 100));
+  // Generar messageId si no viene
+  const finalMessageId = messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  // ⭐ STREAMING REAL: Enviar inmediatamente sin logs excesivos (solo cada 10 chunks para no saturar)
+  const shouldLog = !isPartial || Math.random() < 0.1; // Log solo 10% de los chunks parciales
+  if (shouldLog) {
+    const statusText = isPartial ? 'CHUNK STREAMING' : 'RESPUESTA COMPLETA';
+    console.log(`[QWEN-NET] ✅ ${statusText}:`, content.length, 'chars, msgId:', finalMessageId.substring(0, 15), 'isNew:', isNewMessage);
+  }
   
   const codeInfo = detectCodeBlocks(content);
   
   if (currentMainWindow && !currentMainWindow.isDestroyed()) {
-    currentMainWindow.webContents.send('qwen:response', {
-      type: codeInfo.hasCode ? 'code' : 'text',
-      content: content,
-      state: isPartial ? 'streaming' : 'complete',
-      stream: true,
-      isStreaming: isPartial,
-      isCode: codeInfo.hasCode,
-      codeBlocks: codeInfo.blocks,
-      source: 'network-interceptor'
-    });
-    
-    console.log('[QWEN-NET] 📤 Enviado a renderer (partial:', isPartial, ')');
+    // ⭐ ENVIAR INMEDIATAMENTE (síncrono, sin await, sin delay)
+    try {
+      currentMainWindow.webContents.send('qwen:response', {
+        type: codeInfo.hasCode ? 'code' : 'text',
+        content: content,
+        state: isPartial ? 'streaming' : 'complete',
+        stream: true,
+        isStreaming: isPartial,
+        isPartial: isPartial, // ⭐ CRÍTICO: flag para streaming
+        isCode: codeInfo.hasCode,
+        codeBlocks: codeInfo.blocks,
+        source: 'network-interceptor',
+        messageId: finalMessageId, // ⭐ CRÍTICO: messageId único por request
+        isNewMessage: isNewMessage, // ⭐ CRÍTICO: solo true en el primer chunk
+        timestamp: Date.now() // Timestamp para debugging
+      });
+    } catch (err) {
+      console.error('[QWEN-NET] ❌ Error enviando a renderer:', err.message);
+    }
   }
 }
 
