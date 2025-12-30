@@ -1752,8 +1752,8 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
   }
 });
 
-// ============ QWEN: OBSERVER SIMPLIFICADO Y ROBUSTO ============
-// Versión simplificada que garantiza funcionamiento sin bloqueos
+// ============ QWEN: OBSERVER PROFESIONAL CON SEPARACIÓN DE MENSAJES ============
+// Sistema profesional que separa claramente mensajes del usuario vs asistente
 function setupSimplifiedQwenObserver(browserView) {
   if (!browserView || browserView.webContents.isDestroyed()) return;
 
@@ -1762,9 +1762,22 @@ function setupSimplifiedQwenObserver(browserView) {
       if (window.qwenObserverActive) return;
       window.qwenObserverActive = true;
       
-      console.log('[QWEN Observer] ✅ Versión simplificada iniciada');
+      console.log('[QWEN Observer Pro] ✅ Sistema profesional iniciado');
       
-      window.qwenState = { lastText: '', lastHash: '', messageCount: 0 };
+      // Sistema de cola de mensajes separados
+      window.qwenMessageQueue = {
+        userMessages: new Map(),      // ID -> { text, element, timestamp }
+        assistantMessages: new Map(),  // ID -> { text, element, timestamp, isComplete }
+        lastUserMessageId: null,
+        lastAssistantMessageId: null
+      };
+      
+      function generateMessageId(element) {
+        // Generar ID único basado en posición y contenido
+        const rect = element.getBoundingClientRect();
+        const text = (element.innerText || element.textContent || '').substring(0, 50);
+        return (rect.top + rect.left + text.length).toString(36) + Date.now().toString(36);
+      }
       
       function simpleHash(text) {
         if (!text) return '';
@@ -1776,30 +1789,147 @@ function setupSimplifiedQwenObserver(browserView) {
         return hash.toString(36);
       }
       
-      function extractLastMessage() {
+      // Extraer SOLO mensajes del ASISTENTE (QWEN) - MEJORADO para no capturar mensajes del usuario
+      function extractAssistantMessages() {
         try {
-          const selectors = ['[data-role="assistant"]', '[class*="assistant"]', '[class*="message"]'];
-          let allTexts = [];
+          // Selectores específicos para mensajes del asistente
+          const assistantSelectors = [
+            '[data-role="assistant"]',
+            '[class*="assistant"]',
+            '[class*="ai-message"]',
+            '[class*="bot-response"]',
+            '[class*="response-content"]'
+          ];
           
-          for (const sel of selectors) {
+          const messages = [];
+          const userMessageIds = new Set(); // IDs de mensajes del usuario para filtrar
+          
+          // Primero, identificar mensajes del usuario para excluirlos
+          const userMessages = extractUserMessages();
+          userMessages.forEach(msg => userMessageIds.add(msg.id));
+          
+          for (const sel of assistantSelectors) {
+            const elements = document.querySelectorAll(sel);
+            elements.forEach(el => {
+              // Filtrar elementos de UI
+              if (el.tagName === 'BUTTON' || el.closest('button')) return;
+              if (el.querySelector('button, input, textarea')) return;
+              if (el.offsetHeight < 30) return;
+              
+              const text = (el.innerText || el.textContent || '').trim();
+              
+              // Filtrar textos de UI
+              if (text.length < 15) return;
+              if (text.match(/^(copy|like|dislike|share|regenerate|edit|delete)$/i)) return;
+              if (text.includes('El contenido generado')) return;
+              if (text.includes('¿Cómo puedo ayudarte')) return;
+              
+              // CRÍTICO: Filtrar si el texto contiene mensajes del usuario
+              const isUserMessage = userMessages.some(userMsg => {
+                // Si el texto del asistente contiene el texto del usuario, es mezcla
+                if (text.includes(userMsg.text) && text.length < userMsg.text.length * 2) {
+                  return true;
+                }
+                // Si el elemento está cerca de un mensaje del usuario, puede ser mezcla
+                const userRect = userMsg.rect;
+                const elRect = el.getBoundingClientRect();
+                const distance = Math.abs(userRect.top - elRect.top);
+                if (distance < 50 && text.includes(userMsg.text.substring(0, 20))) {
+                  return true;
+                }
+                return false;
+              });
+              
+              if (isUserMessage) {
+                console.log('[QWEN Observer] 🚫 Filtrando mensaje mezclado con usuario');
+                return; // NO incluir este mensaje
+              }
+              
+              // Verificar que no esté alineado a la derecha (típico de mensajes del usuario)
+              const styles = window.getComputedStyle(el);
+              const textAlign = styles.textAlign || '';
+              const rect = el.getBoundingClientRect();
+              if (textAlign === 'right' || rect.left > window.innerWidth * 0.7) {
+                return; // Probablemente es del usuario
+              }
+              
+              messages.push({
+                text: text,
+                element: el,
+                rect: el.getBoundingClientRect(),
+                id: generateMessageId(el)
+              });
+            });
+          }
+          
+          // Ordenar por posición (más abajo = más reciente)
+          messages.sort((a, b) => b.rect.top - a.rect.top);
+          return messages;
+        } catch (e) {
+          console.error('[QWEN Observer] Error extrayendo mensajes:', e);
+          return [];
+        }
+      }
+      
+      // Extraer SOLO mensajes del USUARIO (mejorado)
+      function extractUserMessages() {
+        try {
+          const userSelectors = [
+            '[data-role="user"]',
+            '[class*="user-message"]',
+            '[class*="user"]',
+            '[class*="human"]'
+          ];
+          
+          const messages = [];
+          
+          // Buscar por selectores específicos
+          for (const sel of userSelectors) {
             const elements = document.querySelectorAll(sel);
             elements.forEach(el => {
               if (el.tagName === 'BUTTON' || el.closest('button')) return;
               if (el.querySelector('button, input, textarea')) return;
               
               const text = (el.innerText || el.textContent || '').trim();
-              if (text.length < 20) return;
-              if (text.match(/^(copy|like|dislike|share|regenerate)$/i)) return;
-              if (text.includes('El contenido generado')) return;
+              if (text.length < 5) return;
               
-              allTexts.push({ text: text, rect: el.getBoundingClientRect() });
+              messages.push({
+                text: text,
+                element: el,
+                rect: el.getBoundingClientRect(),
+                id: generateMessageId(el)
+              });
             });
           }
           
-          allTexts.sort((a, b) => b.rect.top - a.rect.top);
-          return allTexts.length > 0 ? allTexts[0].text : '';
+          // También buscar mensajes que están alineados a la derecha (típico de chats)
+          const allMessages = document.querySelectorAll('[class*="message"]');
+          allMessages.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            const styles = window.getComputedStyle(el);
+            const textAlign = styles.textAlign || '';
+            const justifyContent = styles.justifyContent || '';
+            
+            // Si está alineado a la derecha, probablemente es del usuario
+            if ((textAlign === 'right' || justifyContent.includes('flex-end') || 
+                 rect.left > window.innerWidth / 2) && 
+                !messages.some(m => m.element === el)) {
+              const text = (el.innerText || el.textContent || '').trim();
+              if (text.length > 5 && !text.includes('El contenido generado')) {
+                messages.push({
+                  text: text,
+                  element: el,
+                  rect: rect,
+                  id: generateMessageId(el)
+                });
+              }
+            }
+          });
+          
+          messages.sort((a, b) => b.rect.top - a.rect.top);
+          return messages;
         } catch (e) {
-          return '';
+          return [];
         }
       }
       
@@ -1829,70 +1959,99 @@ function setupSimplifiedQwenObserver(browserView) {
         return { hasCode, blocks };
       }
       
-      // Almacenar historial de mensajes para detectar nuevos
-      window.qwenMessageHistory = window.qwenMessageHistory || [];
-      
-      function updateResponse() {
-        const currentText = extractLastMessage();
-        const currentHash = simpleHash(currentText);
+      // Función principal: actualizar cola de mensajes
+      function updateMessageQueue() {
+        // Extraer mensajes del asistente (QWEN)
+        const assistantMessages = extractAssistantMessages();
+        const userMessages = extractUserMessages();
         
-        // Solo actualizar si el texto cambió Y es diferente al último mensaje del historial
-        if (currentHash !== window.qwenState.lastHash && currentText.length > 0) {
-          // Verificar si es un mensaje nuevo (no está en el historial)
-          const isNewMessage = !window.qwenMessageHistory.some(msg => 
-            msg.text === currentText || currentText.includes(msg.text) && currentText.length > msg.text.length * 1.5
-          );
+        // Procesar mensajes del asistente
+        if (assistantMessages.length > 0) {
+          const lastAssistant = assistantMessages[0]; // Más reciente
+          const msgId = lastAssistant.id;
           
-          // Si es un mensaje nuevo, agregarlo al historial
-          if (isNewMessage && window.qwenMessageHistory.length > 0) {
-            // Marcar mensaje anterior como completo
-            const lastMsg = window.qwenMessageHistory[window.qwenMessageHistory.length - 1];
-            if (lastMsg) {
-              lastMsg.isComplete = true;
-            }
-          }
+          // Verificar si es mensaje nuevo o actualización
+          const existing = window.qwenMessageQueue.assistantMessages.get(msgId);
           
-          window.qwenState.lastText = currentText;
-          window.qwenState.lastHash = currentHash;
-          window.qwenState.messageCount++;
-          
-          const codeInfo = detectCode(currentText);
-          
-          // Agregar al historial si es nuevo
-          if (isNewMessage) {
-            window.qwenMessageHistory.push({
-              text: currentText,
-              hash: currentHash,
+          if (!existing) {
+            // NUEVO mensaje del asistente
+            window.qwenMessageQueue.assistantMessages.set(msgId, {
+              text: lastAssistant.text,
+              element: lastAssistant.element,
               timestamp: Date.now(),
-              isComplete: false
+              isComplete: false,
+              isNew: true
             });
+            window.qwenMessageQueue.lastAssistantMessageId = msgId;
             
-            // Mantener solo los últimos 5 mensajes
-            if (window.qwenMessageHistory.length > 5) {
-              window.qwenMessageHistory.shift();
+            // Marcar mensaje anterior como completo
+            if (window.qwenMessageQueue.lastAssistantMessageId && 
+                window.qwenMessageQueue.lastAssistantMessageId !== msgId) {
+              const prev = window.qwenMessageQueue.assistantMessages.get(window.qwenMessageQueue.lastAssistantMessageId);
+              if (prev) prev.isComplete = true;
+            }
+            
+            console.log('[QWEN Observer] 🆕 Nuevo mensaje asistente:', lastAssistant.text.substring(0, 50));
+          } else {
+            // Actualización de mensaje existente (streaming)
+            if (lastAssistant.text.length > existing.text.length) {
+              existing.text = lastAssistant.text;
+              existing.isNew = false;
+              existing.isUpdate = true;
+              console.log('[QWEN Observer] 📝 Actualizando mensaje asistente:', lastAssistant.text.length, 'chars');
             }
           }
+        }
+        
+        // Procesar mensajes del usuario (solo para referencia, no enviar)
+        if (userMessages.length > 0) {
+          const lastUser = userMessages[0];
+          const msgId = lastUser.id;
           
-          window.qwenLastResponse = {
-            text: currentText,
-            fullText: currentText,
-            state: 'complete',
-            hasCode: codeInfo.hasCode,
-            codeBlocks: codeInfo.blocks,
-            timestamp: Date.now(),
-            isNewMessage: isNewMessage  // Flag para indicar si es mensaje nuevo
-          };
-          
-          console.log('[QWEN Observer] ✅ Actualizado:', currentText.substring(0, 50), codeInfo.hasCode ? '(código)' : '', isNewMessage ? '[NUEVO]' : '[ACTUALIZACIÓN]');
+          if (!window.qwenMessageQueue.userMessages.has(msgId)) {
+            window.qwenMessageQueue.userMessages.set(msgId, {
+              text: lastUser.text,
+              element: lastUser.element,
+              timestamp: Date.now()
+            });
+            window.qwenMessageQueue.lastUserMessageId = msgId;
+          }
+        }
+        
+        // Actualizar window.qwenLastResponse con el último mensaje del asistente
+        const lastAssistantMsg = assistantMessages.length > 0 ? assistantMessages[0] : null;
+        if (lastAssistantMsg) {
+          const queueEntry = window.qwenMessageQueue.assistantMessages.get(lastAssistantMsg.id);
+          if (queueEntry) {
+            const codeInfo = detectCode(queueEntry.text);
+            
+            window.qwenLastResponse = {
+              text: queueEntry.text,
+              fullText: queueEntry.text,
+              state: queueEntry.isComplete ? 'complete' : 'streaming',
+              hasCode: codeInfo.hasCode,
+              codeBlocks: codeInfo.blocks,
+              timestamp: Date.now(),
+              isNewMessage: queueEntry.isNew || false,
+              messageId: lastAssistantMsg.id
+            };
+          }
         }
       }
       
-      const observer = new MutationObserver(updateResponse);
+      // Observar cambios en el DOM
+      const observer = new MutationObserver(() => {
+        updateMessageQueue();
+      });
       observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-      setInterval(updateResponse, 500);
-      updateResponse();
       
-      console.log('[QWEN Observer] ✅ Observador simplificado activo');
+      // También verificar periódicamente (cada 500ms)
+      setInterval(updateMessageQueue, 500);
+      
+      // Primera verificación
+      updateMessageQueue();
+      
+      console.log('[QWEN Observer Pro] ✅ Sistema profesional activo con separación de mensajes');
     })();
   `;
 
@@ -1927,15 +2086,17 @@ function startSimplifiedQwenCapture() {
       `);
       
       if (response && response.text && response.text.length > 0) {
-        const currentHash = response.text.length.toString() + response.text.substring(0, 50);
-        const isNewMessage = response.isNewMessage || false;
+        const messageId = response.messageId || '';
+        const isNewMessage = response.isNewMessage === true;
+        const currentHash = messageId + response.text.length.toString();
         
-        // Solo enviar si es diferente Y (es mensaje nuevo O es actualización del mismo mensaje)
+        // Solo enviar si es diferente
         if (currentHash !== lastSentHash && response.text !== lastSentText) {
-          // Si es mensaje nuevo, resetear hash del último enviado
+          // Si es mensaje nuevo, resetear tracking
           if (isNewMessage) {
-            lastSentHash = ''; // Reset para permitir nuevo mensaje
-            console.log('[QWEN Capture] 🆕 NUEVO MENSAJE detectado');
+            lastSentHash = '';
+            lastSentText = '';
+            console.log('[QWEN Capture] 🆕 NUEVO MENSAJE detectado (ID:', messageId.substring(0, 10) + '...)');
           }
           
           lastSentText = response.text;
@@ -1948,10 +2109,11 @@ function startSimplifiedQwenCapture() {
               type: response.hasCode ? 'code' : 'text',
               content: response.text,
               state: response.state || 'complete',
-              stream: false,
+              stream: response.state === 'streaming',
               isCode: response.hasCode,
               codeBlocks: response.codeBlocks || [],
-              isNewMessage: isNewMessage  // Flag para el renderer
+              isNewMessage: isNewMessage,
+              messageId: messageId  // ID único del mensaje
             });
           }
         }
