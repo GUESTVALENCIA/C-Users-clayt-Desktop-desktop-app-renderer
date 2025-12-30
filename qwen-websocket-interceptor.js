@@ -1,18 +1,16 @@
 /**
  * ============================================================================
- * QWEN WEBSOCKET INTERCEPTOR - Sistema de Captura en Bloque
+ * QWEN NETWORK INTERCEPTOR - Sistema de Captura en Bloque
  * ============================================================================
  * 
- * Este módulo intercepta la comunicación WebSocket de QWEN para capturar
- * respuestas COMPLETAS en bloque, eliminando el problema del DOM scraping
- * que capturaba letra por letra y mezclaba UI con contenido.
+ * Este módulo intercepta la comunicación de red de QWEN para capturar
+ * respuestas COMPLETAS en bloque. Soporta:
+ * - WebSocket
+ * - Server-Sent Events (SSE)
+ * - Fetch/XHR streaming
  * 
  * Autor: Opus (Claude) para Cley
  * Fecha: 2025-12-30
- * 
- * USO:
- *   const { setupQwenWebSocketInterceptor, stopQwenInterceptor } = require('./qwen-websocket-interceptor');
- *   setupQwenWebSocketInterceptor(qwenBrowserView, mainWindow);
  * 
  * ============================================================================
  */
@@ -22,15 +20,14 @@ let qwenResponseBuffer = '';
 let qwenDebuggerAttached = false;
 let currentBrowserView = null;
 let currentMainWindow = null;
+let activeRequestIds = new Map(); // Track active streaming requests
 
 /**
- * Configura el interceptor de WebSocket usando Chrome DevTools Protocol
- * @param {BrowserView} browserView - El BrowserView de QWEN
- * @param {BrowserWindow} mainWindow - La ventana principal de Electron
+ * Configura el interceptor de red usando Chrome DevTools Protocol
  */
 async function setupQwenWebSocketInterceptor(browserView, mainWindow) {
   if (!browserView || browserView.webContents.isDestroyed()) {
-    console.error('[QWEN-WS] ❌ BrowserView no disponible');
+    console.error('[QWEN-NET] ❌ BrowserView no disponible');
     return { success: false, error: 'BrowserView no disponible' };
   }
 
@@ -42,27 +39,26 @@ async function setupQwenWebSocketInterceptor(browserView, mainWindow) {
     if (!qwenDebuggerAttached) {
       await browserView.webContents.debugger.attach('1.3');
       qwenDebuggerAttached = true;
-      console.log('[QWEN-WS] ✅ Debugger attached (CDP 1.3)');
+      console.log('[QWEN-NET] ✅ Debugger attached (CDP 1.3)');
     }
 
-    // Habilitar captura de red
+    // Habilitar captura de red completa
     await browserView.webContents.debugger.sendCommand('Network.enable');
-    console.log('[QWEN-WS] ✅ Network.enable activado');
+    console.log('[QWEN-NET] ✅ Network.enable activado');
 
     // Configurar listener para eventos del debugger
     browserView.webContents.debugger.on('message', handleDebuggerMessage);
 
-    console.log('[QWEN-WS] ✅ Interceptor WebSocket ACTIVO');
-    console.log('[QWEN-WS] 📡 Escuchando WebSocket frames de QWEN...');
+    console.log('[QWEN-NET] ✅ Interceptor de Red ACTIVO');
+    console.log('[QWEN-NET] 📡 Escuchando WebSocket + SSE + Fetch de QWEN...');
 
-    return { success: true, message: 'Interceptor WebSocket activo' };
+    return { success: true, message: 'Interceptor de red activo' };
 
   } catch (err) {
-    console.error('[QWEN-WS] ❌ Error configurando interceptor:', err.message);
+    console.error('[QWEN-NET] ❌ Error configurando interceptor:', err.message);
     
-    // Si el debugger ya estaba attached, no es un error crítico
     if (err.message.includes('Another debugger is already attached')) {
-      console.log('[QWEN-WS] ⚠️ Debugger ya estaba attached, continuando...');
+      console.log('[QWEN-NET] ⚠️ Debugger ya estaba attached, continuando...');
       qwenDebuggerAttached = true;
       return { success: true, message: 'Debugger ya activo' };
     }
@@ -78,6 +74,7 @@ function handleDebuggerMessage(event, method, params) {
   try {
     // ============ WEBSOCKET FRAMES ============
     if (method === 'Network.webSocketFrameReceived') {
+      console.log('[QWEN-NET] 🔌 WebSocket frame recibido');
       handleWebSocketFrame(params, 'received');
     }
     
@@ -85,16 +82,171 @@ function handleDebuggerMessage(event, method, params) {
       handleWebSocketFrame(params, 'sent');
     }
 
-    // ============ FETCH/XHR RESPONSES (backup) ============
+    // ============ HTTP RESPONSES (SSE/Fetch) ============
     if (method === 'Network.responseReceived') {
       const url = params.response?.url || '';
-      if (url.includes('qwenlm.ai') && url.includes('/api')) {
-        console.log('[QWEN-WS] 📥 HTTP Response:', url.substring(0, 80));
+      const contentType = params.response?.headers?.['content-type'] || '';
+      
+      // Detectar respuestas de QWEN API
+      if (url.includes('qwenlm.ai') || url.includes('qwen')) {
+        console.log('[QWEN-NET] 📥 HTTP Response:', url.substring(0, 80));
+        console.log('[QWEN-NET] 📋 Content-Type:', contentType);
+        
+        // Si es SSE o streaming, trackear el requestId
+        if (contentType.includes('text/event-stream') || 
+            contentType.includes('application/json') ||
+            contentType.includes('text/plain')) {
+          activeRequestIds.set(params.requestId, {
+            url: url,
+            contentType: contentType,
+            buffer: ''
+          });
+          console.log('[QWEN-NET] 📡 Tracking request:', params.requestId);
+        }
       }
     }
 
+    // ============ DATA RECEIVED (SSE chunks) ============
+    if (method === 'Network.dataReceived') {
+      if (activeRequestIds.has(params.requestId)) {
+        console.log('[QWEN-NET] 📦 Data chunk recibido para request:', params.requestId);
+        // Los datos reales vienen en loadingFinished o necesitamos getResponseBody
+      }
+    }
+
+    // ============ LOADING FINISHED ============
+    if (method === 'Network.loadingFinished') {
+      if (activeRequestIds.has(params.requestId)) {
+        console.log('[QWEN-NET] ✅ Request completado:', params.requestId);
+        handleLoadingFinished(params);
+      }
+    }
+
+    // ============ EVENT SOURCE MESSAGE (SSE) ============
+    if (method === 'Network.eventSourceMessageReceived') {
+      console.log('[QWEN-NET] 📡 SSE Message:', params.data?.substring(0, 100));
+      handleSSEMessage(params);
+    }
+
   } catch (err) {
-    // Silenciar errores de parsing para no llenar la consola
+    console.error('[QWEN-NET] ⚠️ Error en handler:', err.message);
+  }
+}
+
+/**
+ * Maneja cuando una request HTTP termina de cargar
+ */
+async function handleLoadingFinished(params) {
+  const requestInfo = activeRequestIds.get(params.requestId);
+  if (!requestInfo) return;
+
+  try {
+    // Obtener el body de la respuesta
+    const response = await currentBrowserView.webContents.debugger.sendCommand(
+      'Network.getResponseBody',
+      { requestId: params.requestId }
+    );
+
+    if (response && response.body) {
+      console.log('[QWEN-NET] 📄 Response body obtenido:', response.body.length, 'bytes');
+      processResponseBody(response.body, requestInfo);
+    }
+  } catch (err) {
+    console.log('[QWEN-NET] ⚠️ No se pudo obtener body:', err.message);
+  }
+
+  activeRequestIds.delete(params.requestId);
+}
+
+/**
+ * Procesa el body de una respuesta HTTP
+ */
+function processResponseBody(body, requestInfo) {
+  try {
+    // Si es SSE, procesar línea por línea
+    if (requestInfo.contentType.includes('text/event-stream')) {
+      const lines = body.split('\n');
+      let fullContent = '';
+      
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          const data = line.substring(5).trim();
+          if (data === '[DONE]') continue;
+          
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.delta?.content) {
+              fullContent += parsed.delta.content;
+            } else if (parsed.choices?.[0]?.delta?.content) {
+              fullContent += parsed.choices[0].delta.content;
+            } else if (parsed.content) {
+              fullContent += parsed.content;
+            }
+          } catch (e) {
+            // Puede ser texto plano
+            if (data.length > 0 && data !== '[DONE]') {
+              fullContent += data;
+            }
+          }
+        }
+      }
+      
+      if (fullContent.length > 0) {
+        sendToRenderer(fullContent);
+      }
+    } 
+    // Si es JSON normal
+    else if (requestInfo.contentType.includes('application/json')) {
+      try {
+        const parsed = JSON.parse(body);
+        let content = '';
+        
+        // Varios formatos posibles de QWEN
+        if (parsed.response) content = parsed.response;
+        else if (parsed.message?.content) content = parsed.message.content;
+        else if (parsed.choices?.[0]?.message?.content) content = parsed.choices[0].message.content;
+        else if (parsed.output?.text) content = parsed.output.text;
+        else if (parsed.text) content = parsed.text;
+        else if (parsed.content) content = parsed.content;
+        
+        if (content.length > 0) {
+          sendToRenderer(content);
+        }
+      } catch (e) {
+        console.log('[QWEN-NET] ⚠️ No es JSON válido');
+      }
+    }
+    // Texto plano
+    else if (body.length > 10) {
+      sendToRenderer(body);
+    }
+  } catch (err) {
+    console.error('[QWEN-NET] ⚠️ Error procesando body:', err.message);
+  }
+}
+
+/**
+ * Maneja mensajes SSE
+ */
+function handleSSEMessage(params) {
+  try {
+    const data = params.data;
+    if (!data || data === '[DONE]') return;
+    
+    const parsed = JSON.parse(data);
+    
+    if (parsed.delta?.content) {
+      qwenResponseBuffer += parsed.delta.content;
+    }
+    
+    if (parsed.done === true || parsed.finish_reason === 'stop') {
+      if (qwenResponseBuffer.length > 0) {
+        sendToRenderer(qwenResponseBuffer);
+        qwenResponseBuffer = '';
+      }
+    }
+  } catch (e) {
+    // No es JSON, podría ser texto plano
   }
 }
 
@@ -106,106 +258,67 @@ function handleWebSocketFrame(params, direction) {
     const payloadData = params.response?.payloadData;
     if (!payloadData) return;
 
-    // Log de diagnóstico (solo para frames no vacíos)
     if (payloadData.length > 2) {
-      console.log(`[QWEN-WS] ${direction === 'received' ? '📥' : '📤'} Frame (${payloadData.length} bytes)`);
+      console.log(`[QWEN-NET] ${direction === 'received' ? '📥' : '📤'} WS Frame (${payloadData.length} bytes)`);
     }
 
-    // Intentar parsear como JSON
     try {
       const data = JSON.parse(payloadData);
       
-      // ============ FORMATO QWEN STREAMING ============
-      // QWEN usa formato similar a OpenAI: { delta: { content: "..." }, done: true/false }
-      
       if (data.delta?.content) {
-        // Acumular contenido delta
         qwenResponseBuffer += data.delta.content;
-        console.log('[QWEN-WS] 📝 Delta acumulado:', data.delta.content.substring(0, 30) + '...');
+        console.log('[QWEN-NET] 📝 Delta:', data.delta.content.substring(0, 30));
       }
 
-      // Verificar si es el mensaje final
       if (data.done === true || data.finish_reason === 'stop' || data.choices?.[0]?.finish_reason === 'stop') {
-        // ¡MENSAJE COMPLETO!
         const fullResponse = qwenResponseBuffer;
-        qwenResponseBuffer = ''; // Reset buffer
+        qwenResponseBuffer = '';
         
-        console.log('[QWEN-WS] ✅ RESPUESTA COMPLETA:', fullResponse.length, 'caracteres');
-        
-        // Detectar si contiene código
-        const codeInfo = detectCodeBlocks(fullResponse);
-        
-        // Enviar a la ventana principal
-        if (currentMainWindow && !currentMainWindow.isDestroyed()) {
-          currentMainWindow.webContents.send('qwen:response', {
-            type: codeInfo.hasCode ? 'code' : 'text',
-            content: fullResponse,
-            state: 'complete',
-            stream: false,
-            isCode: codeInfo.hasCode,
-            codeBlocks: codeInfo.blocks,
-            source: 'websocket-interceptor'
-          });
-          
-          console.log('[QWEN-WS] 📤 Enviado a renderer:', {
-            length: fullResponse.length,
-            hasCode: codeInfo.hasCode,
-            codeBlocksCount: codeInfo.blocks.length
-          });
+        if (fullResponse.length > 0) {
+          sendToRenderer(fullResponse);
         }
       }
 
-      // ============ OTROS FORMATOS POSIBLES ============
-      
-      // Formato alternativo: { message: { content: "..." } }
+      // Formatos alternativos
       if (data.message?.content && !data.delta) {
-        const content = data.message.content;
-        console.log('[QWEN-WS] 📝 Mensaje directo:', content.substring(0, 50) + '...');
-        
-        const codeInfo = detectCodeBlocks(content);
-        
-        if (currentMainWindow && !currentMainWindow.isDestroyed()) {
-          currentMainWindow.webContents.send('qwen:response', {
-            type: codeInfo.hasCode ? 'code' : 'text',
-            content: content,
-            state: 'complete',
-            stream: false,
-            isCode: codeInfo.hasCode,
-            codeBlocks: codeInfo.blocks,
-            source: 'websocket-interceptor'
-          });
-        }
+        sendToRenderer(data.message.content);
       }
-
-      // Formato: { text: "..." } o { output: { text: "..." } }
       if (data.text || data.output?.text) {
-        const content = data.text || data.output.text;
-        console.log('[QWEN-WS] 📝 Texto directo:', content.substring(0, 50) + '...');
-        
-        const codeInfo = detectCodeBlocks(content);
-        
-        if (currentMainWindow && !currentMainWindow.isDestroyed()) {
-          currentMainWindow.webContents.send('qwen:response', {
-            type: codeInfo.hasCode ? 'code' : 'text',
-            content: content,
-            state: 'complete',
-            stream: false,
-            isCode: codeInfo.hasCode,
-            codeBlocks: codeInfo.blocks,
-            source: 'websocket-interceptor'
-          });
-        }
+        sendToRenderer(data.text || data.output.text);
       }
 
     } catch (parseErr) {
-      // No es JSON válido, podría ser texto plano
-      if (payloadData.length > 10 && !payloadData.startsWith('{') && !payloadData.startsWith('[')) {
-        console.log('[QWEN-WS] 📝 Texto plano:', payloadData.substring(0, 50));
-      }
+      // No es JSON
     }
 
   } catch (err) {
-    console.error('[QWEN-WS] ⚠️ Error procesando frame:', err.message);
+    console.error('[QWEN-NET] ⚠️ Error procesando WS frame:', err.message);
+  }
+}
+
+/**
+ * Envía la respuesta al renderer
+ */
+function sendToRenderer(content) {
+  if (!content || content.length === 0) return;
+  
+  console.log('[QWEN-NET] ✅ RESPUESTA COMPLETA:', content.length, 'caracteres');
+  console.log('[QWEN-NET] 📝 Preview:', content.substring(0, 100));
+  
+  const codeInfo = detectCodeBlocks(content);
+  
+  if (currentMainWindow && !currentMainWindow.isDestroyed()) {
+    currentMainWindow.webContents.send('qwen:response', {
+      type: codeInfo.hasCode ? 'code' : 'text',
+      content: content,
+      state: 'complete',
+      stream: false,
+      isCode: codeInfo.hasCode,
+      codeBlocks: codeInfo.blocks,
+      source: 'network-interceptor'
+    });
+    
+    console.log('[QWEN-NET] 📤 Enviado a renderer');
   }
 }
 
@@ -216,8 +329,6 @@ function detectCodeBlocks(text) {
   if (!text) return { hasCode: false, blocks: [] };
   
   const blocks = [];
-  
-  // Detectar bloques markdown ```lang ... ```
   const markdownPattern = /```(\w+)?\n([\s\S]*?)```/g;
   let match;
   
@@ -229,62 +340,41 @@ function detectCodeBlocks(text) {
     });
   }
   
-  // Detectar código inline `code`
-  const inlinePattern = /`([^`]+)`/g;
-  while ((match = inlinePattern.exec(text)) !== null) {
-    if (match[1].length > 5) { // Solo código significativo
-      blocks.push({
-        language: 'inline',
-        code: match[1],
-        format: 'inline'
-      });
-    }
-  }
-  
-  // Detectar por patrones de lenguaje
   const hasCode = blocks.length > 0 || 
-    /\b(function|const|let|var|class|def|import|from|print\(|console\.log|if\s*\(|for\s*\(|while\s*\()\b/.test(text) ||
-    /\b(Get-|Set-|New-|Write-Host|Write-Output|\$[A-Za-z])\b/.test(text);
+    /\b(function|const|let|var|class|def|import|from|print\(|console\.log)\b/.test(text) ||
+    /\b(Get-|Set-|New-|Write-Host|\$[A-Za-z])\b/.test(text);
   
   return { hasCode, blocks };
 }
 
 /**
- * Detiene el interceptor y limpia recursos
+ * Detiene el interceptor
  */
 function stopQwenInterceptor() {
   try {
     if (currentBrowserView && !currentBrowserView.webContents.isDestroyed() && qwenDebuggerAttached) {
       currentBrowserView.webContents.debugger.removeAllListeners('message');
-      
       try {
         currentBrowserView.webContents.debugger.detach();
-      } catch (e) {
-        // Ignorar si ya estaba detached
-      }
-      
+      } catch (e) {}
       qwenDebuggerAttached = false;
-      console.log('[QWEN-WS] ✅ Interceptor detenido');
+      console.log('[QWEN-NET] ✅ Interceptor detenido');
     }
     
-    // Limpiar referencias
     currentBrowserView = null;
     currentMainWindow = null;
     qwenResponseBuffer = '';
+    activeRequestIds.clear();
     
   } catch (err) {
-    console.error('[QWEN-WS] ⚠️ Error deteniendo interceptor:', err.message);
+    console.error('[QWEN-NET] ⚠️ Error deteniendo:', err.message);
   }
 }
 
-/**
- * Verifica si el interceptor está activo
- */
 function isInterceptorActive() {
   return qwenDebuggerAttached && currentBrowserView && !currentBrowserView.webContents.isDestroyed();
 }
 
-// Exportar funciones
 module.exports = {
   setupQwenWebSocketInterceptor,
   stopQwenInterceptor,
