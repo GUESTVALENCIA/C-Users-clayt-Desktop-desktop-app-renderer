@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* https://* ws://localhost:*; frame-src 'self' https://*; child-src 'self' https://*;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* https://* ws://localhost:*; frame-src 'self' https://*; child-src 'self' https://*;">
   <title>StudioLab - Multimodal Intelligence</title>
+  <!-- Markdown-it and Highlight.js for code formatting -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.0.0/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
   <style>
     /* ============================================
        STUDIOLAB 8.0 PRO - FINAL POLISHED VERSION
@@ -3520,6 +3524,33 @@
       if (window.sandraAPI?.onQwenResponse) {
         console.log('[QWEN Listener] 🎧 Configurando listener de respuestas...');
         
+        // Configurar markdown-it con highlight.js para formateo de código
+        const md = window.markdownit({
+          html: true,
+          linkify: true,
+          typographer: true,
+          highlight: function (str, lang) {
+            if (lang && window.hljs.getLanguage(lang)) {
+              try {
+                return '<pre class="hljs"><code class="language-' + lang + '">' +
+                       window.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                       '</code></pre>';
+              } catch (__) {}
+            }
+            // Si lang es 'text' o no se especifica, intentar detección automática
+            try {
+              const auto = window.hljs.highlightAuto(str);
+              return '<pre class="hljs"><code class="language-' + (auto.language || 'text') + '">' +
+                     auto.value +
+                     '</code></pre>';
+            } catch (__) {
+              const div = document.createElement('div');
+              div.textContent = str;
+              return '<pre class="hljs"><code>' + div.innerHTML + '</code></pre>';
+            }
+          }
+        });
+        
         let qwenMessages = new Map(); // Mapa de mensajes por messageId
         let lastProcessedMessageId = null; // Último messageId procesado
         let processedContentHashes = new Set(); // Para evitar duplicados
@@ -3657,329 +3688,27 @@
             
             const contentEl = msgEl.querySelector('.qwen-response-content');
             if (contentEl) {
-              // Función auxiliar para escapar HTML
-              const escapeHtml = (text) => {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-              };
-              
-              // Detectar si hay código en el texto (mejorado con soporte .bat y Python)
-              const hasCodeInText = (text) => {
-                // Detectar bloques de código por patrones comunes
-                const codePatterns = [
-                  /```[\s\S]*?```/g,  // Markdown code blocks
-                  /`[^`]+`/g,  // Inline code
-                  /^[\s]*[#\$].*$/gm,  // PowerShell/Shell commands
-                  /^(function|def|class|import|const|let|var)\s+/gm,  // JS/Python keywords
-                  /Write-Host|Get-|Set-|Stop-Process|Start-Process/i,  // PowerShell commands
-                  /@echo\s+off/i,  // Batch file header
-                  /^[\s]*::.*$/gm,  // Batch file comments
-                  /^[\s]*@.*$/gm,  // Batch file commands with @
-                  /^[\s]*echo\s+/gmi,  // Batch echo commands
-                  /^[\s]*pause[\s]*$/gmi,  // Batch pause
-                  /^[\s]*rem\s+/gmi,  // Batch rem comments
-                  /\.bat|\.cmd|\.ps1|\.sh|\.py|\.js|\.ts|\.html|\.css/i,  // File extensions
-                  // Patrones específicos de Python
-                  /#!\/usr\/bin\/(env\s+)?python/i,  // Python shebang
-                  /import\s+(os|sys|subprocess|json|re|datetime)/i,  // Python imports comunes
-                  /def\s+\w+\s*\(/i,  // Python function definitions
-                  /subprocess\.(run|call|Popen)/i,  // Python subprocess
-                  /os\.(system|path|getenv|environ)/i,  // Python os module
-                  /sys\.(platform|argv|exit)/i,  // Python sys module
-                  /if __name__\s*==\s*['"]__main__['"]/i,  // Python main guard
-                  /^\s{2,}(def |class |import |from |if |for |while |return |print|subprocess|os\.|sys\.)/gm  // Líneas indentadas con código Python
-                ];
-                return codePatterns.some(pattern => pattern.test(text));
-              };
-              
-              // Detectar lenguaje del código (mejorado con soporte .bat y Python)
-              const detectLanguage = (text) => {
-                // Detectar Python primero (más específico - buscar múltiples patrones)
-                if (/#!\/usr\/bin\/(env\s+)?python|import\s+(os|sys|subprocess)|def\s+\w+|from\s+\w+\s+import|\.py[^a-z]|subprocess\.|os\.|sys\./i.test(text)) return 'python';
-                // Detectar .bat (más específico)
-                if (/@echo\s+off|^[\s]*::|^[\s]*@|\.bat|\.cmd/i.test(text)) return 'batch';
-                if (/Write-Host|Get-|Set-|Stop-Process|\$[A-Za-z]|# SCRIPT|\.ps1/i.test(text)) return 'powershell';
-                if (/function |const |let |var |=>|async |\.js|\.ts/i.test(text)) return 'javascript';
-                if (/#!/.test(text) || /echo |cd |ls |grep |\.sh/i.test(text)) return 'bash';
-                if (/<html|<!DOCTYPE|\.html/i.test(text)) return 'html';
-                if (/\.css|@media|@import/i.test(text)) return 'css';
-                return 'text';
-              };
-              
-              // CRÍTICO: NUNCA borrar contenido existente, solo actualizar
-              // Función para extraer bloques de código del texto
-              const extractCodeBlocks = (text) => {
-                const blocks = [];
-                // Buscar bloques markdown ```code``` (mejorado para detectar lenguaje correcto)
-                const markdownPattern = /```(\w+)?\n?([\s\S]*?)```/g;
-                let match;
-                let lastIndex = 0;
-                
-                while ((match = markdownPattern.exec(text)) !== null) {
-                  // Añadir texto antes del bloque
-                  if (match.index > lastIndex) {
-                    blocks.push({ type: 'text', content: text.substring(lastIndex, match.index) });
-                  }
-                  
-                  // Detectar lenguaje: si viene como "text" pero el contenido es código, detectarlo
-                  let detectedLang = match[1] || 'text';
-                  const codeContent = match[2].trim();
-                  
-                  // Si el lenguaje es "text" pero el contenido es claramente código, detectar el lenguaje real
-                  if (detectedLang === 'text' || !detectedLang) {
-                    const realLang = detectLanguage(codeContent);
-                    if (realLang !== 'text') {
-                      detectedLang = realLang;
-                    }
-                  }
-                  
-                  // Añadir bloque de código
-                  blocks.push({ 
-                    type: 'code', 
-                    language: detectedLang, 
-                    content: codeContent
-                  });
-                  lastIndex = match.index + match[0].length;
-                }
-                
-                // Si no hay bloques markdown pero hay código detectado, intentar extraerlo
-                if (blocks.length === 0 && hasCodeInText(text)) {
-                  // Buscar líneas que parecen código (múltiples líneas con patrones de código)
-                  const lines = text.split('\n');
-                  let codeStart = -1;
-                  let codeLines = [];
-                  let textBeforeCode = [];
-                  
-                  for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    // Detectar código: batch, Python, JS, etc. (más específico para Python)
-                    const isCodeLine = /@echo|::|@|echo\s+|pause|rem\s+|function\s+|def\s+|const\s+|let\s+|var\s+|class\s+|import\s+|#!\/usr\/bin|#!\/usr\/env|subprocess\.|os\.|sys\.|from\s+\w+\s+import|if __name__|return\s+|print\(/.test(line);
-                    // También detectar líneas que son claramente código (indentación + palabras clave)
-                    const isIndentedCode = /^\s{2,}(def |class |import |from |if |for |while |return |print|subprocess|os\.|sys\.)/.test(line);
-                    
-                    if ((isCodeLine || isIndentedCode) && codeStart === -1) {
-                      // Guardar texto antes del código
-                      if (textBeforeCode.length > 0) {
-                        blocks.push({ type: 'text', content: textBeforeCode.join('\n') });
-                        textBeforeCode = [];
-                      }
-                      codeStart = i;
-                      codeLines = [line];
-                    } else if ((isCodeLine || isIndentedCode || (codeStart !== -1 && /^\s{2,}/.test(line))) && codeStart !== -1) {
-                      // Continuar bloque de código (incluye líneas indentadas después de código)
-                      codeLines.push(line);
-                    } else if (!isCodeLine && !isIndentedCode && codeStart !== -1) {
-                      // Fin del bloque de código
-                      if (codeLines.length >= 2 || (codeLines.length === 1 && codeLines[0].trim().length > 20)) {
-                        blocks.push({ 
-                          type: 'code', 
-                          language: detectLanguage(codeLines.join('\n')), 
-                          content: codeLines.join('\n').trim() 
-                        });
-                      } else {
-                        // Si es muy corto, puede ser texto
-                        textBeforeCode.push(...codeLines);
-                      }
-                      codeStart = -1;
-                      codeLines = [];
-                      textBeforeCode.push(line);
-                    } else {
-                      // Texto normal
-                      if (codeStart === -1) {
-                        textBeforeCode.push(line);
-                      }
-                    }
-                  }
-                  
-                  // Si quedó código al final
-                  if (codeStart !== -1 && codeLines.length >= 1) {
-                    if (textBeforeCode.length > 0) {
-                      blocks.push({ type: 'text', content: textBeforeCode.join('\n') });
-                    }
-                    blocks.push({ 
-                      type: 'code', 
-                      language: detectLanguage(codeLines.join('\n')), 
-                      content: codeLines.join('\n').trim() 
-                    });
-                  } else if (textBeforeCode.length > 0) {
-                    blocks.push({ type: 'text', content: textBeforeCode.join('\n') });
-                  }
-                  
-                  // Si no se encontraron bloques pero hay código, tratar todo como código
-                  if (blocks.length === 0 && hasCodeInText(text)) {
-                    blocks.push({ type: 'code', language: detectLanguage(text), content: text });
-                  } else if (blocks.length === 0) {
-                    blocks.push({ type: 'text', content: text });
-                  }
-                } else if (blocks.length === 0) {
-                  // No hay código, solo texto
-                  blocks.push({ type: 'text', content: text });
-                } else {
-                  // Añadir texto restante después del último bloque
-                  if (lastIndex < text.length) {
-                    blocks.push({ type: 'text', content: text.substring(lastIndex) });
-                  }
-                }
-                
-                return blocks;
-              };
-              
-              // Si está en streaming y es código, renderizar progresivamente
-              if (data.isCode || hasCodeInText(qwenFullText)) {
-                // Extraer bloques de código y texto
-                const blocks = extractCodeBlocks(qwenFullText);
-                
-                // Limpiar contenido previo solo si es un mensaje nuevo
-                if (isActuallyNewMessage) {
-                  contentEl.innerHTML = '';
-                }
-                
-                // Renderizar cada bloque
-                blocks.forEach((block, idx) => {
-                  if (block.type === 'code') {
-                    // Buscar o crear bloque de código
-                    let codeBlock = contentEl.querySelector(`.qwen-code-block[data-block-id="${idx}"]`);
-                    if (!codeBlock) {
-                      codeBlock = document.createElement('pre');
-                      codeBlock.className = 'qwen-code-block streaming';
-                      codeBlock.setAttribute('data-block-id', idx);
-                      const codeEl = document.createElement('code');
-                      codeEl.className = `language-${block.language}`;
-                      codeBlock.appendChild(codeEl);
-                      contentEl.appendChild(codeBlock);
-                    }
-                    
-                    const codeEl = codeBlock.querySelector('code');
-                    if (codeEl) {
-                      codeEl.textContent = block.content;
-                      codeEl.className = `language-${block.language}`;
-                    }
-                  } else {
-                    // Renderizar texto
-                    let textNode = contentEl.querySelector(`.qwen-text-content[data-text-id="${idx}"]`);
-                    if (!textNode) {
-                      textNode = document.createElement('div');
-                      textNode.className = 'qwen-text-content';
-                      textNode.setAttribute('data-text-id', idx);
-                      contentEl.appendChild(textNode);
-                    }
-                    textNode.innerHTML = escapeHtml(block.content).replace(/\n/g, '<br>');
-                  }
-                });
-                
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-              }
-              // Si tiene código completo con bloques detectados, renderizar con formato
-              else if (data.type === 'code' && data.codeBlocks && data.codeBlocks.length > 0) {
-                // Renderizar bloques de código con formato
-                let htmlContent = '';
-                let textIndex = 0;
-                
-                data.codeBlocks.forEach((block, idx) => {
-                  // Añadir texto antes del bloque de código si existe
-                  const codeStart = qwenFullText.indexOf(block.code, textIndex);
-                  if (codeStart > textIndex) {
-                    const textBefore = qwenFullText.substring(textIndex, codeStart);
-                    htmlContent += textBefore.replace(/\n/g, '<br>');
-                  }
-                  
-                  // Renderizar bloque de código con formato
-                  const codeHtml = escapeHtml(block.code);
-                  htmlContent += `<pre class="qwen-code-block"><code class="language-${block.language || 'text'}">${codeHtml}</code></pre>`;
-                  
-                  textIndex = codeStart + block.code.length;
-                });
-                
-                // Añadir texto restante después del último bloque
-                if (textIndex < qwenFullText.length) {
-                  htmlContent += qwenFullText.substring(textIndex).replace(/\n/g, '<br>');
-                }
-                
-                contentEl.innerHTML = htmlContent;
-              } 
-              // Si detectamos código pero no viene en codeBlocks, usar extractCodeBlocks
-              else if (hasCodeInText(qwenFullText) && !data.type && !data.isCode) {
-                // Hay código en el texto pero no se detectó correctamente - usar extractCodeBlocks
-                const blocks = extractCodeBlocks(qwenFullText);
-                
-                // Limpiar contenido previo solo si es un mensaje nuevo
-                if (isActuallyNewMessage) {
-                  contentEl.innerHTML = '';
-                }
-                
-                // Renderizar cada bloque
-                blocks.forEach((block, idx) => {
-                  if (block.type === 'code') {
-                    let codeBlock = contentEl.querySelector(`.qwen-code-block[data-block-id="${idx}"]`);
-                    if (!codeBlock) {
-                      codeBlock = document.createElement('pre');
-                      codeBlock.className = 'qwen-code-block';
-                      codeBlock.setAttribute('data-block-id', idx);
-                      const codeEl = document.createElement('code');
-                      codeEl.className = `language-${block.language}`;
-                      codeBlock.appendChild(codeEl);
-                      contentEl.appendChild(codeBlock);
-                    }
-                    const codeEl = codeBlock.querySelector('code');
-                    if (codeEl) {
-                      codeEl.textContent = block.content;
-                      codeEl.className = `language-${block.language}`;
-                    }
-                  } else {
-                    let textNode = contentEl.querySelector(`.qwen-text-content[data-text-id="${idx}"]`);
-                    if (!textNode) {
-                      textNode = document.createElement('div');
-                      textNode.className = 'qwen-text-content';
-                      textNode.setAttribute('data-text-id', idx);
-                      contentEl.appendChild(textNode);
-                    }
-                    textNode.innerHTML = escapeHtml(block.content).replace(/\n/g, '<br>');
-                  }
-                });
-                
-                console.log('[QWEN Render] 💻 Código detectado manualmente, lenguaje:', detectLanguage(qwenFullText));
-              }
-              else if (data.codeContent) {
-                // Si viene código formateado en markdown
-                let codeBlock = contentEl.querySelector('.qwen-code-block');
-                if (!codeBlock) {
-                  codeBlock = document.createElement('pre');
-                  codeBlock.className = 'qwen-code-block';
-                  const codeEl = document.createElement('code');
-                  codeBlock.appendChild(codeEl);
-                  contentEl.appendChild(codeBlock);
-                }
-                const codeEl = codeBlock.querySelector('code');
-                if (codeEl) {
-                  codeEl.textContent = data.codeContent; // textContent NO borra
-                }
+              // Usar markdown-it para renderizar el contenido completo
+              // Esto maneja automáticamente código, texto, y todo el markdown
+              if (isActuallyNewMessage) {
+                // Mensaje nuevo: renderizar completo
+                contentEl.innerHTML = md.render(qwenFullText);
               } else {
-                // Texto normal - Limpiar si es mensaje nuevo, actualizar si es streaming
-                if (isActuallyNewMessage) {
-                  // Mensaje nuevo: limpiar y establecer contenido inicial
-                  contentEl.innerHTML = '';
-                  const textNode = document.createElement('div');
-                  textNode.className = 'qwen-text-content';
-                  textNode.innerHTML = escapeHtml(qwenFullText).replace(/\n/g, '<br>');
-                  contentEl.appendChild(textNode);
-                } else {
-                  // Mensaje existente: actualizar solo si hay contenido nuevo (streaming)
-                  const currentText = contentEl.textContent || '';
-                  
-                  // Solo actualizar si el nuevo texto es diferente Y más largo (contenido nuevo)
-                  if (qwenFullText !== currentText && qwenFullText.length >= currentText.length) {
-                    // Crear/actualizar elemento de texto sin borrar estructura existente
-                    let textNode = contentEl.querySelector('.qwen-text-content');
-                    if (!textNode) {
-                      textNode = document.createElement('div');
-                      textNode.className = 'qwen-text-content';
-                      contentEl.appendChild(textNode);
-                    }
-                    // Actualizar solo el contenido del texto (NO borrar otros elementos)
-                    textNode.innerHTML = escapeHtml(qwenFullText).replace(/\n/g, '<br>');
-                  }
+                // Mensaje existente (streaming): actualizar solo si hay contenido nuevo
+                const currentText = contentEl.textContent || '';
+                if (qwenFullText !== currentText && qwenFullText.length >= currentText.length) {
+                  // Re-renderizar con markdown-it para mantener formato correcto
+                  contentEl.innerHTML = md.render(qwenFullText);
                 }
+              }
+              
+              // Aplicar highlighting a los bloques de código después del renderizado
+              if (window.hljs) {
+                contentEl.querySelectorAll('pre code').forEach((block) => {
+                  if (!block.classList.contains('hljs')) {
+                    window.hljs.highlightElement(block);
+                  }
+                });
               }
             }
             
@@ -5624,6 +5353,46 @@
     }
 
     function formatMessageHtml(text) {
+      // Usar markdown-it si está disponible, sino fallback a formato simple
+      if (window.markdownit && window.hljs) {
+        const md = window.markdownit({
+          html: true,
+          linkify: true,
+          typographer: true,
+          highlight: function (str, lang) {
+            if (lang && window.hljs.getLanguage(lang)) {
+              try {
+                return '<pre class="hljs"><code class="language-' + lang + '">' +
+                       window.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                       '</code></pre>';
+              } catch (__) {}
+            }
+            // Si lang es 'text' o no se especifica, intentar detección automática
+            try {
+              const auto = window.hljs.highlightAuto(str);
+              return '<pre class="hljs"><code class="language-' + (auto.language || 'text') + '">' +
+                     auto.value +
+                     '</code></pre>';
+            } catch (__) {
+              const div = document.createElement('div');
+              div.textContent = str;
+              return '<pre class="hljs"><code>' + div.innerHTML + '</code></pre>';
+            }
+          }
+        });
+        const html = md.render(String(text || ''));
+        // Aplicar highlighting después del renderizado
+        setTimeout(() => {
+          document.querySelectorAll('pre code').forEach((block) => {
+            if (!block.classList.contains('hljs')) {
+              window.hljs.highlightElement(block);
+            }
+          });
+        }, 0);
+        return html;
+      }
+      
+      // Fallback: formato simple si markdown-it no está disponible
       return escapeHtml(text).replace(/\n/g, '<br>');
     }
 
