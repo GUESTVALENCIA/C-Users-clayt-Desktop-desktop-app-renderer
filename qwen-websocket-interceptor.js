@@ -113,45 +113,9 @@ function handleDebuggerMessage(event, method, params) {
     }
 
     // ============ DATA RECEIVED (SSE chunks) ============
-    // ⭐ STREAMING REAL: Procesar inmediatamente sin ningún delay
-    if (method === 'Network.dataReceived') {
-      if (activeRequestIds.has(params.requestId)) {
-        const requestInfo = activeRequestIds.get(params.requestId);
-        const dataLength = params.dataLength || 0;
-        
-        // ⭐ CRÍTICO: Intentar obtener el body INMEDIATAMENTE (sin delay)
-        // Usar Promise.resolve().then() para ejecutar async pero sin delay de frame
-        Promise.resolve().then(async () => {
-          try {
-            const response = await currentBrowserView.webContents.debugger.sendCommand(
-              'Network.getResponseBody',
-              { requestId: params.requestId }
-            );
-            
-            if (response && response.body) {
-              const newData = response.body;
-              const previousLength = requestInfo.buffer.length;
-              
-              // Solo procesar si hay datos nuevos
-              if (newData.length > previousLength) {
-                const deltaData = newData.substring(previousLength);
-                console.log('[QWEN-NET] 📄 Chunk streaming inmediato:', deltaData.length, 'bytes (total:', newData.length, ')');
-                requestInfo.buffer = newData;
-                
-                // ⭐ PROCESAR Y ENVIAR INMEDIATAMENTE (sin acumular)
-                processStreamingChunk(deltaData, requestInfo);
-              }
-            }
-          } catch (err) {
-            // Es normal que falle durante streaming activo
-            // Intentar de nuevo en el siguiente chunk
-            if (err.message && !err.message.includes('No resource with given identifier')) {
-              console.log('[QWEN-NET] ⚠️ Error obteniendo body (normal durante streaming):', err.message.substring(0, 50));
-            }
-          }
-        }).catch(() => {}); // Silenciar errores no críticos
-      }
-    }
+    // ⚠️ ELIMINADO: Network.dataReceived + getResponseBody no funciona durante streaming SSE
+    // Chrome DevTools Protocol no permite leer response.body durante streaming activo
+    // Usar Network.eventSourceMessageReceived en su lugar (ver más abajo)
 
     // ============ LOADING FINISHED ============
     if (method === 'Network.loadingFinished') {
@@ -162,9 +126,23 @@ function handleDebuggerMessage(event, method, params) {
     }
 
     // ============ EVENT SOURCE MESSAGE (SSE) ============
+    // ⭐ STREAMING REAL: Este es el evento correcto para capturar chunks SSE en tiempo real
     if (method === 'Network.eventSourceMessageReceived') {
-      console.log('[QWEN-NET] 📡 SSE Message:', params.data?.substring(0, 100));
-      handleSSEMessage(params);
+      // Buscar el requestInfo asociado a este requestId
+      const requestInfo = activeRequestIds.get(params.requestId);
+      if (requestInfo) {
+        const messageId = requestInfo.messageId;
+        const sseData = params.data || '';
+        
+        console.log('[QWEN-NET] 📡 SSE Chunk recibido:', sseData.length, 'bytes, msgId:', messageId?.substring(0, 15));
+        
+        // Procesar el chunk SSE inmediatamente
+        processStreamingChunk(sseData, requestInfo);
+      } else {
+        // Si no hay requestInfo, intentar procesar igual (fallback)
+        console.log('[QWEN-NET] 📡 SSE Message (sin requestInfo):', params.data?.substring(0, 100));
+        handleSSEMessage(params);
+      }
     }
 
   } catch (err) {
@@ -429,25 +407,27 @@ function processResponseBody(body, requestInfo) {
 /**
  * Maneja mensajes SSE
  */
+/**
+ * Maneja mensajes SSE (fallback cuando no hay requestInfo)
+ * ⚠️ DEPRECATED: Usar processStreamingChunk con requestInfo en su lugar
+ */
 function handleSSEMessage(params) {
   try {
     const data = params.data;
     if (!data || data === '[DONE]') return;
     
-    const parsed = JSON.parse(data);
+    // Generar messageId temporal si no existe
+    const tempMessageId = `qwen-sse-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const tempRequestInfo = {
+      url: params.requestId || 'unknown',
+      messageId: tempMessageId,
+      contentType: 'text/event-stream'
+    };
     
-    if (parsed.delta?.content) {
-      qwenResponseBuffer += parsed.delta.content;
-    }
-    
-    if (parsed.done === true || parsed.finish_reason === 'stop') {
-      if (qwenResponseBuffer.length > 0) {
-        sendToRenderer(qwenResponseBuffer);
-        qwenResponseBuffer = '';
-      }
-    }
+    // Usar el mismo sistema de procesamiento
+    processStreamingChunk(data, tempRequestInfo);
   } catch (e) {
-    // No es JSON, podría ser texto plano
+    console.error('[QWEN-NET] ⚠️ Error en handleSSEMessage:', e.message);
   }
 }
 
