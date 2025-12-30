@@ -87,21 +87,22 @@ function handleDebuggerMessage(event, method, params) {
       const url = params.response?.url || '';
       const contentType = params.response?.headers?.['content-type'] || '';
       
-      // Detectar respuestas de QWEN API
-      if (url.includes('qwenlm.ai') || url.includes('qwen')) {
+      // ⭐ DETECTAR ENDPOINT DE CHAT COMPLETIONS (EL QUE DEVUELVE LA RESPUESTA)
+      if (url.includes('/chat/completions') || url.includes('qwenlm.ai') || url.includes('qwen')) {
         console.log('[QWEN-NET] 📥 HTTP Response:', url.substring(0, 80));
         console.log('[QWEN-NET] 📋 Content-Type:', contentType);
         
-        // Si es SSE o streaming, trackear el requestId
-        if (contentType.includes('text/event-stream') || 
+        // ✅ TRACKEAR SIEMPRE EL ENDPOINT DE CHAT COMPLETIONS (aunque Content-Type esté vacío)
+        if (url.includes('/chat/completions') || 
+            contentType.includes('text/event-stream') || 
             contentType.includes('application/json') ||
             contentType.includes('text/plain')) {
           activeRequestIds.set(params.requestId, {
             url: url,
-            contentType: contentType,
+            contentType: contentType || 'unknown',
             buffer: ''
           });
-          console.log('[QWEN-NET] 📡 Tracking request:', params.requestId);
+          console.log('[QWEN-NET] 🎯 Tracking CHAT request:', params.requestId);
         }
       }
     }
@@ -109,8 +110,30 @@ function handleDebuggerMessage(event, method, params) {
     // ============ DATA RECEIVED (SSE chunks) ============
     if (method === 'Network.dataReceived') {
       if (activeRequestIds.has(params.requestId)) {
-        console.log('[QWEN-NET] 📦 Data chunk recibido para request:', params.requestId);
-        // Los datos reales vienen en loadingFinished o necesitamos getResponseBody
+        const requestInfo = activeRequestIds.get(params.requestId);
+        console.log('[QWEN-NET] 📦 Data chunk recibido para:', requestInfo.url.substring(0, 50));
+        
+        // ⭐ INTENTAR OBTENER EL BODY INMEDIATAMENTE (mientras está streaming)
+        setTimeout(async () => {
+          try {
+            const response = await currentBrowserView.webContents.debugger.sendCommand(
+              'Network.getResponseBody',
+              { requestId: params.requestId }
+            );
+            
+            if (response && response.body) {
+              const newData = response.body;
+              // Solo procesar si hay datos nuevos
+              if (newData.length > requestInfo.buffer.length) {
+                console.log('[QWEN-NET] 📄 Body streaming obtenido:', newData.length, 'bytes');
+                requestInfo.buffer = newData;
+                processStreamingChunk(newData, requestInfo);
+              }
+            }
+          } catch (err) {
+            // Es normal que falle durante streaming, seguiremos intentando
+          }
+        }, 100); // Dar tiempo al chunk de llegar
       }
     }
 
@@ -159,11 +182,131 @@ async function handleLoadingFinished(params) {
 }
 
 /**
+ * Procesa chunks de streaming en tiempo real
+ */
+function processStreamingChunk(data, requestInfo) {
+  try {
+    // Si el endpoint es /chat/completions, procesar como SSE
+    if (requestInfo.url.includes('/chat/completions')) {
+      // QWEN usa formato SSE: data: {...}\n\n
+      const lines = data.split('\n');
+      let accumulatedContent = '';
+      
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          const jsonStr = line.substring(5).trim();
+          if (jsonStr === '[DONE]') {
+            // Fin del streaming
+            if (accumulatedContent.length > 0) {
+              console.log('[QWEN-NET] ✅ STREAMING COMPLETO:', accumulatedContent.length, 'chars');
+              sendToRenderer(accumulatedContent);
+              accumulatedContent = '';
+            }
+            continue;
+          }
+          
+          try {
+            const parsed = JSON.parse(jsonStr);
+            
+            // Varios formatos posibles de QWEN
+            let content = '';
+            if (parsed.choices?.[0]?.delta?.content) {
+              content = parsed.choices[0].delta.content;
+            } else if (parsed.delta?.content) {
+              content = parsed.delta.content;
+            } else if (parsed.content) {
+              content = parsed.content;
+            } else if (parsed.message?.content) {
+              content = parsed.message.content;
+            } else if (parsed.text) {
+              content = parsed.text;
+            }
+            
+            if (content) {
+              accumulatedContent += content;
+              console.log('[QWEN-NET] 📝 Chunk acumulado:', accumulatedContent.length, 'chars');
+              
+              // ⭐ ENVIAR CHUNKS PARCIALES (streaming real)
+              if (accumulatedContent.length > 50) {
+                sendToRenderer(accumulatedContent, true); // true = partial
+              }
+            }
+          } catch (e) {
+            // No es JSON válido, puede ser texto plano
+            if (jsonStr.length > 0) {
+              accumulatedContent += jsonStr;
+            }
+          }
+        }
+      }
+      
+      // Si hay contenido acumulado al final, enviarlo
+      if (accumulatedContent.length > 0) {
+        sendToRenderer(accumulatedContent);
+      }
+    }
+  } catch (err) {
+    console.error('[QWEN-NET] ⚠️ Error procesando streaming chunk:', err.message);
+  }
+}
+
+/**
  * Procesa el body de una respuesta HTTP
  */
 function processResponseBody(body, requestInfo) {
   try {
-    // Si es SSE, procesar línea por línea
+    // ⭐ PRIORIDAD: Si es /chat/completions, procesar como SSE
+    if (requestInfo.url.includes('/chat/completions')) {
+      console.log('[QWEN-NET] 🎯 Procesando /chat/completions response');
+      
+      const lines = body.split('\n');
+      let fullContent = '';
+      
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          const data = line.substring(5).trim();
+          if (data === '[DONE]') continue;
+          
+          try {
+            const parsed = JSON.parse(data);
+            
+            // Extraer contenido de varios formatos posibles
+            let content = '';
+            if (parsed.choices?.[0]?.delta?.content) {
+              content = parsed.choices[0].delta.content;
+            } else if (parsed.choices?.[0]?.message?.content) {
+              content = parsed.choices[0].message.content;
+            } else if (parsed.delta?.content) {
+              content = parsed.delta.content;
+            } else if (parsed.message?.content) {
+              content = parsed.message.content;
+            } else if (parsed.content) {
+              content = parsed.content;
+            } else if (parsed.text) {
+              content = parsed.text;
+            }
+            
+            if (content) {
+              fullContent += content;
+            }
+          } catch (e) {
+            // Puede ser texto plano
+            if (data.length > 0 && data !== '[DONE]') {
+              fullContent += data;
+            }
+          }
+        }
+      }
+      
+      if (fullContent.length > 0) {
+        console.log('[QWEN-NET] ✅ Contenido extraído de /chat/completions:', fullContent.length, 'chars');
+        sendToRenderer(fullContent);
+        return;
+      }
+    }
+    
+    // Si no es /chat/completions o no se pudo extraer, probar otros formatos
+    // Si es SSE genérico
     if (requestInfo.contentType.includes('text/event-stream')) {
       const lines = body.split('\n');
       let fullContent = '';
@@ -196,7 +339,7 @@ function processResponseBody(body, requestInfo) {
       }
     } 
     // Si es JSON normal
-    else if (requestInfo.contentType.includes('application/json')) {
+    else if (requestInfo.contentType.includes('application/json') || requestInfo.contentType === 'unknown') {
       try {
         const parsed = JSON.parse(body);
         let content = '';
@@ -213,7 +356,22 @@ function processResponseBody(body, requestInfo) {
           sendToRenderer(content);
         }
       } catch (e) {
-        console.log('[QWEN-NET] ⚠️ No es JSON válido');
+        console.log('[QWEN-NET] ⚠️ No es JSON válido, probando como texto plano');
+        // Puede ser texto plano con múltiples objetos JSON
+        const jsonObjects = body.match(/\{[^}]+\}/g);
+        if (jsonObjects) {
+          let fullContent = '';
+          for (const jsonStr of jsonObjects) {
+            try {
+              const parsed = JSON.parse(jsonStr);
+              if (parsed.content) fullContent += parsed.content;
+              else if (parsed.text) fullContent += parsed.text;
+            } catch (e2) {}
+          }
+          if (fullContent.length > 0) {
+            sendToRenderer(fullContent);
+          }
+        }
       }
     }
     // Texto plano
@@ -299,10 +457,11 @@ function handleWebSocketFrame(params, direction) {
 /**
  * Envía la respuesta al renderer
  */
-function sendToRenderer(content) {
+function sendToRenderer(content, isPartial = false) {
   if (!content || content.length === 0) return;
   
-  console.log('[QWEN-NET] ✅ RESPUESTA COMPLETA:', content.length, 'caracteres');
+  const statusText = isPartial ? 'CHUNK PARCIAL' : 'RESPUESTA COMPLETA';
+  console.log(`[QWEN-NET] ✅ ${statusText}:`, content.length, 'caracteres');
   console.log('[QWEN-NET] 📝 Preview:', content.substring(0, 100));
   
   const codeInfo = detectCodeBlocks(content);
@@ -311,14 +470,15 @@ function sendToRenderer(content) {
     currentMainWindow.webContents.send('qwen:response', {
       type: codeInfo.hasCode ? 'code' : 'text',
       content: content,
-      state: 'complete',
-      stream: false,
+      state: isPartial ? 'streaming' : 'complete',
+      stream: true,
+      isStreaming: isPartial,
       isCode: codeInfo.hasCode,
       codeBlocks: codeInfo.blocks,
       source: 'network-interceptor'
     });
     
-    console.log('[QWEN-NET] 📤 Enviado a renderer');
+    console.log('[QWEN-NET] 📤 Enviado a renderer (partial:', isPartial, ')');
   }
 }
 
