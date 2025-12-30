@@ -1805,13 +1805,18 @@ function setupSimplifiedQwenObserver(browserView) {
       
       function detectCode(text) {
         if (!text) return { hasCode: false, blocks: [] };
-        const hasCode = /```|`[^`]+`|Write-Host|Get-|Set-|function |def |class |import /.test(text);
+        // Usar String.fromCharCode para backticks en regex
+        const backtick = String.fromCharCode(96);
+        const hasCode = new RegExp(backtick + backtick + backtick + '|' + backtick + '[^' + backtick + ']+' + backtick + '|Write-Host|Get-|Set-|function |def |class |import ').test(text);
         const blocks = [];
-        const markdownMatch = text.match(/```([\\w]+)?\\n([\\s\\S]*?)```/g);
+        const markdownPattern = new RegExp(backtick + backtick + backtick + '([\\\\w]+)?\\\\n([\\\\s\\\\S]*?)' + backtick + backtick + backtick, 'g');
+        const markdownMatch = text.match(markdownPattern);
         if (markdownMatch) {
           markdownMatch.forEach(match => {
-            const langMatch = match.match(/```(\\w+)?/);
-            const codeMatch = match.match(/```[\\w]*\\n([\\s\\S]*?)```/);
+            const langPattern = new RegExp(backtick + backtick + backtick + '(\\\\w+)?');
+            const codePattern = new RegExp(backtick + backtick + backtick + '[\\\\w]*\\\\n([\\\\s\\\\S]*?)' + backtick + backtick + backtick);
+            const langMatch = match.match(langPattern);
+            const codeMatch = match.match(codePattern);
             if (codeMatch) {
               blocks.push({
                 code: codeMatch[1],
@@ -2795,7 +2800,7 @@ function setupQwenBidirectionalCommunication(browserView) {
         
         // NUEVO: Manejo especial del primer mensaje (MEJORADO - menos restrictivo)
         if (isFirstMessage) {
-          if (thinking && !currentText) {
+        if (thinking && !currentText) {
             if (thinkingStartTime === 0) {
               thinkingStartTime = Date.now();
               console.log('[QWEN Observer] 🤔 Primer saludo: Empezando a pensar...');
@@ -2836,17 +2841,17 @@ function setupQwenBidirectionalCommunication(browserView) {
               }
             }
             
-            updateState('thinking', '');
-            stableCount = 0;
+          updateState('thinking', '');
+          stableCount = 0;
             lastTextHash = '';
           } else if (currentText && currentText.length > 10) {  // Asegurar que hay contenido real
             // ¡Primer mensaje recibido!
             console.log('[QWEN Observer] ✅ Primer saludo recibido:', currentText.substring(0, 50));
-            lastText = currentText;
+          lastText = currentText;
             lastTextHash = currentHash;
-            window.qwenState.messageCount++;
-            updateState('responding', currentText);
-            stableCount = 0;
+          window.qwenState.messageCount++;
+          updateState('responding', currentText);
+          stableCount = 0;
             isFirstMessage = false;
             thinkingStartTime = 0;
             firstMessageRetries = 0;
@@ -3895,11 +3900,11 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       // ========= MÉTODO CARÁCTER POR CARÁCTER (PARA MENSAJES CORTOS) =========
       console.log(`[QWEN] ⌨️ Mensaje corto (${lineCount} línea, ${message.length} chars) - Enviando carácter por carácter`);
       
-      for (const char of message) {
-        wc.sendInputEvent({
-          type: 'char',
-          keyCode: char
-        });
+    for (const char of message) {
+      wc.sendInputEvent({
+        type: 'char',
+        keyCode: char
+      });
       // Pequeña pausa entre caracteres para estabilidad
       await new Promise(r => setTimeout(r, 5));
       }
