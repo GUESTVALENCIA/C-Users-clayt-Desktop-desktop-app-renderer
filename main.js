@@ -1520,6 +1520,52 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         console.warn('[QWEN3] ⚠️ Error cargando cookies:', e.message);
       }
 
+      // CRÍTICO: Configurar handler de popups OAuth en BrowserView
+      // Esto permite que los popups OAuth se abran correctamente con la URL web de Qwen
+      qwenBrowserView.webContents.setWindowOpenHandler(({ url }) => {
+        console.log('[QWEN3] Popup OAuth detectado:', url.substring(0, 50) + '...');
+        
+        // Detectar OAuth flows
+        const isOAuthFlow = url.includes('accounts.google.com') || 
+                            url.includes('github.com/login') ||
+                            url.includes('oauth') ||
+                            url.includes('auth') ||
+                            url.includes('qwenlm.ai/auth') ||
+                            url.includes('qwen.ai/auth');
+        
+        if (isOAuthFlow) {
+          console.log('[QWEN3] ✅ Permitiendo popup OAuth con sesión persistente');
+          // Crear popup con la MISMA sesión persistente para compartir cookies
+          const popup = new BrowserWindow({
+            parent: mainWindow,
+            modal: false,
+            show: false,
+            width: 600,
+            height: 700,
+            webPreferences: {
+              nodeIntegration: false,
+              contextIsolation: true,
+              webSecurity: true,
+              session: qwenSession  // MISMA sesión persistente - CRÍTICO para compartir cookies
+            }
+          });
+          popup.loadURL(url);
+          popup.once('ready-to-show', () => {
+            popup.show();
+            console.log('[QWEN3] ✅ Popup OAuth mostrado');
+          });
+          popup.on('closed', () => {
+            console.log('[QWEN3] Popup OAuth cerrado');
+            popup.destroy();
+          });
+          return { action: 'allow' };
+        }
+        
+        // Bloquear otros popups
+        console.log('[QWEN3] 🚫 Bloqueando popup no autorizado');
+        return { action: 'deny' };
+      });
+
       // URL CORRECTA: https://qwenlm.ai (redirige automáticamente a chat.qwenlm.ai)
       const qwenUrl = 'https://qwenlm.ai';
       qwenBrowserView.webContents.loadURL(qwenUrl);
@@ -2380,13 +2426,14 @@ async function diagnoseQwenDOM(browserView) {
   }
 }
 
-// ============ QWEN: ENVIAR MENSAJE AL BROWSERVIEW (MÚLTIPLES ESTRATEGIAS) ============
+// ============ QWEN: ENVIAR MENSAJE CON sendInputEvent (MÉTODO VS CODE) ============
+// Este método simula teclas REALES que React SÍ detecta
 ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
   try {
     // Verificar precondiciones
     if (!qwenBrowserView) {
       console.log('[QWEN] BrowserView no existe');
-      return { success: false, error: 'QWEN BrowserView no disponible. Abre QWEN primero con el botón verde.' };
+      return { success: false, error: 'QWEN BrowserView no disponible. Abre QWEN primero.' };
     }
 
     if (qwenBrowserView.webContents.isDestroyed()) {
@@ -2398,230 +2445,85 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
       return { success: false, error: 'Mensaje inválido' };
     }
 
-    console.log(`[QWEN] 📤 Enviando mensaje: "${message.substring(0, 50)}..."`);
+    console.log(`[QWEN] 📤 Enviando mensaje con sendInputEvent: "${message.substring(0, 50)}..."`);
 
-    // Esperar que el BrowserView esté listo
-    try {
-      await waitForQWENReady(qwenBrowserView, 10000);
-    } catch (error) {
-      console.warn(`[QWEN] ⚠️ BrowserView no está listo:`, error.message);
-      return { success: false, error: `QWEN no está listo: ${error.message}` };
-    }
+    const wc = qwenBrowserView.webContents;
 
-    // Técnica simplificada: buscar elementos directamente con reintentos
-    console.log(`[QWEN] 🔍 Buscando elementos del DOM para enviar mensaje...`);
-
-    const messageEscaped = JSON.stringify(message);
-    
-    // Función simplificada que busca y envía el mensaje con diagnóstico detallado
-    const injectCode = `
-      (async function() {
-        const messageText = ${messageEscaped};
-        const maxRetries = 10;
-        const retryDelay = 500;
-        const diagnostics = {
-          inputSearch: { attempts: [], found: null, selector: null },
-          valueSet: { before: null, after: null, afterEvents: null },
-          events: { dispatched: [], focusSuccess: false },
-          buttonSearch: { attempts: [], found: null, selector: null },
-          enterKey: { dispatched: false },
-          errors: []
-        };
+    // PASO 1: Enfocar el input usando JavaScript
+    const focusResult = await wc.executeJavaScript(`
+      (function() {
+        const selectors = [
+          'textarea[placeholder*="ayuda" i]',
+          'textarea[placeholder*="mensaje" i]',
+          'textarea[placeholder*="pregunta" i]',
+          'textarea[placeholder*="Cuéntame" i]',
+          '#chat-input',
+          'textarea:not([disabled])',
+          'div[contenteditable="true"]',
+          'textarea'
+        ];
         
-        // Función para buscar input con reintentos
-        async function findInput() {
-          const selectors = [
-            'textarea[placeholder*="ayuda" i]',
-            'textarea[placeholder*="mensaje" i]',
-            'textarea[placeholder*="pregunta" i]',
-            'textarea[placeholder*="Cuéntame" i]',
-            '#chat-input',
-            'textarea:not([disabled])',
-            'input[type="text"]:not([disabled])',
-            'div[contenteditable="true"]',
-            'textarea',
-            'input[type="text"]'
-          ];
-          
-          for (let i = 0; i < maxRetries; i++) {
-            for (const selector of selectors) {
-              try {
-                const input = document.querySelector(selector);
-                if (input) {
-                  const isVisible = input.offsetParent !== null;
-                  diagnostics.inputSearch.attempts.push({
-                    attempt: i + 1,
-                    selector: selector,
-                    found: !!input,
-                    visible: isVisible,
-                    tagName: input.tagName,
-                    hasValue: !!(input.value || input.textContent),
-                    disabled: input.disabled || false
-                  });
-                  
-                  if (input && isVisible) {
-                    diagnostics.inputSearch.found = true;
-                    diagnostics.inputSearch.selector = selector;
-                    return input;
-                  }
-                }
-              } catch (e) {
-                diagnostics.errors.push({ location: 'findInput', error: e.message, selector: selector });
-              }
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          if (el && el.offsetParent !== null) {
+            el.focus();
+            el.click();
+            // Limpiar contenido existente
+            if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+              el.value = '';
+            } else {
+              el.textContent = '';
             }
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return { success: true, selector: sel, tagName: el.tagName };
           }
-          return null;
         }
-        
-        // Función para buscar botón de envío
-        async function findSendButton() {
-          const selectors = [
-            'button[type="submit"]:not([disabled])',
-            'button[aria-label*="enviar" i]:not([disabled])',
-            'button[aria-label*="send" i]:not([disabled])',
-            'button[class*="send" i]:not([disabled])',
-            'button[class*="submit" i]:not([disabled])',
-            'button:not([disabled])'
-          ];
-          
-          for (let i = 0; i < 6; i++) {
-            for (const selector of selectors) {
-              try {
-                const btn = document.querySelector(selector);
-                if (btn) {
-                  const isVisible = btn.offsetParent !== null;
-                  const isDisabled = btn.disabled;
-                  diagnostics.buttonSearch.attempts.push({
-                    attempt: i + 1,
-                    selector: selector,
-                    found: !!btn,
-                    visible: isVisible,
-                    disabled: isDisabled
-                  });
-                  
-                  if (btn && !isDisabled && isVisible) {
-                    diagnostics.buttonSearch.found = true;
-                    diagnostics.buttonSearch.selector = selector;
-                    return btn;
-                  }
-                }
-              } catch (e) {
-                diagnostics.errors.push({ location: 'findSendButton', error: e.message, selector: selector });
-              }
-            }
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-          }
-          return null;
-        }
-        
-        try {
-          // Buscar input
-          const input = await findInput();
-          if (!input) {
-            diagnostics.inputSearch.found = false;
-            return { success: false, error: 'Input no encontrado después de reintentos', diagnostics: diagnostics };
-          }
-          
-          diagnostics.valueSet.before = (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' ? input.value : input.textContent || '').substring(0, 100);
-          
-          // Establecer valor
-          if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-            input.value = messageText;
-          } else {
-            input.textContent = messageText;
-          }
-          
-          diagnostics.valueSet.after = (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' ? input.value : input.textContent || '').substring(0, 100);
-          
-          // Enfocar y disparar eventos
-          try {
-            input.focus();
-            diagnostics.events.focusSuccess = document.activeElement === input;
-            diagnostics.events.dispatched.push('focus');
-          } catch (e) {
-            diagnostics.errors.push({ location: 'focus', error: e.message });
-          }
-          
-          try {
-            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-            diagnostics.events.dispatched.push('input');
-          } catch (e) {
-            diagnostics.errors.push({ location: 'input event', error: e.message });
-          }
-          
-          try {
-            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-            diagnostics.events.dispatched.push('change');
-          } catch (e) {
-            diagnostics.errors.push({ location: 'change event', error: e.message });
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 100));
-          diagnostics.valueSet.afterEvents = (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' ? input.value : input.textContent || '').substring(0, 100);
-          
-          // Intentar encontrar y hacer click en botón de envío
-          const sendButton = await findSendButton();
-          if (sendButton) {
-            setTimeout(() => {
-              try {
-                sendButton.click();
-                diagnostics.buttonSearch.clicked = true;
-              } catch (e) {
-                diagnostics.errors.push({ location: 'button click', error: e.message });
-              }
-            }, 300);
-            return { success: true, strategy: 'button-click', diagnostics: diagnostics };
-          } else {
-            // Fallback: usar Enter
-            setTimeout(() => {
-              input.dispatchEvent(new KeyboardEvent('keydown', {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                bubbles: true,
-                cancelable: true
-              }));
-              input.dispatchEvent(new KeyboardEvent('keyup', {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                bubbles: true,
-                cancelable: true
-              }));
-            }, 300);
-            return { success: true, strategy: 'enter-key', diagnostics: diagnostics };
-          }
-        } catch (err) {
-          diagnostics.errors.push({ location: 'main try-catch', error: err.message, stack: err.stack?.substring(0, 200) });
-          return { success: false, error: err.message, diagnostics: diagnostics };
-        }
+        return { success: false, error: 'No se encontró input visible' };
       })();
-    `;
+    `);
 
-    try {
-      // Ejecutar código de inyección (ahora es async/await, así que espera correctamente)
-      const result = await qwenBrowserView.webContents.executeJavaScript(injectCode);
-      
-      if (result && result.success) {
-        console.log(`[QWEN] ✅ Mensaje enviado usando estrategia: ${result.strategy}`);
-        
-        // Retornar éxito inmediatamente (el código async/await ya esperó)
-        return { success: true, message: `Mensaje enviado usando ${result.strategy}`, strategy: result.strategy };
-      } else {
-        const errorMsg = result?.error || 'Error desconocido al inyectar mensaje';
-        console.error(`[QWEN] ❌ Error al inyectar:`, errorMsg);
-        return { success: false, error: errorMsg };
-      }
-    } catch (error) {
-      // Capturar error específico si el frame fue destruido
-      if (error.message.includes('disposed') || error.message.includes('destroyed')) {
-        return { success: false, error: 'El panel de Qwen se cerró durante el envío. Vuelve a abrirlo.' };
-      }
-      throw error;
+    if (!focusResult.success) {
+      console.error('[QWEN] ❌ No se pudo enfocar el input:', focusResult.error);
+      return { success: false, error: focusResult.error };
     }
+
+    console.log(`[QWEN] ✅ Input enfocado: ${focusResult.selector}`);
+
+    // Pequeña pausa para asegurar que el focus se aplicó
+    await new Promise(r => setTimeout(r, 100));
+
+    // PASO 2: Escribir el mensaje carácter por carácter con sendInputEvent
+    // Esto simula teclas REALES que React detecta
+    for (const char of message) {
+      wc.sendInputEvent({
+        type: 'char',
+        keyCode: char
+      });
+      // Pequeña pausa entre caracteres para estabilidad
+      await new Promise(r => setTimeout(r, 5));
+    }
+
+    console.log(`[QWEN] ✅ Mensaje escrito (${message.length} caracteres)`);
+
+    // Pausa antes de enviar Enter
+    await new Promise(r => setTimeout(r, 150));
+
+    // PASO 3: Enviar Enter para enviar el mensaje
+    wc.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
+    wc.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
+
+    console.log(`[QWEN] ✅ Enter enviado - Mensaje debería estar procesándose`);
+
+    return { 
+      success: true, 
+      message: 'Mensaje enviado con sendInputEvent (método VS Code)',
+      strategy: 'sendInputEvent-real-keys'
+    };
+
   } catch (error) {
     console.error(`[QWEN] ❌ Error en sendMessage:`, error.message);
+    if (error.message.includes('disposed') || error.message.includes('destroyed')) {
+      return { success: false, error: 'El panel de Qwen se cerró. Vuelve a abrirlo.' };
+    }
     return { success: false, error: error.message };
   }
 });
