@@ -1215,6 +1215,33 @@
     .qwen-code-block code.language-shell {
       color: #d4d4d4;
     }
+    
+    /* Código en streaming (mientras se genera) */
+    .qwen-code-block.streaming {
+      border-color: #4fc3f7;
+      animation: pulse-border 1.5s ease-in-out infinite;
+      position: relative;
+    }
+    
+    .qwen-code-block.streaming::after {
+      content: '▊';
+      animation: blink 1s infinite;
+      color: #4fc3f7;
+      font-weight: bold;
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+    }
+    
+    @keyframes pulse-border {
+      0%, 100% { border-color: var(--border-color); }
+      50% { border-color: #4fc3f7; box-shadow: 0 0 8px rgba(79, 195, 247, 0.3); }
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
 
       border: none;
       font-size: 14px;
@@ -3548,10 +3575,20 @@
               qwenFullText = '';
             }
             
-            // Añadir el nuevo texto
-            if (data.stream) {
+            // STREAMING MEJORADO: Manejar chunks en tiempo real
+            if (data.isStreaming) {
+              // En modo streaming, agregar chunks incrementalmente
+              if (data.isFirstChunk) {
+                qwenFullText = data.content;
+              } else {
+                qwenFullText += data.content;
+              }
+              console.log('[QWEN Streaming] 🌊 Chunk recibido:', data.content.length, 'chars, Total:', qwenFullText.length);
+            } else if (data.stream) {
+              // Modo stream normal (no optimizado)
               qwenFullText += data.content;
             } else {
+              // Modo completo (respuesta única)
               qwenFullText = data.content;
             }
             
@@ -3564,8 +3601,16 @@
                 return div.innerHTML;
               };
               
-              // NUEVO: Si tiene código, renderizar con formato
-              if (data.type === 'code' && data.codeBlocks && data.codeBlocks.length > 0) {
+              // Si está en streaming y es código, renderizar progresivamente
+              if (data.isStreaming && data.isCode) {
+                // En streaming de código, mostrar con formato básico mientras llega
+                const codeHtml = escapeHtml(qwenFullText);
+                contentEl.innerHTML = `<pre class="qwen-code-block streaming"><code>${codeHtml}</code></pre>`;
+                // Scroll automático al final
+                contentEl.scrollTop = contentEl.scrollHeight;
+              }
+              // Si tiene código completo, renderizar con formato
+              else if (data.type === 'code' && data.codeBlocks && data.codeBlocks.length > 0) {
                 // Renderizar bloques de código con formato
                 let htmlContent = '';
                 let textIndex = 0;
