@@ -1589,12 +1589,14 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
         setTimeout(() => {
           if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
             try {
-              // Usar versión simplificada y robusta del Observer
-              setupSimplifiedQwenObserver(qwenBrowserView);
-              // Iniciar captura simplificada
+              // Configurar comunicación bidireccional
+              setupQwenBidirectionalCommunication(qwenBrowserView);
+              // Inyectar observador de respuestas
+              injectQwenResponseObserver(qwenBrowserView);
+              // Iniciar captura de respuestas después de un delay adicional
               setTimeout(() => {
                 if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-                  startSimplifiedQwenCapture();
+                  startQwenResponseCapture();
                 }
               }, 2000);
             } catch (error) {
