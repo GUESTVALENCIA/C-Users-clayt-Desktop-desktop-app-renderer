@@ -114,6 +114,7 @@ function handleDebuggerMessage(event, method, params) {
         console.log('[QWEN-NET] 📦 Data chunk recibido para:', requestInfo.url.substring(0, 50));
         
         // ⭐ INTENTAR OBTENER EL BODY INMEDIATAMENTE (mientras está streaming)
+        // Reducir delay para streaming más rápido
         setTimeout(async () => {
           try {
             const response = await currentBrowserView.webContents.debugger.sendCommand(
@@ -125,15 +126,18 @@ function handleDebuggerMessage(event, method, params) {
               const newData = response.body;
               // Solo procesar si hay datos nuevos
               if (newData.length > requestInfo.buffer.length) {
-                console.log('[QWEN-NET] 📄 Body streaming obtenido:', newData.length, 'bytes');
+                const deltaData = newData.substring(requestInfo.buffer.length);
+                console.log('[QWEN-NET] 📄 Nuevo chunk streaming:', deltaData.length, 'bytes');
                 requestInfo.buffer = newData;
-                processStreamingChunk(newData, requestInfo);
+                
+                // Procesar solo el nuevo delta (no todo el buffer)
+                processStreamingChunk(deltaData, requestInfo);
               }
             }
           } catch (err) {
             // Es normal que falle durante streaming, seguiremos intentando
           }
-        }, 100); // Dar tiempo al chunk de llegar
+        }, 50); // Reducido de 100ms a 50ms para streaming más rápido
       }
     }
 
@@ -535,6 +539,8 @@ function stopQwenInterceptor() {
     currentBrowserView = null;
     currentMainWindow = null;
     qwenResponseBuffer = '';
+    wsStreamingBuffer = '';
+    streamingBuffers.clear();
     activeRequestIds.clear();
     
   } catch (err) {
