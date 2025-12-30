@@ -3724,7 +3724,7 @@
                   for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
                     // Detectar código: batch, Python, JS, etc. (más específico para Python)
-                    const isCodeLine = /@echo|::|@|echo\s+|pause|rem\s+|function\s+|def\s+|const\s+|let\s+|var\s+|class\s+|import\s+|#!/usr\/bin|#!/usr\/env|subprocess\.|os\.|sys\.|from\s+\w+\s+import|if __name__|return\s+|print\(/.test(line);
+                    const isCodeLine = /@echo|::|@|echo\s+|pause|rem\s+|function\s+|def\s+|const\s+|let\s+|var\s+|class\s+|import\s+|#!\/usr\/bin|#!\/usr\/env|subprocess\.|os\.|sys\.|from\s+\w+\s+import|if __name__|return\s+|print\(/.test(line);
                     // También detectar líneas que son claramente código (indentación + palabras clave)
                     const isIndentedCode = /^\s{2,}(def |class |import |from |if |for |while |return |print|subprocess|os\.|sys\.)/.test(line);
                     
