@@ -413,6 +413,9 @@ function handleSSEMessage(params) {
   }
 }
 
+// Buffer global para WebSocket streaming
+let wsStreamingBuffer = '';
+
 /**
  * Procesa un frame WebSocket
  */
@@ -428,26 +431,29 @@ function handleWebSocketFrame(params, direction) {
     try {
       const data = JSON.parse(payloadData);
       
+      // ⭐ ENVIAR CADA DELTA INMEDIATAMENTE (streaming real)
       if (data.delta?.content) {
-        qwenResponseBuffer += data.delta.content;
-        console.log('[QWEN-NET] 📝 Delta:', data.delta.content.substring(0, 30));
+        wsStreamingBuffer += data.delta.content;
+        console.log('[QWEN-NET] 📝 Delta WS:', data.delta.content.substring(0, 30));
+        
+        // Enviar inmediatamente cada chunk
+        sendToRenderer(wsStreamingBuffer, true); // true = partial (streaming)
       }
 
+      // Cuando termina, enviar como completo
       if (data.done === true || data.finish_reason === 'stop' || data.choices?.[0]?.finish_reason === 'stop') {
-        const fullResponse = qwenResponseBuffer;
-        qwenResponseBuffer = '';
-        
-        if (fullResponse.length > 0) {
-          sendToRenderer(fullResponse);
+        if (wsStreamingBuffer.length > 0) {
+          sendToRenderer(wsStreamingBuffer, false); // false = completo
+          wsStreamingBuffer = '';
         }
       }
 
-      // Formatos alternativos
+      // Formatos alternativos (enviar inmediatamente)
       if (data.message?.content && !data.delta) {
-        sendToRenderer(data.message.content);
+        sendToRenderer(data.message.content, false);
       }
       if (data.text || data.output?.text) {
-        sendToRenderer(data.text || data.output.text);
+        sendToRenderer(data.text || data.output.text, false);
       }
 
     } catch (parseErr) {
