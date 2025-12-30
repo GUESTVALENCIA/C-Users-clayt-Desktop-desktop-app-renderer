@@ -1829,16 +1829,49 @@ function setupSimplifiedQwenObserver(browserView) {
         return { hasCode, blocks };
       }
       
+      // Almacenar historial de mensajes para detectar nuevos
+      window.qwenMessageHistory = window.qwenMessageHistory || [];
+      
       function updateResponse() {
         const currentText = extractLastMessage();
         const currentHash = simpleHash(currentText);
         
+        // Solo actualizar si el texto cambió Y es diferente al último mensaje del historial
         if (currentHash !== window.qwenState.lastHash && currentText.length > 0) {
+          // Verificar si es un mensaje nuevo (no está en el historial)
+          const isNewMessage = !window.qwenMessageHistory.some(msg => 
+            msg.text === currentText || currentText.includes(msg.text) && currentText.length > msg.text.length * 1.5
+          );
+          
+          // Si es un mensaje nuevo, agregarlo al historial
+          if (isNewMessage && window.qwenMessageHistory.length > 0) {
+            // Marcar mensaje anterior como completo
+            const lastMsg = window.qwenMessageHistory[window.qwenMessageHistory.length - 1];
+            if (lastMsg) {
+              lastMsg.isComplete = true;
+            }
+          }
+          
           window.qwenState.lastText = currentText;
           window.qwenState.lastHash = currentHash;
           window.qwenState.messageCount++;
           
           const codeInfo = detectCode(currentText);
+          
+          // Agregar al historial si es nuevo
+          if (isNewMessage) {
+            window.qwenMessageHistory.push({
+              text: currentText,
+              hash: currentHash,
+              timestamp: Date.now(),
+              isComplete: false
+            });
+            
+            // Mantener solo los últimos 5 mensajes
+            if (window.qwenMessageHistory.length > 5) {
+              window.qwenMessageHistory.shift();
+            }
+          }
           
           window.qwenLastResponse = {
             text: currentText,
@@ -1846,10 +1879,11 @@ function setupSimplifiedQwenObserver(browserView) {
             state: 'complete',
             hasCode: codeInfo.hasCode,
             codeBlocks: codeInfo.blocks,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            isNewMessage: isNewMessage  // Flag para indicar si es mensaje nuevo
           };
           
-          console.log('[QWEN Observer] ✅ Actualizado:', currentText.substring(0, 50), codeInfo.hasCode ? '(código)' : '');
+          console.log('[QWEN Observer] ✅ Actualizado:', currentText.substring(0, 50), codeInfo.hasCode ? '(código)' : '', isNewMessage ? '[NUEVO]' : '[ACTUALIZACIÓN]');
         }
       }
       
@@ -1894,12 +1928,20 @@ function startSimplifiedQwenCapture() {
       
       if (response && response.text && response.text.length > 0) {
         const currentHash = response.text.length.toString() + response.text.substring(0, 50);
+        const isNewMessage = response.isNewMessage || false;
         
+        // Solo enviar si es diferente Y (es mensaje nuevo O es actualización del mismo mensaje)
         if (currentHash !== lastSentHash && response.text !== lastSentText) {
+          // Si es mensaje nuevo, resetear hash del último enviado
+          if (isNewMessage) {
+            lastSentHash = ''; // Reset para permitir nuevo mensaje
+            console.log('[QWEN Capture] 🆕 NUEVO MENSAJE detectado');
+          }
+          
           lastSentText = response.text;
           lastSentHash = currentHash;
           
-          console.log('[QWEN Capture] 📤 Enviando:', response.text.length, 'chars', response.hasCode ? '(código)' : '');
+          console.log('[QWEN Capture] 📤 Enviando:', response.text.length, 'chars', response.hasCode ? '(código)' : '', isNewMessage ? '[NUEVO]' : '[ACTUALIZACIÓN]');
           
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('qwen:response', {
@@ -1908,7 +1950,8 @@ function startSimplifiedQwenCapture() {
               state: response.state || 'complete',
               stream: false,
               isCode: response.hasCode,
-              codeBlocks: response.codeBlocks || []
+              codeBlocks: response.codeBlocks || [],
+              isNewMessage: isNewMessage  // Flag para el renderer
             });
           }
         }
