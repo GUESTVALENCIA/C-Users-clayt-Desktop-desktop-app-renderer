@@ -224,5 +224,6 @@ module.exports = {
   sendMessage,
   callGroq,
   callAnthropic,
+  callOpenAI,
   callQWEN
 };
