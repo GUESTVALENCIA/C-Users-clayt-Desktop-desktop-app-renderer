@@ -743,8 +743,23 @@ app.whenReady().then(() => {
   global.mcpUniversalClient = mcpUniversalClient;
 
   // ============ INICIALIZAR AI MODELS MANAGER ============
-  // DESHABILITADO: ai-models-manager causa conflictos con qwenBrowserView
-  // Qwen se maneja con qwenBrowserView directamente en el handler qwen:toggle
+  // ============ INICIALIZAR AI MODELS MANAGER ============
+  try {
+    if (mainWindow) {
+      aiModelsManager = new AIModelsManager(mainWindow);
+      global.aiModelsManager = aiModelsManager;
+
+      // Registrar modelos básicos
+      // Nota: QWEN tiene su propia gestión
+      aiModelsManager.createModelView('chatgpt', 'https://chat.openai.com', 'chatgpt');
+      aiModelsManager.createModelView('gemini', 'https://gemini.google.com', 'gemini');
+      aiModelsManager.createModelView('deepseek', 'https://chat.deepseek.com', 'deepseek');
+
+      console.log('[Main] ✅ AI Models Manager inicializado');
+    }
+  } catch (e) {
+    console.error('[Main] ❌ Error inicializando AI Models Manager:', e);
+  }
 
   // ============ INICIALIZAR AUTO ORCHESTRATOR ============
   // Sistema de orquestación multi-agente que coordina consultas paralelas
@@ -1324,6 +1339,47 @@ ipcMain.handle('code:execute', async (_e, { code, language }) => {
 
 
 // ============ CHAT SERVICE - HANDLER PARA TODOS LOS PROVEEDORES ============
+
+// ============ AI MODELS & AUTO ORCHESTRATOR IPSs ============
+
+ipcMain.handle('ai-models:show', async (_e, { modelId, width }) => {
+  if (!aiModelsManager) return { success: false, error: 'AI Manager not initialized' };
+
+  // Ocultar QWEN si está visible
+  if (qwenBrowserView) {
+    mainWindow.setBrowserView(null);
+  }
+
+  return aiModelsManager.showModel(modelId, width);
+});
+
+ipcMain.handle('ai-models:hide', async () => {
+  if (!aiModelsManager) return { success: false, error: 'AI Manager not initialized' };
+  return aiModelsManager.hideAll();
+});
+
+ipcMain.handle('ai-models:list', async () => {
+  if (!aiModelsManager) return { success: false, error: 'AI Manager not initialized' };
+  return { success: true, models: aiModelsManager.listModels() };
+});
+
+ipcMain.handle('auto:query', async (_e, { message }) => {
+  if (!autoOrchestrator) return { success: false, error: 'Auto Orchestrator not initialized' };
+
+  // Usar AI Models Manager y Chat Service
+  return await autoOrchestrator.query(
+    message,
+    mcpUniversalClient,
+    aiModelsManager,
+    mainWindow
+  );
+});
+
+ipcMain.handle('auto:getActiveQueries', async () => {
+  if (!autoOrchestrator) return { success: false, error: 'AI Manager not initialized' };
+  return { success: true, queries: autoOrchestrator.getActiveQueries() };
+});
+
 ipcMain.handle('chat:send', async (_e, { provider, message, role, model, options = {} }) => {
   // QWEN funciona a través del webview embebido en el HTML
   // El usuario chatea directamente en el panel QWEN, no desde aquí
@@ -1524,6 +1580,11 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
   // Compatibilidad: puede recibir { show: boolean } o directamente boolean
   const show = typeof params === 'object' ? params.show : params;
   console.log('[QWEN3] Toggle BrowserView:', show ? 'SHOW' : 'HIDE');
+
+  // Si mostramos Qwen, ocultamos otros modelos
+  if (show && aiModelsManager) {
+    aiModelsManager.hideAll();
+  }
 
   if (!mainWindow || mainWindow.isDestroyed()) {
     console.error('[QWEN3] Ventana principal no disponible');
