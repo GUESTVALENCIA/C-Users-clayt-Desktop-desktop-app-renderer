@@ -1907,6 +1907,10 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       qwenBrowserView._resizeHandler = resizeHandler;
     }
 
+    // ACTIVAR OBSERVER DOM (Respaldo visual robusto)
+    setupSimplifiedQwenObserver(qwenBrowserView);
+    console.log('[QWEN3] ✅ DOM Observer activado (lectura visual de respuestas)');
+
     console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
 
     // Emitir evento para actualizar UI en el renderer
