@@ -1911,6 +1911,9 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
     setupSimplifiedQwenObserver(qwenBrowserView);
     console.log('[QWEN3] ✅ DOM Observer activado (lectura visual de respuestas)');
 
+    // INICIAR CAPTURA (Hybrid: Legacy DOM + Network)
+    startQwenResponseCapture();
+
     console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
 
     // Emitir evento para actualizar UI en el renderer
@@ -3221,34 +3224,28 @@ let qwenBrowserViewReady = false;
 
 // ============ NUEVO: CAPTURA CON WEBSOCKET INTERCEPTOR ============
 async function startQwenResponseCapture() {
-  console.log('[QWEN Capture] 🚀 Iniciando captura con WebSocket interceptor...');
+  console.log('[QWEN Capture] 🚀 Iniciando captura híbrida (DOM + Network)...');
+
+  // 1. SIEMPRE iniciar el sistema Legacy (DOM Scraping) como base robusta
+  // Esto asegura que si se ve en pantalla, se captura.
+  startQwenResponseCaptureLegacy();
 
   // Verificar que el BrowserView existe
   if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
-    console.error('[QWEN Capture] ❌ BrowserView no disponible');
     return;
   }
 
-  // ✅ INICIALIZAR INTERCEPTOR WEBSOCKET
+  // 2. Intentar activar interceptor WebSocket como mejora (para streaming más rápido)
   try {
     const result = await setupQwenWebSocketInterceptor(qwenBrowserView, mainWindow);
 
     if (result.success) {
-      console.log('[QWEN Capture] ✅ Interceptor WebSocket activado correctamente');
-
-      // Configurar listeners para recibir respuestas del interceptor
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        // Las respuestas ahora vienen del interceptor vía IPC
-        // No necesitamos polling, el interceptor nos notifica automáticamente
-        console.log('[QWEN Capture] ✅ Sistema de captura listo (sin polling)');
-      }
+      console.log('[QWEN Capture] ✅ Interceptor WebSocket activado (Mejora de velocidad)');
     } else {
-      throw new Error(result.error || 'Interceptor falló');
+      console.log('[QWEN Capture] ⚠️ Interceptor WebSocket no disponible, confiando en DOM scraping');
     }
   } catch (error) {
-    console.error('[QWEN Capture] ❌ Error al iniciar interceptor:', error.message);
-    console.log('[QWEN Capture] ⚠️ Fallback: usando sistema de DOM scraping');
-    startQwenResponseCaptureLegacy(); // Fallback al sistema antiguo si falla
+    console.warn('[QWEN Capture] ⚠️ Error en interceptor (no crítico):', error.message);
   }
 }
 
