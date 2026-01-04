@@ -1495,6 +1495,65 @@ ipcMain.handle('qwen:openPortal', async (_e, { url }) => {
   return { success: true, message: 'QWEN se muestra embebido en la interfaz' };
 });
 
+// ============ QWEN: ACTION DISPATCHER (OBSERVER AGENT) ============
+ipcMain.handle('qwen:perform-action', async (_e, { action }) => {
+  console.log('[QWEN Action] Recibida acción:', action);
+
+  if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
+    console.warn('[QWEN Action] ❌ No hay sesión activa de Qwen');
+    return { success: false, error: 'Qwen no activo' };
+  }
+
+  const script = `
+    (function() {
+      console.log('[QWEN Agent] Buscando botón para acción: ${action}');
+      
+      const actionMap = {
+        'edit-image': ['edición de imagen', 'image editing', 'edit image'],
+        'web-dev': ['desarrollo web', 'web development', 'web dev'],
+        'gen-image': ['generación de imágenes', 'image generation', 'generate image'],
+        'gen-video': ['generación de video', 'video generation', 'generate video'],
+        'artifacts': ['artefactos', 'artifacts']
+      };
+      
+      const targetTexts = actionMap['${action}'] || [];
+      if (targetTexts.length === 0) return { found: false };
+      
+      // Función para normalizar texto
+      const norm = t => (t || '').toLowerCase().trim();
+      
+      // Buscar en botones y elementos clickeables
+      const elements = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"], a'));
+      
+      for (const el of elements) {
+        const text = norm(el.innerText || el.textContent);
+        const aria = norm(el.getAttribute('aria-label'));
+        
+        // Verificar coincidencia
+        const match = targetTexts.some(t => text.includes(t) || aria.includes(t));
+        
+        if (match) {
+          console.log('[QWEN Agent] ✅ Botón encontrado:', text || aria);
+          el.scrollIntoView({ block: 'center' });
+          el.click();
+          return { found: true, text: text || aria };
+        }
+      }
+      
+      return { found: false };
+    })();
+  `;
+
+  try {
+    const result = await qwenBrowserView.webContents.executeJavaScript(script);
+    console.log('[QWEN Action] Resultado ejecución:', result);
+    return { success: true, result };
+  } catch (err) {
+    console.error('[QWEN Action] Error ejecutando script:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 // ============ QWEN → MCP SERVER INTEGRATION ============
 // Escuchar mensajes desde QWEN embebido y enviarlos al servidor MCP (pwa-imbf.onrender.com)
 ipcMain.on('qwen-message', async (event, { message, context = {} }) => {
@@ -1818,100 +1877,97 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) return;
       if (!mainWindow || mainWindow.isDestroyed()) return;
 
-      try {
-        // Obtener tamaño del contenido de la ventana (sin marcos de ventana)
-        const [contentWidth, contentHeight] = mainWindow.getContentSize();
+      // Ocultar visualmente el BrowserView pero mantenerlo activo (Observer Mode)
+      // El usuario quiere que el proceso sea interno
+      const contentWidth = 1;
+      const contentHeight = 1;
 
-        // Panel lateral derecho ocupando 40% del ancho
-        const panelWidth = Math.floor(contentWidth * 0.4);
-        const panelX = contentWidth - panelWidth;  // Posición X: desde la derecha del área de contenido
-        const panelY = 0;  // Posición Y: desde arriba del área de contenido (0 = sin offset)
-        const panelHeight = contentHeight;  // Alto completo del área de contenido
-
-        qwenBrowserView.setBounds({
-          x: panelX,
-          y: panelY,
-          width: panelWidth,
-          height: panelHeight
-        });
-
-        console.log(`[QWEN3] Panel posicionado: x=${panelX}, y=${panelY}, w=${panelWidth}, h=${panelHeight} (content: ${contentWidth}x${contentHeight})`);
-      } catch (e) {
-        console.error('[QWEN3] Error actualizando bounds:', e.message);
-      }
-    };
-
-    // Configurar posición inicial (esperar un frame para que la ventana esté lista)
-    setTimeout(() => {
-      updateQwenBounds();
-    }, 100);
-
-    // Actualizar posición cuando cambie el tamaño de la ventana
-    const resizeHandler = () => updateQwenBounds();
-    mainWindow.on('resize', resizeHandler);
-
-    // Guardar referencia al handler para poder removerlo después
-    if (!qwenBrowserView._resizeHandler) {
-      qwenBrowserView._resizeHandler = resizeHandler;
-    }
-
-    console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
-
-    // Emitir evento para actualizar UI en el renderer
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('qwen:view-shown');
-    }
-
-    return { success: true, message: 'QWEN visible (panel lateral)' };
-
-  } else {
-    // OCULTAR QWEN3 BrowserView y guardar cookies antes de ocultar
-    if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
-      const qwenSession = qwenBrowserView.webContents.session;
-      const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
-
-      // LIMPIAR el intervalo de guardado de cookies
-      if (qwenCookieInterval) {
-        clearInterval(qwenCookieInterval);
-        qwenCookieInterval = null;
-        console.log('[QWEN3] Intervalo de cookies limpiado');
-      }
-
-      // Guardar cookies antes de ocultar
-      await saveQwenCookies(qwenSession, cookiesPath).catch(e => {
-        console.warn('[QWEN3] ⚠️ Error guardando cookies al ocultar:', e.message);
+      qwenBrowserView.setBounds({
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1
       });
 
-      // Remover listener de resize si existe
-      if (qwenBrowserView._resizeHandler && mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.removeListener('resize', qwenBrowserView._resizeHandler);
-        qwenBrowserView._resizeHandler = null;
-      }
+      console.log(`[QWEN3] BrowserView en modo OBSERVER (oculto pero activo)`);
 
-      // Remover el BrowserView de la ventana (esto lo oculta completamente)
-      mainWindow.setBrowserView(null);
-
-      // Detener interceptor WebSocket (reemplaza stopQwenResponseCapture)
-      stopQwenInterceptor();
-
-      console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado, interceptor detenido)');
-
-      // Emitir evento para actualizar UI en el renderer
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('qwen:view-hidden');
-      }
-    } else if (qwenCookieInterval) {
-      // Si el BrowserView ya fue destruido pero el intervalo aún existe, limpiarlo
-      clearInterval(qwenCookieInterval);
-      qwenCookieInterval = null;
-      console.log('[QWEN3] Intervalo de cookies limpiado (BrowserView ya destruido)');
-
-      // Emitir evento incluso si el BrowserView ya fue destruido
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('qwen:view-hidden');
-      }
+      console.log(`[QWEN3] Panel posicionado: x=${panelX}, y=${panelY}, w=${panelWidth}, h=${panelHeight} (content: ${contentWidth}x${contentHeight})`);
+    } catch (e) {
+      console.error('[QWEN3] Error actualizando bounds:', e.message);
     }
-    return { success: true, message: 'QWEN oculto' };
+  };
+
+  // Configurar posición inicial (esperar un frame para que la ventana esté lista)
+  setTimeout(() => {
+    updateQwenBounds();
+  }, 100);
+
+  // Actualizar posición cuando cambie el tamaño de la ventana
+  const resizeHandler = () => updateQwenBounds();
+  mainWindow.on('resize', resizeHandler);
+
+  // Guardar referencia al handler para poder removerlo después
+  if (!qwenBrowserView._resizeHandler) {
+    qwenBrowserView._resizeHandler = resizeHandler;
+  }
+
+  console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
+
+  // Emitir evento para actualizar UI en el renderer
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('qwen:view-shown');
+  }
+
+  return { success: true, message: 'QWEN visible (panel lateral)' };
+
+} else {
+  // OCULTAR QWEN3 BrowserView y guardar cookies antes de ocultar
+  if(qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
+  const qwenSession = qwenBrowserView.webContents.session;
+  const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
+
+  // LIMPIAR el intervalo de guardado de cookies
+  if (qwenCookieInterval) {
+    clearInterval(qwenCookieInterval);
+    qwenCookieInterval = null;
+    console.log('[QWEN3] Intervalo de cookies limpiado');
+  }
+
+  // Guardar cookies antes de ocultar
+  await saveQwenCookies(qwenSession, cookiesPath).catch(e => {
+    console.warn('[QWEN3] ⚠️ Error guardando cookies al ocultar:', e.message);
+  });
+
+  // Remover listener de resize si existe
+  if (qwenBrowserView._resizeHandler && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.removeListener('resize', qwenBrowserView._resizeHandler);
+    qwenBrowserView._resizeHandler = null;
+  }
+
+  // Remover el BrowserView de la ventana (esto lo oculta completamente)
+  mainWindow.setBrowserView(null);
+
+  // Detener interceptor WebSocket (reemplaza stopQwenResponseCapture)
+  stopQwenInterceptor();
+
+  console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado, interceptor detenido)');
+
+  // Emitir evento para actualizar UI en el renderer
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('qwen:view-hidden');
+  }
+} else if (qwenCookieInterval) {
+  // Si el BrowserView ya fue destruido pero el intervalo aún existe, limpiarlo
+  clearInterval(qwenCookieInterval);
+  qwenCookieInterval = null;
+  console.log('[QWEN3] Intervalo de cookies limpiado (BrowserView ya destruido)');
+
+  // Emitir evento incluso si el BrowserView ya fue destruido
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('qwen:view-hidden');
+  }
+}
+return { success: true, message: 'QWEN oculto' };
   }
 });
 
