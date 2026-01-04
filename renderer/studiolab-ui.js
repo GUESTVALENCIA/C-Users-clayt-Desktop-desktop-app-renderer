@@ -104,3 +104,39 @@ export function setupComposerDock() {
 
     window.addEventListener('resize', updateHeight);
 }
+
+// Global functions for HTML
+window.loadChat = function (chatId) {
+    state.chatHistory.forEach(chat => {
+        chat.active = chat.id === chatId;
+    });
+    renderChatHistory();
+    addTerminalLine(`Cargando chat #${chatId}...`);
+};
+
+window.newChat = function () {
+    document.getElementById('welcomeScreen').style.display = 'flex';
+    document.getElementById('messagesContainer').classList.remove('visible');
+    document.getElementById('messagesContainer').innerHTML = '';
+    state.messages = [];
+    state.qwen.tokens = 0;
+    updateModelUI();
+    document.getElementById('messageInput').value = '';
+    document.getElementById('messageInput').focus();
+    addTerminalLine('Nuevo chat iniciado');
+};
+
+export function renderChatHistory() {
+    const container = document.getElementById('chatList');
+    if (!container) return;
+    container.innerHTML = state.chatHistory.map(chat => `
+    <div class="chat-item ${chat.active ? 'active' : ''}" onclick="loadChat(${chat.id})">
+      <div class="chat-item-icon">${chat.icon}</div>
+      <div class="chat-item-content">
+        <div class="chat-item-title">${chat.title}</div>
+        <div class="chat-item-preview">${chat.preview}</div>
+      </div>
+      <div class="chat-item-time">${chat.time}</div>
+    </div>
+  `).join('');
+}
