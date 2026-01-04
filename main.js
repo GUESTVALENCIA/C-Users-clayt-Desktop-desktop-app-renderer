@@ -183,12 +183,12 @@ function startNeonMCPServer() {
     const { spawn } = require('child_process');
     const path = require('path');
     const neonServerPath = path.join(__dirname, 'mcp-server-neon.py');
-    
+
     if (!fs.existsSync(neonServerPath)) {
       console.warn('[Main] ⚠️  mcp-server-neon.py no encontrado. Memoria NEON no disponible.');
       return;
     }
-    
+
     // Verificar si DATABASE_URL está configurado
     if (!process.env.DATABASE_URL) {
       console.warn('[Main] ⚠️ DATABASE_URL no configurada en variables de entorno');
@@ -196,19 +196,19 @@ function startNeonMCPServer() {
       return;
     }
     const DATABASE_URL = process.env.DATABASE_URL;
-    
+
     console.log('[Main] 🚀 Iniciando MCP Server NEON...');
     neonMCPServer = spawn('python', [neonServerPath], {
       cwd: __dirname,
       stdio: 'pipe',
       env: { ...process.env, DATABASE_URL }
     });
-    
+
     neonMCPServer.stdout.on('data', (data) => {
       const msg = data.toString().trim();
       if (msg) console.log(`[MCP-NEON] ${msg}`);
     });
-    
+
     neonMCPServer.stderr.on('data', (data) => {
       const msg = data.toString().trim();
       // Solo mostrar errores reales, no advertencias
@@ -216,13 +216,13 @@ function startNeonMCPServer() {
         console.error(`[MCP-NEON] ${msg}`);
       }
     });
-    
+
     neonMCPServer.on('close', (code) => {
       if (code !== 0 && code !== null) {
         console.warn(`[Main] ⚠️  MCP Server NEON terminó con código ${code}`);
       }
     });
-    
+
     console.log('[Main] ✅ MCP Server NEON iniciado en puerto 8765');
   } catch (e) {
     console.warn('[Main] ⚠️  No se pudo iniciar MCP Server NEON:', e.message);
@@ -289,7 +289,7 @@ function emitStatus() {
       tokensMax: qwenState.tokensMax || getModelMeta(qwenState.model).context,
       logged: qwenState.logged || false
     });
-  } catch {}
+  } catch { }
 }
 
 function setModel(modelId, manual = false) {
@@ -379,23 +379,23 @@ let mainWindow;
 function createWindow() {
   console.log('[Main] Creando ventana...');
   try {
-  mainWindow = new BrowserWindow({
+    mainWindow = new BrowserWindow({
       width: 1200,
       height: 800,
       show: false, // No mostrar hasta que esté lista
       autoHideMenuBar: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      webSecurity: false, // Deshabilitar para permitir que webviews carguen contenido externo
-      webviewTag: true,
-      allowRunningInsecureContent: true,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        webSecurity: false, // Deshabilitar para permitir que webviews carguen contenido externo
+        webviewTag: true,
+        allowRunningInsecureContent: true,
       }
     });
 
-    try { mainWindow.setMenuBarVisibility(false); } catch {}
-    
+    try { mainWindow.setMenuBarVisibility(false); } catch { }
+
     // CRÍTICO: Permitir popups para OAuth de QWEN3
     // Los webviews necesitan popups para autenticación (Google, GitHub, etc)
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -403,11 +403,11 @@ function createWindow() {
 
       // PERMITIR popups OAuth (reconocer patrones)
       const isOAuthFlow = url.includes('accounts.google.com') ||
-                          url.includes('github.com/login') ||
-                          url.includes('qwen') ||
-                          url.includes('alibaba') ||
-                          url.includes('auth') ||
-                          url.includes('oauth');
+        url.includes('github.com/login') ||
+        url.includes('qwen') ||
+        url.includes('alibaba') ||
+        url.includes('auth') ||
+        url.includes('oauth');
 
       if (isOAuthFlow) {
         console.log('[Main] ✅ Permitiendo popup OAuth');
@@ -445,16 +445,16 @@ function createWindow() {
       }
       console.error('[Main] Error cargando:', errorCode, errorDescription, validatedURL);
     });
-    
+
     // CRÍTICO: Bloquear navegaciones no deseadas en la ventana principal
     mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
       // Permitir navegaciones de webviews embebidos (como QWEN3) Y archivos locales
       if (navigationUrl.startsWith('file://') ||
-          navigationUrl.startsWith('data:') ||
-          navigationUrl.startsWith('about:') ||
-          navigationUrl.includes('qwenlm.ai') ||
-          navigationUrl.includes('qwen.ai') ||
-          navigationUrl.includes('alibaba.com')) {
+        navigationUrl.startsWith('data:') ||
+        navigationUrl.startsWith('about:') ||
+        navigationUrl.includes('qwenlm.ai') ||
+        navigationUrl.includes('qwen.ai') ||
+        navigationUrl.includes('alibaba.com')) {
         return; // Permitir - estos son contextos embebidos de QWEN3
       }
       // Bloquear TODAS las demás navegaciones a URLs externas
@@ -498,7 +498,7 @@ function createWindow() {
       }
       mainWindow.show();
       mainWindow.focus();
-      try { emitStatus(); } catch {}
+      try { emitStatus(); } catch { }
       try {
         mainWindow.webContents.send('services-ready', {
           mcpPort: mcpServer?.MCP_PORT || 19875,
@@ -506,7 +506,7 @@ function createWindow() {
           model: qwenState.model,
           auto: qwenState.auto
         });
-      } catch {}
+      } catch { }
 
       // No crear BrowserView de Qwen, mantener solo la funcionalidad principal
     });
@@ -516,7 +516,7 @@ function createWindow() {
     // ========================================
     const INDEX_OFFICIAL_PATH = 'C:\\Users\\clayt\\Desktop\\desktop-app\\renderer\\studiolab-final-v2.html';
     const indexPathFromDirname = path.resolve(__dirname, 'renderer', 'studiolab-final-v2.html');
-    
+
     // Intentar primero la ruta oficial, luego la relativa
     let indexPath = null;
     if (existsSync(INDEX_OFFICIAL_PATH)) {
@@ -526,7 +526,7 @@ function createWindow() {
       indexPath = indexPathFromDirname;
       console.log('[Main] ✅ Usando ruta relativa a __dirname');
     }
-    
+
     console.log('[Main] ========================================');
     console.log('[Main] INDEX OFICIAL: studiolab-final-v2.html');
     console.log('[Main] __dirname:', __dirname);
@@ -534,14 +534,14 @@ function createWindow() {
     console.log('[Main] Ruta relativa:', indexPathFromDirname, '-> Existe:', existsSync(indexPathFromDirname));
     console.log('[Main] Ruta seleccionada:', indexPath);
     console.log('[Main] ========================================');
-    
+
     if (!indexPath || !existsSync(indexPath)) {
       const errorMsg = `ERROR CRÍTICO: studiolab-final-v2.html NO ENCONTRADO\n\nRuta oficial: ${INDEX_OFFICIAL_PATH}\nRuta relativa: ${indexPathFromDirname}`;
       console.error('[Main] ❌', errorMsg);
       mainWindow.loadURL(`data:text/html;charset=utf-8,<html><head><meta charset="utf-8"></head><body style="background:#000;color:#fff;font-family:monospace;padding:40px;white-space:pre-wrap;"><h1 style="color:#f00">ERROR: Index no encontrado</h1><pre>${errorMsg.replace(/\n/g, '<br>')}</pre></body></html>`);
       return;
     }
-    
+
     console.log('[Main] ✅ CARGANDO INDEX OFICIAL desde:', indexPath);
     mainWindow.loadFile(indexPath).then(() => {
       console.log('[Main] ✅✅✅ INDEX OFICIAL CARGADO EXITOSAMENTE ✅✅✅');
@@ -596,18 +596,18 @@ ipcMain.handle('qwen:startTextStream', async (event, options = {}) => {
 
 app.whenReady().then(() => {
   console.log('[Main] ✅ Electron app ready');
-  try { Menu.setApplicationMenu(null); } catch {}
+  try { Menu.setApplicationMenu(null); } catch { }
   console.log('[Main] Directorio actual:', __dirname);
   console.log('[Main] AIGateway disponible:', AIGateway !== null);
   console.log('[Main] CallCenter disponible:', CallCenter !== null);
-  
+
   // Normalizar modelo guardado
   const currentModel = getModelMeta(qwenState.model || DEFAULT_MODEL);
   qwenState.model = currentModel.id;
   qwenState.tokensMax = currentModel.context;
   saveQwenState(qwenState);
 
-// Nota: QWEN no requiere API Keys - usa ventana embebida con autenticación OAuth
+  // Nota: QWEN no requiere API Keys - usa ventana embebida con autenticación OAuth
 
   // ============ INICIAR MCP SERVER UNIFICADO ============
   if (mcpServer) {
@@ -618,7 +618,7 @@ app.whenReady().then(() => {
       console.error('[Main] Error iniciando MCP Server:', e.message);
     }
   }
-  
+
   // ============ INICIAR QWEN OMNI GATEWAY ============
   if (qwenGateway && qwenGateway.startQwenServer) {
     try {
@@ -667,7 +667,7 @@ app.whenReady().then(() => {
         }
       }
     });
-    
+
     // Verificar si realmente se registró
     const isF12Registered = globalShortcut.isRegistered('F12');
     if (f12Registered && isF12Registered) {
@@ -679,7 +679,7 @@ app.whenReady().then(() => {
   } catch (e) {
     console.warn('[Main] ⚠️ Error registrando F12:', e.message);
   }
-  
+
   globalShortcut.register('CommandOrControl+Shift+I', () => {
     if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
       // Verificar si DevTools ya está abierto
@@ -781,8 +781,8 @@ app.whenReady().then(() => {
       // Si tienes un serviceManager global, pásalo; si no, este ctor funciona igual
       const mm = global.serviceManager?.get?.('multimodal');
       const rs = global.serviceManager?.get?.('roles-system');
-      callCenter = new CallCenter({ 
-        serviceManager: global.serviceManager, 
+      callCenter = new CallCenter({
+        serviceManager: global.serviceManager,
         multimodal: mm,
         rolesSystem: rs
       });
@@ -846,7 +846,7 @@ async function saveQwenCookies(qwenSession, cookiesPath) {
       httpOnly: cookie.httpOnly,
       expirationDate: cookie.expirationDate
     }));
-    
+
     await fs.promises.writeFile(cookiesPath, JSON.stringify(cookiesData, null, 2));
     console.log(`[QWEN3] 💾 ${cookies.length} cookies guardadas en ${cookiesPath}`);
   } catch (e) {
@@ -861,7 +861,7 @@ app.on('window-all-closed', async function () {
     qwenCookieInterval = null;
     console.log('[QWEN3] Intervalo de cookies limpiado al cerrar');
   }
-  
+
   // Guardar cookies de Qwen antes de cerrar
   if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
     try {
@@ -895,7 +895,7 @@ app.on('window-all-closed', async function () {
   }
   // Limpiar referencia
   qwenBrowserView = null;
-  
+
   // Detener interceptor WebSocket
   stopQwenInterceptor();
 
@@ -919,10 +919,10 @@ ipcMain.handle('restore:list', async () => {
     const out = sh(`git for-each-ref refs/tags/rp --format="%(refname:short)|%(objectname)|%(taggerdate:iso8601)|%(subject)"`, root);
     const items = (out ? out.split('\n') : []).map(line => {
       const [tag, sha, date, meta] = line.split('|');
-      return { tag: tag.replace(/^rp\//,''), sha, date, meta };
+      return { tag: tag.replace(/^rp\//, ''), sha, date, meta };
     });
     return { success: true, items };
-      } catch (e) {
+  } catch (e) {
     return { success: false, error: e.message };
   }
 });
@@ -931,13 +931,13 @@ ipcMain.handle('restore:create', async (_evt, label) => {
   const root = repoRoot();
   try {
     const ts = new Date();
-    const pad = n=>String(n).padStart(2,'0');
-    const name = `rp/${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}${label?'-'+String(label).replace(/\s+/g,'_'):''}`;
+    const pad = n => String(n).padStart(2, '0');
+    const name = `rp/${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}${label ? '-' + String(label).replace(/\s+/g, '_') : ''}`;
     const sha = sh('git rev-parse HEAD', root);
-    const meta = JSON.stringify({ type:'restore_point', created_at:ts.toISOString(), sha, label }, null, 2);
+    const meta = JSON.stringify({ type: 'restore_point', created_at: ts.toISOString(), sha, label }, null, 2);
     sh(`git tag -a "${name}" -m '${meta}'`, root);
     sh('git push --tags', root);
-    return { success: true, tag: name.replace(/^rp\//,''), sha };
+    return { success: true, tag: name.replace(/^rp\//, ''), sha };
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -962,7 +962,7 @@ ipcMain.handle('restore:apply', async (_evt, tag) => {
     }
     // SAFE
     sh(`git read-tree --reset -u "${sha}^{tree}"`, root);
-    sh(`git commit -m "restore: apply snapshot ${full} (${sha.substring(0,7)})"`, root);
+    sh(`git commit -m "restore: apply snapshot ${full} (${sha.substring(0, 7)})"`, root);
     sh(`git push`, root);
     return { success: true, mode: 'safe', sha };
   } catch (e) {
@@ -973,9 +973,9 @@ ipcMain.handle('restore:apply', async (_evt, tag) => {
 // Auto-recovery ON/OFF
 ipcMain.handle('auto-recovery:set', async (_e, on) => {
   AUTO_RECOVERY_ENABLED = !!on;
-  return { success:true, enabled: AUTO_RECOVERY_ENABLED };
+  return { success: true, enabled: AUTO_RECOVERY_ENABLED };
 });
-ipcMain.handle('auto-recovery:get', async () => ({ success:true, enabled: AUTO_RECOVERY_ENABLED }));
+ipcMain.handle('auto-recovery:get', async () => ({ success: true, enabled: AUTO_RECOVERY_ENABLED }));
 
 
 // -------------------- Alarmas: vigilancia de archivos críticos --------------------
@@ -1000,13 +1000,13 @@ function snapshotBaseline() {
     try {
       const h = sha256(fs.readFileSync(f));
       baseline.set(f, h);
-    } catch {}
+    } catch { }
   }
 }
 
 function emitAlarm(payload) {
-  try { mainWindow?.webContents.send('alarm:event', payload); } catch {}
-  try { autoRecoveryMaybe(payload); } catch {}
+  try { mainWindow?.webContents.send('alarm:event', payload); } catch { }
+  try { autoRecoveryMaybe(payload); } catch { }
 }
 
 function watchCritical() {
@@ -1017,11 +1017,11 @@ function watchCritical() {
         setTimeout(() => {
           let status = 'modified', oldH = baseline.get(f), newH = null;
           try { newH = sha256(fs.readFileSync(f)); } catch { status = 'deleted'; }
-          emitAlarm({ type:'file', status, path: f, oldHash: oldH, newHash: newH, ts: Date.now(), message: `Archivo crítico ${status}: ${path.relative(repoRoot(), f)}` });
+          emitAlarm({ type: 'file', status, path: f, oldHash: oldH, newHash: newH, ts: Date.now(), message: `Archivo crítico ${status}: ${path.relative(repoRoot(), f)}` });
           if (newH) baseline.set(f, newH);
         }, 60);
       });
-    } catch {}
+    } catch { }
   }
 }
 
@@ -1032,32 +1032,32 @@ function tapServiceApiEvents() {
     const multimodal = global.serviceManager?.get?.('multimodal') || (global.serviceManager && global.serviceManager.get && global.serviceManager.get('multimodal'));
     const deepgram = global.serviceManager?.get?.('deepgram') || (global.serviceManager && global.serviceManager.get && global.serviceManager.get('deepgram'));
     const cartesia = global.serviceManager?.get?.('cartesia') || (global.serviceManager && global.serviceManager.get && global.serviceManager.get('cartesia'));
-    const counters = { deepgram:[], cartesia:[], sttCloses:[] };
+    const counters = { deepgram: [], cartesia: [], sttCloses: [] };
 
-    deepgram?.on?.('stt:open', () => emitAlarm({ type:'api', service:'deepgram', status:'open', ts:Date.now(), message:'Deepgram conectado' }));
+    deepgram?.on?.('stt:open', () => emitAlarm({ type: 'api', service: 'deepgram', status: 'open', ts: Date.now(), message: 'Deepgram conectado' }));
     deepgram?.on?.('stt:close', () => {
-      emitAlarm({ type:'api', service:'deepgram', status:'close', ts:Date.now(), message:'Deepgram cerrado' });
+      emitAlarm({ type: 'api', service: 'deepgram', status: 'close', ts: Date.now(), message: 'Deepgram cerrado' });
       const now = Date.now();
       counters.sttCloses.push(now);
       counters.sttCloses = counters.sttCloses.filter(t => now - t <= 90000);
-      if (counters.sttCloses.length >= 3) emitAlarm({ type:'policy', status:'stt_unstable', ts:now, message:'STT inestable (3 cierres/≤90s)' });
+      if (counters.sttCloses.length >= 3) emitAlarm({ type: 'policy', status: 'stt_unstable', ts: now, message: 'STT inestable (3 cierres/≤90s)' });
     });
     deepgram?.on?.('api:error', (e) => {
-      emitAlarm({ type:'api', service:'deepgram', status:'error', detail:String(e&&e.message||e), ts:Date.now(), message:'Deepgram error' });
+      emitAlarm({ type: 'api', service: 'deepgram', status: 'error', detail: String(e && e.message || e), ts: Date.now(), message: 'Deepgram error' });
       const now = Date.now();
       counters.deepgram.push(now);
       counters.deepgram = counters.deepgram.filter(t => now - t <= 60000);
-      if (counters.deepgram.length >= 3) emitAlarm({ type:'policy', status:'asr_errors', service:'deepgram', ts:now, message:'ASR errores repetidos (≥3/≤60s)' });
+      if (counters.deepgram.length >= 3) emitAlarm({ type: 'policy', status: 'asr_errors', service: 'deepgram', ts: now, message: 'ASR errores repetidos (≥3/≤60s)' });
     });
     cartesia?.on?.('api:error', (e) => {
-      emitAlarm({ type:'api', service:'cartesia', status:'error', detail:String(e&&e.message||e), ts:Date.now(), message:'Cartesia error' });
+      emitAlarm({ type: 'api', service: 'cartesia', status: 'error', detail: String(e && e.message || e), ts: Date.now(), message: 'Cartesia error' });
       const now = Date.now();
       counters.cartesia.push(now);
       counters.cartesia = counters.cartesia.filter(t => now - t <= 60000);
-      if (counters.cartesia.length >= 3) emitAlarm({ type:'policy', status:'tts_errors', service:'cartesia', ts:now, message:'TTS errores repetidos (≥3/≤60s)' });
+      if (counters.cartesia.length >= 3) emitAlarm({ type: 'policy', status: 'tts_errors', service: 'cartesia', ts: now, message: 'TTS errores repetidos (≥3/≤60s)' });
     });
-    multimodal?.on?.('role:changed', ({ sessionId, roleId }) => emitAlarm({ type:'role', status:'changed', sessionId, roleId, ts:Date.now(), message:`Cambio de rol activo: ${roleId}` }));
-  } catch {}
+    multimodal?.on?.('role:changed', ({ sessionId, roleId }) => emitAlarm({ type: 'role', status: 'changed', sessionId, roleId, ts: Date.now(), message: `Cambio de rol activo: ${roleId}` }));
+  } catch { }
 }
 
 // --- Estrategia de auto-restauración ---
@@ -1069,7 +1069,7 @@ function getLatestSnapshotTag() {
   } catch { return null; }
 }
 
-function autoRestoreNow(reason='auto') {
+function autoRestoreNow(reason = 'auto') {
   if (!AUTO_RECOVERY_ENABLED) return;
   const tag = getLatestSnapshotTag();
   if (!tag) return;
@@ -1084,20 +1084,20 @@ function autoRestoreNow(reason='auto') {
       sh('git push --force', root);
     } else {
       sh(`git read-tree --reset -u "${sha}^{tree}"`, root);
-      sh(`git commit -m "auto-restore(${reason}): ${full} (${sha.substring(0,7)})"`, root);
+      sh(`git commit -m "auto-restore(${reason}): ${full} (${sha.substring(0, 7)})"`, root);
       sh(`git push`, root);
     }
-    emitAlarm({ type:'restore', status:RESTORE_MODE, ts:Date.now(), message:`Auto-restore por ${reason} → ${full}` });
+    emitAlarm({ type: 'restore', status: RESTORE_MODE, ts: Date.now(), message: `Auto-restore por ${reason} → ${full}` });
   } catch (e) {
-    emitAlarm({ type:'restore', status:'failed', ts:Date.now(), message:`Auto-restore fallido (${reason}): ${e.message}` });
+    emitAlarm({ type: 'restore', status: 'failed', ts: Date.now(), message: `Auto-restore fallido (${reason}): ${e.message}` });
   }
 }
 
 function autoRecoveryMaybe(a) {
   if (!AUTO_RECOVERY_ENABLED) return;
-  if (a.type==='file' && a.status==='deleted') return autoRestoreNow('file_deleted');
-  if (a.type==='policy' && (a.status==='asr_errors' || a.status==='tts_errors')) return autoRestoreNow(a.status);
-  if (a.type==='policy' && a.status==='stt_unstable') return autoRestoreNow('stt_unstable');
+  if (a.type === 'file' && a.status === 'deleted') return autoRestoreNow('file_deleted');
+  if (a.type === 'policy' && (a.status === 'asr_errors' || a.status === 'tts_errors')) return autoRestoreNow(a.status);
+  if (a.type === 'policy' && a.status === 'stt_unstable') return autoRestoreNow('stt_unstable');
 }
 
 // -------------------- IPC helpers for conversational lifecycle (optional) --------------------
@@ -1140,9 +1140,9 @@ ipcMain.handle('start-multimodal-conversation', async (_e, { mode = 'text', cont
 
     // Forward STT connection events to renderer
     if (deepgram) {
-      deepgram.on?.('stt:open', () => { try { mainWindow?.webContents.send('stt-connection-change', { connected: true }); } catch {} });
-      deepgram.on?.('stt:close', () => { try { mainWindow?.webContents.send('stt-connection-change', { connected: false }); } catch {} });
-      deepgram.on?.('transcript', (payload) => { try { mainWindow?.webContents.send('transcript:update', payload); } catch {} });
+      deepgram.on?.('stt:open', () => { try { mainWindow?.webContents.send('stt-connection-change', { connected: true }); } catch { } });
+      deepgram.on?.('stt:close', () => { try { mainWindow?.webContents.send('stt-connection-change', { connected: false }); } catch { } });
+      deepgram.on?.('transcript', (payload) => { try { mainWindow?.webContents.send('transcript:update', payload); } catch { } });
     }
 
     if (typeof multimodal.startConversation === 'function') {
@@ -1180,7 +1180,7 @@ ipcMain.handle('send-audio-stream', async (_e, b64) => {
     const deepgram = global.serviceManager?.get?.('deepgram');
     if (deepgram && typeof deepgram.sendAudioToLive === 'function') {
       try { deepgram.sendAudioToLive(Buffer.from(b64, 'base64')); } catch (e) { return { success: false, error: String(e) }; }
-    return { success: true };
+      return { success: true };
     }
     return { success: false, error: 'Deepgram not available' };
   } catch (e) { return { success: false, error: e.message }; }
@@ -1188,10 +1188,10 @@ ipcMain.handle('send-audio-stream', async (_e, b64) => {
 
 // ---- IPC CallCenter ----
 ipcMain.handle('cc:listRoutes', async () => {
-  try { 
+  try {
     if (!callCenter) return { success: false, error: 'CallCenter not initialized' };
-    return { success: true, data: callCenter.listRoutes() }; 
-  } catch(e){ return { success: false, error: e.message }; }
+    return { success: true, data: callCenter.listRoutes() };
+  } catch (e) { return { success: false, error: e.message }; }
 });
 
 // ---- IPC: AI Gateway (EXPERIMENTAL) ----
@@ -1202,9 +1202,9 @@ ipcMain.handle('ai:listModels', async () => {
     }
     const list = AIGateway.listModels();
     return { success: true, models: list };
-  } catch (e) { 
+  } catch (e) {
     console.error('[AI:ListModels] Error:', e);
-    return { success: false, error: e.message }; 
+    return { success: false, error: e.message };
   }
 });
 
@@ -1218,9 +1218,9 @@ ipcMain.handle('ai:chat', async (_e, { provider, model, messages }) => {
     }
     const res = await AIGateway.chat({ provider, model, messages });
     return { success: true, text: res.text, raw: res.raw };
-  } catch (e) { 
+  } catch (e) {
     console.error('[AI:Chat] Error:', e);
-    return { success: false, error: e.message }; 
+    return { success: false, error: e.message };
   }
 });
 
@@ -1230,7 +1230,7 @@ ipcMain.handle('cc:startByRole', async (_evt, { roleId, sessionId }) => {
     const sid = sessionId || `cc_${Date.now()}`;
     const r = await callCenter.startByRole({ sessionId: sid, roleId });
     return { success: true, ...r };
-  } catch(e){ return { success: false, error: e.message }; }
+  } catch (e) { return { success: false, error: e.message }; }
 });
 
 ipcMain.handle('cc:startByCampaign', async (_evt, { campaignId, sessionId }) => {
@@ -1239,15 +1239,15 @@ ipcMain.handle('cc:startByCampaign', async (_evt, { campaignId, sessionId }) => 
     const sid = sessionId || `cc_${Date.now()}`;
     const r = await callCenter.startByCampaign({ sessionId: sid, campaignId });
     return { success: true, ...r };
-  } catch(e){ return { success: false, error: e.message }; }
+  } catch (e) { return { success: false, error: e.message }; }
 });
 
 ipcMain.handle('cc:end', async (_evt, { sessionId }) => {
-  try { 
+  try {
     if (!callCenter) return { success: false, error: 'CallCenter not initialized' };
-    const r = await callCenter.end({ sessionId }); 
-    return { success: true, ...r }; 
-  } catch(e){ return { success: false, error: e.message }; }
+    const r = await callCenter.end({ sessionId });
+    return { success: true, ...r };
+  } catch (e) { return { success: false, error: e.message }; }
 });
 
 
@@ -1512,7 +1512,7 @@ async function saveQwenCookies(qwenSession, cookiesPath) {
       httpOnly: cookie.httpOnly,
       expirationDate: cookie.expirationDate
     }));
-    
+
     await fs.promises.writeFile(cookiesPath, JSON.stringify(cookiesData, null, 2));
     console.log(`[QWEN3] 💾 ${cookies.length} cookies guardadas en ${cookiesPath}`);
   } catch (e) {
@@ -1563,7 +1563,7 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           const cookiesData = await fs.promises.readFile(cookiesPath, 'utf8');
           const cookies = JSON.parse(cookiesData);
           console.log(`[QWEN3] 📦 Cargando ${cookies.length} cookies guardadas...`);
-          
+
           for (const cookie of cookies) {
             try {
               await qwenSession.cookies.set({
@@ -1590,15 +1590,15 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       // Esto permite que los popups OAuth se abran correctamente con la URL web de Qwen
       qwenBrowserView.webContents.setWindowOpenHandler(({ url }) => {
         console.log('[QWEN3] Popup OAuth detectado:', url.substring(0, 50) + '...');
-        
+
         // Detectar OAuth flows
-        const isOAuthFlow = url.includes('accounts.google.com') || 
-                            url.includes('github.com/login') ||
-                            url.includes('oauth') ||
-                            url.includes('auth') ||
-                            url.includes('qwenlm.ai/auth') ||
-                            url.includes('qwen.ai/auth');
-        
+        const isOAuthFlow = url.includes('accounts.google.com') ||
+          url.includes('github.com/login') ||
+          url.includes('oauth') ||
+          url.includes('auth') ||
+          url.includes('qwenlm.ai/auth') ||
+          url.includes('qwen.ai/auth');
+
         if (isOAuthFlow) {
           console.log('[QWEN3] ✅ Permitiendo popup OAuth con sesión persistente');
           // Crear popup con la MISMA sesión persistente para compartir cookies
@@ -1626,7 +1626,7 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           });
           return { action: 'allow' };
         }
-        
+
         // Bloquear otros popups
         console.log('[QWEN3] 🚫 Bloqueando popup no autorizado');
         return { action: 'deny' };
@@ -1655,14 +1655,14 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           }
         }
       });
-      
+
       // También interceptar en la ventana principal cuando QWEN tiene foco
       // Esto es un fallback si el BrowserView no captura el evento
       if (mainWindow) {
         mainWindow.webContents.on('before-input-event', (event, input) => {
           // Solo si QWEN está visible y activo
-          if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed() && 
-              mainWindow.getBrowserView() === qwenBrowserView) {
+          if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed() &&
+            mainWindow.getBrowserView() === qwenBrowserView) {
             if (input.key === 'F12' && input.type === 'keyDown') {
               event.preventDefault();
               event.stopImmediatePropagation();
@@ -1681,7 +1681,7 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
 
       qwenBrowserView.webContents.on('did-finish-load', () => {
         console.log('[QWEN3] ✅ QWEN cargado exitosamente en BrowserView');
-        
+
         // Guardar cookies después de cargar (por si hay nuevas)
         saveQwenCookies(qwenSession, cookiesPath).catch(e => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
@@ -1738,13 +1738,13 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       // Guardar cookies al navegar (después de login/verificación)
       qwenBrowserView.webContents.on('did-navigate', async (event, url) => {
         console.log('[QWEN3] 🧭 Navegado a:', url);
-        
+
         // Si se redirige a login o verificación, esperar a que termine
         if (url.includes('/auth/login') || url.includes('/verify')) {
           console.log('[QWEN3] ⚠️ Redirección a login/verificación detectada');
         } else {
           // Guardar cookies después de navegar
-          await saveQwenCookies(qwenSession, cookiesPath).catch(() => {});
+          await saveQwenCookies(qwenSession, cookiesPath).catch(() => { });
         }
       });
     }
@@ -1756,11 +1756,11 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
     const updateQwenBounds = () => {
       if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) return;
       if (!mainWindow || mainWindow.isDestroyed()) return;
-      
+
       try {
         // Obtener tamaño del contenido de la ventana (sin marcos de ventana)
         const [contentWidth, contentHeight] = mainWindow.getContentSize();
-        
+
         // Panel lateral derecho ocupando 40% del ancho
         const panelWidth = Math.floor(contentWidth * 0.4);
         const panelX = contentWidth - panelWidth;  // Posición X: desde la derecha del área de contenido
@@ -1773,7 +1773,7 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           width: panelWidth,
           height: panelHeight
         });
-        
+
         console.log(`[QWEN3] Panel posicionado: x=${panelX}, y=${panelY}, w=${panelWidth}, h=${panelHeight} (content: ${contentWidth}x${contentHeight})`);
       } catch (e) {
         console.error('[QWEN3] Error actualizando bounds:', e.message);
@@ -1788,19 +1788,19 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
     // Actualizar posición cuando cambie el tamaño de la ventana
     const resizeHandler = () => updateQwenBounds();
     mainWindow.on('resize', resizeHandler);
-    
+
     // Guardar referencia al handler para poder removerlo después
     if (!qwenBrowserView._resizeHandler) {
       qwenBrowserView._resizeHandler = resizeHandler;
     }
 
     console.log('[QWEN3] ✅ BrowserView visible como panel lateral');
-    
+
     // Emitir evento para actualizar UI en el renderer
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('qwen:view-shown');
     }
-    
+
     return { success: true, message: 'QWEN visible (panel lateral)' };
 
   } else {
@@ -1808,33 +1808,33 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
     if (qwenBrowserView && !qwenBrowserView.webContents.isDestroyed()) {
       const qwenSession = qwenBrowserView.webContents.session;
       const cookiesPath = path.join(app.getPath('userData'), 'qwen-cookies.json');
-      
+
       // LIMPIAR el intervalo de guardado de cookies
       if (qwenCookieInterval) {
         clearInterval(qwenCookieInterval);
         qwenCookieInterval = null;
         console.log('[QWEN3] Intervalo de cookies limpiado');
       }
-      
+
       // Guardar cookies antes de ocultar
       await saveQwenCookies(qwenSession, cookiesPath).catch(e => {
         console.warn('[QWEN3] ⚠️ Error guardando cookies al ocultar:', e.message);
       });
-      
+
       // Remover listener de resize si existe
       if (qwenBrowserView._resizeHandler && mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.removeListener('resize', qwenBrowserView._resizeHandler);
         qwenBrowserView._resizeHandler = null;
       }
-      
+
       // Remover el BrowserView de la ventana (esto lo oculta completamente)
       mainWindow.setBrowserView(null);
-      
+
       // Detener interceptor WebSocket (reemplaza stopQwenResponseCapture)
       stopQwenInterceptor();
-      
+
       console.log('[QWEN3] ✅ BrowserView oculto completamente (cookies guardadas, intervalo limpiado, interceptor detenido)');
-      
+
       // Emitir evento para actualizar UI en el renderer
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('qwen:view-hidden');
@@ -1844,7 +1844,7 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       clearInterval(qwenCookieInterval);
       qwenCookieInterval = null;
       console.log('[QWEN3] Intervalo de cookies limpiado (BrowserView ya destruido)');
-      
+
       // Emitir evento incluso si el BrowserView ya fue destruido
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('qwen:view-hidden');
@@ -2006,12 +2006,12 @@ function setupSimplifiedQwenObserver(browserView) {
 // Sistema de captura simplificado
 function startSimplifiedQwenCapture() {
   if (qwenResponseInterval) return;
-  
+
   let lastSentText = '';
   let lastSentHash = '';
-  
+
   console.log('[QWEN Capture] 🚀 Iniciando captura simplificada...');
-  
+
   qwenResponseInterval = setInterval(async () => {
     if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
       if (qwenResponseInterval) {
@@ -2020,18 +2020,18 @@ function startSimplifiedQwenCapture() {
       }
       return;
     }
-    
+
     try {
       const response = await qwenBrowserView.webContents.executeJavaScript(`
         (function() {
           return window.qwenLastResponse || { text: '', state: 'idle', hasCode: false, codeBlocks: [] };
         })();
       `);
-      
+
       if (response && response.text && response.text.length > 0) {
         const currentHash = response.text.length.toString() + response.text.substring(0, 50);
         const isNewMessage = response.isNewMessage || false;
-        
+
         // Solo enviar si es diferente Y (es mensaje nuevo O es actualización del mismo mensaje)
         if (currentHash !== lastSentHash && response.text !== lastSentText) {
           // Si es mensaje nuevo, resetear hash del último enviado
@@ -2039,12 +2039,12 @@ function startSimplifiedQwenCapture() {
             lastSentHash = ''; // Reset para permitir nuevo mensaje
             console.log('[QWEN Capture] 🆕 NUEVO MENSAJE detectado');
           }
-          
+
           lastSentText = response.text;
           lastSentHash = currentHash;
-          
+
           console.log('[QWEN Capture] 📤 Enviando:', response.text.length, 'chars', response.hasCode ? '(código)' : '', isNewMessage ? '[NUEVO]' : '[ACTUALIZACIÓN]');
-          
+
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('qwen:response', {
               type: response.hasCode ? 'code' : 'text',
@@ -3067,7 +3067,7 @@ function setupQwenBidirectionalCommunication(browserView) {
   browserView.webContents.executeJavaScript(communicationScript).catch(err => {
     console.error('[QWEN] Error configurando comunicación bidireccional:', err);
   });
-  
+
   // Configurar canal de debug para el monitor
   browserView.webContents.executeJavaScript(`
     window.qwenObserverDebug = function(data) {
@@ -3080,10 +3080,10 @@ function setupQwenBidirectionalCommunication(browserView) {
 // ============ QWEN: INYECTAR OBSERVADOR DE RESPUESTAS (MEJORADO) ============
 function injectQwenResponseObserver(browserView) {
   if (!browserView || browserView.webContents.isDestroyed()) return;
-  
+
   // Primero configurar comunicación bidireccional
   setupQwenBidirectionalCommunication(browserView);
-  
+
   // El observador ahora usa el sistema bidireccional configurado arriba
   console.log('[QWEN Observer] ✅ Observador mejorado activado (usa comunicación bidireccional)');
 }
@@ -3095,20 +3095,20 @@ let qwenBrowserViewReady = false;
 // ============ NUEVO: CAPTURA CON WEBSOCKET INTERCEPTOR ============
 async function startQwenResponseCapture() {
   console.log('[QWEN Capture] 🚀 Iniciando captura con WebSocket interceptor...');
-  
+
   // Verificar que el BrowserView existe
   if (!qwenBrowserView || qwenBrowserView.webContents.isDestroyed()) {
     console.error('[QWEN Capture] ❌ BrowserView no disponible');
     return;
   }
-  
+
   // ✅ INICIALIZAR INTERCEPTOR WEBSOCKET
   try {
     const result = await setupQwenWebSocketInterceptor(qwenBrowserView, mainWindow);
-    
+
     if (result.success) {
       console.log('[QWEN Capture] ✅ Interceptor WebSocket activado correctamente');
-    
+
       // Configurar listeners para recibir respuestas del interceptor
       if (mainWindow && !mainWindow.isDestroyed()) {
         // Las respuestas ahora vienen del interceptor vía IPC
@@ -3128,7 +3128,7 @@ async function startQwenResponseCapture() {
 // ============ SISTEMA ANTIGUO (LEGACY) - SOLO COMO FALLBACK ============
 async function startQwenResponseCaptureLegacy() {
   if (qwenResponseInterval) return; // Ya está capturando
-  
+
   let lastCapturedText = '';
   let lastTextHash = ''; // Hash para idempotencia
   let lastState = 'idle';
@@ -3140,9 +3140,9 @@ async function startQwenResponseCaptureLegacy() {
   let lastSentTime = 0; // Timestamp del último envío
   const DEBOUNCE_MS = 1000; // 1 segundo mínimo entre envíos
   const MAX_GREETING_RETRIES = 2;
-  
+
   console.log('[QWEN Capture LEGACY] ⚠️ Usando sistema antiguo de DOM scraping...');
-  
+
   // Función simple para generar hash del texto (para idempotencia)
   function simpleHash(text) {
     let hash = 0;
@@ -3162,18 +3162,18 @@ async function startQwenResponseCaptureLegacy() {
     const timeHash = Math.floor(Date.now() / 1000).toString(36); // Hash por segundo
     return simpleHash(baseHash + stateHash + timeHash);
   }
-  
+
   // Esperar a que el BrowserView esté completamente listo
   qwenBrowserViewReady = false;
-  
+
   qwenResponseInterval = setInterval(async () => {
     captureCount++;
-    
+
     // Log cada 10 iteraciones para debug
     if (captureCount % 10 === 0) {
       console.log(`[QWEN Capture] ⏱️ Check #${captureCount}`);
     }
-    
+
     // Verificar que el BrowserView existe y no está destruido
     if (!qwenBrowserView) {
       if (qwenResponseInterval) {
@@ -3274,29 +3274,29 @@ async function startQwenResponseCaptureLegacy() {
         const executingCode = response.isExecutingCode || false;  // NUEVO según plan
         const codeBlocks = response.codeBlocks || [];  // NUEVO: bloques de código
         const hasCode = response.hasCode || false;  // NUEVO: flag de código
-        
+
         // Si hay un cambio de estado, notificarlo
         if (currentState === 'thinking' && responseText === '') {
           // Qwen está pensando pero aún no hay respuesta
           if (lastState !== 'thinking') {
             console.log('[QWEN Capture] 🤔 Estado: Pensando...');
             lastState = 'thinking';
-                
-                // FIX PRIMER SALUDO: Detectar si es el primer mensaje y está atascado
-                if (greetingRetryCount === 0 && captureCount < 30) { // Primeros 15 segundos
-                  if (firstGreetingTimeout) clearTimeout(firstGreetingTimeout);
-                  firstGreetingTimeout = setTimeout(() => {
-                    console.log('[QWEN Capture] ⚠️ Primer saludo atascado en "thinking", puede necesitar reintento');
-                    greetingRetryCount++;
-                    // Emitir evento de debug
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                      mainWindow.webContents.send('qwen:observer:event', {
-                        type: 'first_greeting_stuck',
-                        retries: greetingRetryCount
-                      });
-                    }
-                  }, 10000); // 10 segundos de timeout
+
+            // FIX PRIMER SALUDO: Detectar si es el primer mensaje y está atascado
+            if (greetingRetryCount === 0 && captureCount < 30) { // Primeros 15 segundos
+              if (firstGreetingTimeout) clearTimeout(firstGreetingTimeout);
+              firstGreetingTimeout = setTimeout(() => {
+                console.log('[QWEN Capture] ⚠️ Primer saludo atascado en "thinking", puede necesitar reintento');
+                greetingRetryCount++;
+                // Emitir evento de debug
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('qwen:observer:event', {
+                    type: 'first_greeting_stuck',
+                    retries: greetingRetryCount
+                  });
                 }
+              }, 10000); // 10 segundos de timeout
+            }
           }
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('qwen:response', {
@@ -3304,25 +3304,25 @@ async function startQwenResponseCaptureLegacy() {
               content: 'Pensando...',
               state: 'thinking'
             });
-                // Emitir evento para el monitor
-                mainWindow.webContents.send('qwen:observer:event', {
-                  type: 'state_change',
-                  data: { state: 'thinking' }
-                });
-              }
+            // Emitir evento para el monitor
+            mainWindow.webContents.send('qwen:observer:event', {
+              type: 'state_change',
+              data: { state: 'thinking' }
+            });
+          }
         } else if ((currentState === 'streaming' || hasCode) && (response.text || responseText)) {
           // ========= MODO STREAMING O CÓDIGO =========
           // En modo streaming o cuando hay código, enviar incluso si no está completamente estable
           const streamChunk = response.text || responseText;  // Chunk nuevo o texto completo
           const fullText = response.fullText || responseText;  // Texto completo
-          
+
           // Si hay código pero no está en modo streaming, forzar streaming
           if (hasCode && currentState !== 'streaming') {
             console.log('[QWEN Capture] 💻 Código detectado, forzando modo streaming');
           }
-          
+
           console.log('[QWEN Capture] 🌊 STREAMING/CODE - Chunk:', streamChunk?.length, 'chars, Total:', fullText?.length);
-          
+
           // Enviar el chunk al renderer (SIEMPRE, incluso si código no está estable)
           if (mainWindow && !mainWindow.isDestroyed() && streamChunk && streamChunk.length > 0) {
             const payload = {
@@ -3336,14 +3336,14 @@ async function startQwenResponseCaptureLegacy() {
               chunkIndex: response.chunkIndex || 0,
               isFirstChunk: response.isFirstChunk || false
             };
-            
+
             // Si tiene código, incluir bloques
             if (response.codeBlocks && response.codeBlocks.length > 0) {
               payload.codeBlocks = response.codeBlocks;
             }
-            
+
             mainWindow.webContents.send('qwen:response', payload);
-            
+
             // Emitir evento de debug
             mainWindow.webContents.send('qwen:observer:event', {
               type: 'stream_chunk',
@@ -3354,11 +3354,11 @@ async function startQwenResponseCaptureLegacy() {
               }
             });
           }
-          
+
           // Actualizar variables para evitar duplicados
           lastCapturedText = fullText;
           lastState = 'streaming';
-          
+
         } else if (responseText) {
           // ========= MODO NORMAL (NO STREAMING) =========
           // Limpiar timeout del primer saludo si hay respuesta
@@ -3367,12 +3367,12 @@ async function startQwenResponseCaptureLegacy() {
             firstGreetingTimeout = null;
             greetingRetryCount = 0;
           }
-          
+
           // Solo procesar si NO estamos en streaming
           if (currentState !== 'streaming') {
             // Calcular hash para evitar duplicados
             const currentHash = enhancedHash(responseText, currentState);
-            
+
             // Verificar si es contenido nuevo
             if (currentHash !== lastTextHash && currentHash !== lastSentHash) {
               const now = Date.now();
@@ -3380,34 +3380,34 @@ async function startQwenResponseCaptureLegacy() {
                 console.log('[QWEN Capture] ⏸️ Debounce activo, esperando...');
                 return;
               }
-              
+
               console.log('[QWEN Capture] 📥 Nueva respuesta (no streaming):', responseText.length, 'chars');
-              
+
               // Enviar respuesta completa
               if (responseText.length > lastCapturedText.length || currentHash !== enhancedHash(lastCapturedText, lastState)) {
-                const newContent = responseText.length > lastCapturedText.length 
+                const newContent = responseText.length > lastCapturedText.length
                   ? responseText.slice(lastCapturedText.length)
                   : responseText;
-                
-            lastCapturedText = responseText;
+
+                lastCapturedText = responseText;
                 lastTextHash = currentHash;
                 lastSentHash = currentHash;
                 lastSentTime = now;
-            lastState = currentState;
+                lastState = currentState;
                 consecutiveDuplicates = 0;
-            
+
                 console.log('[QWEN Capture] 📤 Enviando (no streaming):', newContent.substring(0, 50) + '...');
 
-            if (mainWindow && !mainWindow.isDestroyed()) {
+                if (mainWindow && !mainWindow.isDestroyed()) {
                   const payload = {
                     type: (executingCode || hasCode) ? 'code' : 'text',
-                content: newContent,
-                state: currentState,
+                    content: newContent,
+                    state: currentState,
                     stream: true,
                     isStreaming: false,  // NO es streaming
                     isCode: executingCode || hasCode
                   };
-                  
+
                   if (hasCode && codeBlocks.length > 0) {
                     payload.codeBlocks = codeBlocks;
                     const backtick = String.fromCharCode(96);
@@ -3419,7 +3419,7 @@ async function startQwenResponseCaptureLegacy() {
                       }
                     }).join('\\n\\n');
                   }
-                  
+
                   mainWindow.webContents.send('qwen:response', payload);
                 }
               }
@@ -3437,12 +3437,12 @@ async function startQwenResponseCaptureLegacy() {
             response.images.forEach(img => {
               // FILTRAR imágenes de Alibaba
               if (img && !img.includes('alicdn.com') && !img.includes('alibaba')) {
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('qwen:response', {
-                  type: 'image',
-                  content: img,
-                  state: currentState
-                });
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('qwen:response', {
+                    type: 'image',
+                    content: img,
+                    state: currentState
+                  });
                 }
               } else {
                 console.log('[QWEN Capture] 🚫 Imagen de Alibaba filtrada:', img?.substring(0, 50));
@@ -3471,7 +3471,7 @@ async function startQwenResponseCaptureLegacy() {
               }
             });
           }
-          
+
           // Si el estado es 'complete', notificar que la respuesta terminó
           if (currentState === 'complete') {
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3489,7 +3489,7 @@ async function startQwenResponseCaptureLegacy() {
       // Solo loggear errores que no sean de frame disposed
       if (!error.message || !error.message.includes('Render frame was disposed')) {
         // Ignorar errores silenciosamente (puede ser que el DOM no esté listo aún)
-    }
+      }
       qwenBrowserViewReady = false;
     }
   }, 500); // Leer cada 500ms (más rápido para capturar respuestas)
@@ -3498,13 +3498,13 @@ async function startQwenResponseCaptureLegacy() {
 function stopQwenResponseCapture() {
   // Detener interceptor WebSocket
   stopQwenInterceptor();
-  
+
   // Detener polling del sistema legacy (si está activo)
   if (qwenResponseInterval) {
     clearInterval(qwenResponseInterval);
     qwenResponseInterval = null;
   }
-  
+
   console.log('[QWEN Capture] ✅ Captura detenida (interceptor + legacy)');
 }
 
@@ -3889,7 +3889,7 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     // Detectar qué botón activar basado en el mensaje
     const messageLower = message.toLowerCase();
     let buttonToClick = null;
-    
+
     for (const [buttonType, config] of Object.entries(QWEN_BUTTONS)) {
       for (const keyword of config.keywords) {
         if (messageLower.includes(keyword)) {
@@ -3903,7 +3903,7 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     // Si detectamos un comando especial, intentar hacer click en el botón
     if (buttonToClick) {
       console.log(`[QWEN] ${buttonToClick.icon} Detectado comando: ${buttonToClick.type.toUpperCase()}`);
-      
+
       const clickResult = await wc.executeJavaScript(`
         (function() {
           const buttonType = '${buttonToClick.type}';
@@ -3999,11 +3999,11 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     await new Promise(r => setTimeout(r, 100));
 
     // PASO 2: Usar inserción en bloque si el mensaje es largo (ya calculado arriba)
-    
+
     if (isLongMessage) {
       // ========= INSERCIÓN EN BLOQUE (RÁPIDO) =========
       console.log(`[QWEN] 📦 Mensaje largo detectado (${lineCount} líneas, ${message.length} chars) - Insertando en BLOQUE`);
-      
+
       const insertResult = await wc.executeJavaScript(`
         (function() {
           const message = ${JSON.stringify(message)};
@@ -4065,7 +4065,7 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
           return { success: false, error: 'No se encontró input válido' };
         })();
       `);
-      
+
       if (!insertResult.success) {
         console.error('[QWEN] ❌ Error insertando en bloque, fallback a carácter por carácter');
         // Fallback al método anterior si falla
@@ -4084,14 +4084,14 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
     } else {
       // ========= MÉTODO CARÁCTER POR CARÁCTER (PARA MENSAJES CORTOS) =========
       console.log(`[QWEN] ⌨️ Mensaje corto (${lineCount} línea, ${message.length} chars) - Enviando carácter por carácter`);
-      
-    for (const char of message) {
-      wc.sendInputEvent({
-        type: 'char',
-        keyCode: char
-      });
-      // Pequeña pausa entre caracteres para estabilidad
-      await new Promise(r => setTimeout(r, 5));
+
+      for (const char of message) {
+        wc.sendInputEvent({
+          type: 'char',
+          keyCode: char
+        });
+        // Pequeña pausa entre caracteres para estabilidad
+        await new Promise(r => setTimeout(r, 5));
       }
     }
 
@@ -4106,8 +4106,8 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
     console.log(`[QWEN] ✅ Enter enviado - Mensaje debería estar procesándose`);
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: `Mensaje enviado (${isLongMessage ? 'BLOQUE' : 'carácter por carácter'})`,
       strategy: isLongMessage ? 'block-insert' : 'sendInputEvent-real-keys',
       method: isLongMessage ? 'block' : 'char-by-char',
@@ -4170,7 +4170,7 @@ ipcMain.handle('qwen:clickButton', async (_e, { buttonType }) => {
     if (result.success) {
       console.log(`[QWEN] ✅ Botón ${buttonType} activado`);
     }
-    
+
     return result;
   } catch (error) {
     return { success: false, error: error.message };
@@ -4323,7 +4323,7 @@ ipcMain.handle('qwen:voiceChat', async (_e, { audioBase64, userId = 'default', t
 // Función eliminada - sistema nuevo no la necesita
 function injectMCPBridge_DELETED(browserView) {
   if (!browserView || !browserView.webContents) return;
-  
+
   const bridgeCode = `
     (function() {
       if (window.mcpBridgeInjected) return;
@@ -4435,24 +4435,15 @@ function injectMCPBridge_DELETED(browserView) {
             return { success: false, available: false };
           }
         }
-      };
-      
-      console.log('[QWEN MCP Bridge] ✅ API expuesta: window.mcpBridge');
-      console.log('[QWEN MCP Bridge] Conectado al servidor MCP (puerto 19875) - HERRAMIENTAS DIRECTAS');
-      console.log('[QWEN MCP Bridge] Conectado al servidor MCP NEON (puerto 8765) - MEMORIA PERSISTENTE');
-      console.log('[QWEN MCP Bridge] Herramientas: callTool, readFile, writeFile, listFiles, executeCommand, storeMemory, getLocalMemory, getMemory, setMemory, isAvailable, isNeonAvailable');
-    })();
-  `;
-  
-  browserView.webContents.executeJavaScript(bridgeCode).catch(err => {
-    console.error('[QWEN] Error inyectando MCP bridge:', err);
-  });
-}
+// ============ QWEN MCP BRIDGE & SYSTEM PROMPT ============
+// Funciones eliminadas (versiones _DELETED) por ser código muerto.
+// La inyección y el manejo de memoria ahora se realizan a través de 
+// qwen-auto-injector.js y qwen-mcp-preload.js de forma más robusta.
 
 // IPC handlers para comunicación desde el BrowserView (usando servidor MCP puerto 19875)
 ipcMain.handle('qwen:mcp:callTool', async (_e, { tool, ...params }) => {
   if (!mcpServer || !mcpServer.tools[tool]) {
-    return { success: false, error: `Tool ${tool} not available` };
+    return { success: false, error: `Tool ${ tool } not available` };
   }
   try {
     return await mcpServer.tools[tool](params || {});
@@ -4486,58 +4477,6 @@ try {
   console.warn('[Main] QWEN Memory manager no disponible:', e.message);
 }
 
-// Función eliminada - sistema nuevo no la necesita
-function injectSystemPromptAndMemory_DELETED(browserView) {
-  if (!browserView || !browserView.webContents) return;
-  if (!QwenMemoryManager || !QwenAutoInjector) {
-    console.warn('[QWEN] Memory manager no disponible, saltando inyección de prompt');
-    return;
-  }
-  
-  try {
-    const memory = new QwenMemoryManager();
-    const injector = new QwenAutoInjector();
-    
-    // Cargar manifesto de la Reina
-    const manifestoPath = path.join(__dirname, 'system', 'qwen_reina_manifesto.json');
-    let manifesto = {};
-    if (fs.existsSync(manifestoPath)) {
-      try {
-        manifesto = JSON.parse(fs.readFileSync(manifestoPath, 'utf-8'));
-      } catch (e) {
-        console.warn('[QWEN] Error cargando manifesto:', e.message);
-      }
-    }
-    
-    // Generar script de inyección que usa NEON
-    const injectionScript = `
-(function() {
-  if (window.qwenSystemPromptInjected) return;
-  window.qwenSystemPromptInjected = true;
-  
-  // Cargar memoria desde NEON al iniciar
-  async function loadMemoryFromNeon() {
-    if (!window.mcpBridge || !window.mcpBridge.getMemory) {
-      console.warn('[QWEN] MCP Bridge NEON no disponible aún');
-      return null;
-    }
-    
-    try {
-      const result = await window.mcpBridge.getMemory('clay_main', 'core_identity');
-      
-      if (result && result.status !== 'empty' && !result.error) {
-        console.log('✅ Memoria cargada desde NEON');
-        return result;
-      } else {
-        // Primera vez: guardar identidad base desde manifesto
-        console.log('📝 Primera sesión: guardando identidad en NEON...');
-        const manifesto = ${JSON.stringify(manifesto)};
-        await window.mcpBridge.setMemory('clay_main', 'core_identity', manifesto);
-        return manifesto;
-      }
-    } catch (e) {
-      console.error('[QWEN] Error cargando memoria desde NEON:', e);
-      return ${JSON.stringify(manifesto)}; // Fallback a manifesto local
     }
   }
   
@@ -4599,22 +4538,22 @@ INSTRUCCIONES DIRECTAS:
   }
 })();
     `;
-    
-    // Ejecutar script de inyección con NEON
-    browserView.webContents.executeJavaScript(injectionScript).catch(err => {
-      console.error('[QWEN] Error inyectando prompt y memoria NEON:', err);
-    });
-    
-    // También usar el sistema de inyección existente como respaldo
-    const script = injector.generateInjectionScript();
-    browserView.webContents.executeJavaScript(script).catch(err => {
-      console.error('[QWEN] Error inyectando script de respaldo:', err);
-    });
-    
-    console.log('[QWEN] ✅ System prompt, memoria NEON e historial completo inyectados automáticamente');
-  } catch (error) {
-    console.error('[QWEN] Error en inyección de prompt:', error);
-  }
+
+  // Ejecutar script de inyección con NEON
+  browserView.webContents.executeJavaScript(injectionScript).catch(err => {
+    console.error('[QWEN] Error inyectando prompt y memoria NEON:', err);
+  });
+
+  // También usar el sistema de inyección existente como respaldo
+  const script = injector.generateInjectionScript();
+  browserView.webContents.executeJavaScript(script).catch(err => {
+    console.error('[QWEN] Error inyectando script de respaldo:', err);
+  });
+
+  console.log('[QWEN] ✅ System prompt, memoria NEON e historial completo inyectados automáticamente');
+} catch (error) {
+  console.error('[QWEN] Error en inyección de prompt:', error);
+}
 }
 
 // Función para guardar mensaje de la conversación actual
@@ -4638,7 +4577,7 @@ ipcMain.handle('auth:startGoogle', async () => {
       authWindow.focus();
       return resolve({ success: false, error: 'Auth window already open' });
     }
-    
+
     authWindow = new BrowserWindow({
       width: 600,
       height: 700,
@@ -4649,21 +4588,21 @@ ipcMain.handle('auth:startGoogle', async () => {
         contextIsolation: true
       }
     });
-    
+
     // URL de login de QWEN con Google
     authWindow.loadURL('about:blank');
-    
+
     authWindow.on('closed', () => {
       authWindow = null;
     });
-    
+
     // Detectar cuando el login es exitoso
     authWindow.webContents.on('did-navigate', async (event, url) => {
       if (url && url !== 'about:blank') {
         // Login exitoso - obtener cookies de sesión
         const cookies = await authWindow.webContents.session.cookies.get({});
         if (mcpServer) {
-          await mcpServer.tools.set_google_auth({ 
+          await mcpServer.tools.set_google_auth({
             token: JSON.stringify(cookies),
             email: 'authenticated'
           });
@@ -4685,7 +4624,7 @@ ipcMain.handle('auth:startGithub', async () => {
       authWindow.focus();
       return resolve({ success: false, error: 'Auth window already open' });
     }
-    
+
     authWindow = new BrowserWindow({
       width: 600,
       height: 700,
@@ -4696,18 +4635,18 @@ ipcMain.handle('auth:startGithub', async () => {
         contextIsolation: true
       }
     });
-    
+
     authWindow.loadURL('about:blank');
-    
+
     authWindow.on('closed', () => {
       authWindow = null;
     });
-    
+
     authWindow.webContents.on('did-navigate', async (event, url) => {
       if (url && url !== 'about:blank') {
         const cookies = await authWindow.webContents.session.cookies.get({});
         if (mcpServer) {
-          await mcpServer.tools.set_google_auth({ 
+          await mcpServer.tools.set_google_auth({
             token: JSON.stringify(cookies),
             email: 'github-authenticated'
           });
@@ -4725,8 +4664,8 @@ ipcMain.handle('auth:startGithub', async () => {
 ipcMain.handle('auth:getStatus', async () => {
   if (!mcpServer) return { success: false, authenticated: false };
   const result = await mcpServer.tools.get_google_auth();
-  return { 
-    success: true, 
+  return {
+    success: true,
     authenticated: !!result.auth,
     email: result.auth?.email || null
   };
