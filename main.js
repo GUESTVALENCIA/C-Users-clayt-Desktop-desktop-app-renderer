@@ -2641,7 +2641,7 @@ function setupQwenBidirectionalCommunication(browserView) {
                 const uiWords = ['generación', 'video', 'imagen', 'artefacto', 'edición', 'web', 
                                 'pensamiento', 'buscar', 'copy', 'like', 'dislike'];
                 const uiWordCount = uiWords.filter(word => lowerText.includes(word)).length;
-                if (uiWordCount > 3 && !hasCode) return; // Si tiene más de 3 palabras de UI y NO tiene código, ignorar
+                // if (uiWordCount > 3 && !hasCode) return; // Si tiene más de 3 palabras de UI y NO tiene código, ignorar
                 
                 allMessages.push({
                   text: cleanedText,
