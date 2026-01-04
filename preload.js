@@ -11,14 +11,14 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   // ==================== CHAT Y MENSAJES ====================
   sendMessage: (message, role, mode = 'text') => ipcRenderer.invoke('send-message', { message, role, mode }),
   chatSend: (provider, message, role, model, options) => ipcRenderer.invoke('chat:send', { provider, message, role, model, options }),
-  
+
   // ==================== ROLES ====================
   getAllRoles: () => ipcRenderer.invoke('get-all-roles'),
   activateRole: (roleName) => ipcRenderer.invoke('activate-role', { roleName }),
   deactivateRole: (roleName) => ipcRenderer.invoke('deactivate-role', { roleName }),
   getActiveRoles: () => ipcRenderer.invoke('get-active-roles'),
   executeWithRole: (roleName, task) => ipcRenderer.invoke('execute-with-role', { roleName, task }),
-  
+
   // ==================== MCP (MODULAR CONTROL PANEL) ====================
   mcpDeploy: (projectConfig) => ipcRenderer.invoke('mcp-deploy', { projectConfig }),
   mcpGenerateCode: (task, role, language) => ipcRenderer.invoke('mcp-generate-code', { task, role, language }),
@@ -26,52 +26,52 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   mcpExecuteCommand: (command, cwd) => ipcRenderer.invoke('mcp-execute-command', { command, cwd }),
   mcpSpawnAgent: (role, config) => ipcRenderer.invoke('mcp-spawn-agent', { role, config }),
   mcpGetAgents: () => ipcRenderer.invoke('mcp-get-agents'),
-  
+
   // ==================== LIVE UPDATER ====================
   checkUpdates: () => ipcRenderer.invoke('check-updates'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
-  
+
   // ==================== TAREAS ====================
   executeTask: (task, role) => ipcRenderer.invoke('execute-task', { task, role }),
   validateRole: (role, task) => ipcRenderer.invoke('validate-role', { role, task }),
-  
+
   // ==================== NEGOCIACIÓN ====================
   negotiateAccommodation: (accommodationData) => ipcRenderer.invoke('negotiate-accommodation', { accommodationData }),
-  
+
   // ==================== BÚSQUEDA ====================
   searchAccommodations: (destination, checkIn, checkOut, guests) => ipcRenderer.invoke('search-accommodations', { destination, checkIn, checkOut, guests }),
   getMyAccommodations: (checkIn, checkOut, guests) => ipcRenderer.invoke('get-my-accommodations', { checkIn, checkOut, guests }),
-  
+
   // ==================== VENTAS ====================
   processSale: (saleData) => ipcRenderer.invoke('process-sale', { saleData }),
-  
+
   // ==================== LLAMADAS ====================
   makePhoneCall: (phoneNumber, message) => ipcRenderer.invoke('make-phone-call', { phoneNumber, message }),
-  
+
   // ==================== ESTADÍSTICAS ====================
   getStats: () => ipcRenderer.invoke('get-stats'),
-  
+
   // ==================== PROVEEDOR LLM ====================
   getCurrentProvider: () => ipcRenderer.invoke('get-current-provider'),
   getAvailableProviders: () => ipcRenderer.invoke('get-available-providers'),
   setProvider: (provider) => ipcRenderer.invoke('set-provider', { provider }),
-  
+
   // ==================== MULTIMODAL ====================
   transcribeAudio: (audioPath) => ipcRenderer.invoke('transcribe-audio', { audioPath }),
   transcribeBuffer: (audioBuffer, mimeType) => ipcRenderer.invoke('transcribe-buffer', { audioBuffer, mimeType }),
   generateSpeech: (text, options) => ipcRenderer.invoke('generate-speech', { text, options }),
-  
+
   // Conversación multimodal completa
   startMultimodalConversation: (options = {}) => ipcRenderer.invoke('start-multimodal-conversation', options),
   stopMultimodalConversation: () => ipcRenderer.invoke('stop-multimodal-conversation'),
-  
+
   // Envío de mensajes
   multimodalSendText: (text, userId) => ipcRenderer.invoke('multimodal-send-text', { text, userId }),
   multimodalSendVoice: (audioBuffer, userId) => ipcRenderer.invoke('multimodal-send-voice', { audioBuffer, userId }),
-  
+
   // Streaming de audio
   sendAudioStream: (audioData) => ipcRenderer.invoke('send-audio-stream', { audioData }),
-  
+
   // Control de modos
   setBargeIn: (enabled) => ipcRenderer.invoke('set-barge-in', { enabled }),
   setContinuousMode: (enabled) => ipcRenderer.invoke('set-continuous-mode', { enabled }),
@@ -82,22 +82,22 @@ contextBridge.exposeInMainWorld('sandraAPI', {
 
   // Sistema
   getSystemStatus: () => ipcRenderer.invoke('get-system-status'),
-  
+
   // Avatar
   avatarSpeak: (text) => ipcRenderer.invoke('avatar-speak', { text }),
   createAvatarSession: () => ipcRenderer.invoke('create-avatar-session'),
   stopAvatar: () => ipcRenderer.invoke('stop-avatar'),
-  
+
   // ==================== OPERA / NAVEGADOR EXTERNO ====================
   openInOpera: (url) => ipcRenderer.invoke('app:openInOpera', { url }),
   shell: {
     openExternal: (url) => ipcRenderer.invoke('shell:openExternal', { url })
   },
-  
+
   // ==================== EVENTOS ====================
   onServicesReady: (callback) => ipcRenderer.on('services-ready', (event, data) => callback(data)),
   onServicesError: (callback) => ipcRenderer.on('services-error', (event, data) => callback(data)),
-  
+
   // Eventos multimodales
   onTranscriptUpdate: (callback) => ipcRenderer.on('transcript-update', (event, data) => callback(data)),
   onResponseReady: (callback) => ipcRenderer.on('response-ready', (event, data) => callback(data)),
@@ -105,11 +105,11 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   onLipSyncFrame: (callback) => ipcRenderer.on('lip-sync-frame', (event, data) => callback(data)),
   onMultimodalSessionState: (callback) => ipcRenderer.on('multimodal-session-state', (event, data) => callback(data)),
   onMultimodalError: (callback) => ipcRenderer.on('multimodal-error', (event, data) => callback(data)),
-  
+
   // Eventos de actualización
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, data) => callback(data)),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, data) => callback(data))
-,
+  ,
 
   // ==================== LIPSYNC SOURCE ====================
   setLipSyncSourceVideo: (filePath) => ipcRenderer.invoke('set-lipsync-source-video', { filePath }),
@@ -127,18 +127,21 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   mcpCall: (tool, params) => ipcRenderer.invoke('mcp:call', { tool, params }),
   mcpListTools: () => ipcRenderer.invoke('mcp:listTools'),
   mcpGetPort: () => ipcRenderer.invoke('mcp:getPort'),
-  
+
   // Memoria persistente
   memoryList: () => ipcRenderer.invoke('memory:list'),
   memoryStore: (key, value, tags) => ipcRenderer.invoke('memory:store', { key, value, tags }),
   memoryGet: (key) => ipcRenderer.invoke('memory:get', { key }),
   memorySearch: (query) => ipcRenderer.invoke('memory:search', { query }),
-  
+
   // Sistema de archivos
   fsRead: (filePath) => ipcRenderer.invoke('fs:read', { filePath }),
   fsWrite: (filePath, content) => ipcRenderer.invoke('fs:write', { filePath, content }),
   fsList: (dirPath) => ipcRenderer.invoke('fs:list', { dirPath }),
-  
+
+  // QWEN OBSERVER ACTIONS
+  qwenPerformAction: (action) => ipcRenderer.invoke('qwen:perform-action', { action }),
+
   // Comandos
   cmdExecute: (command) => ipcRenderer.invoke('cmd:execute', { command }),
   executeCommand: (command) => ipcRenderer.invoke('cmd:execute', { command }),
@@ -187,21 +190,21 @@ contextBridge.exposeInMainWorld('sandraAPI', {
     // Retornar función para remover listener si es necesario
     return () => ipcRenderer.removeListener('qwen:response', handler);
   },
-  
+
   // QWEN Observer Events (Debug/Monitor)
   onQwenObserverEvent: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('qwen:observer:event', handler);
     return () => ipcRenderer.removeListener('qwen:observer:event', handler);
   },
-  
+
   // QWEN Connection Status
   onQwenConnectionStatus: (callback) => {
     const handler = (_event, connected) => callback(connected);
     ipcRenderer.on('qwen:connection:status', handler);
     return () => ipcRenderer.removeListener('qwen:connection:status', handler);
   },
-  
+
   // Test QWEN Observer
   testQwenObserver: () => {
     ipcRenderer.send('qwen:test:observer');
@@ -209,7 +212,7 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   // Eventos de visibilidad del BrowserView
   onQwenViewShown: (callback) => ipcRenderer.on('qwen:view-shown', (_event) => callback()),
   onQwenViewHidden: (callback) => ipcRenderer.on('qwen:view-hidden', (_event) => callback()),
-  
+
   // Método genérico 'on' para compatibilidad con código existente
   on: (eventName, callback) => {
     if (eventName === 'qwen:view-shown') {
@@ -222,7 +225,7 @@ contextBridge.exposeInMainWorld('sandraAPI', {
       console.warn(`[Preload] Evento desconocido: ${eventName}`);
     }
   },
-  
+
   // Método genérico 'off' para remover listeners
   off: (eventName, callback) => {
     if (eventName === 'qwen:view-shown' || eventName === 'qwen:view-hidden' || eventName === 'qwen:response') {
@@ -231,7 +234,7 @@ contextBridge.exposeInMainWorld('sandraAPI', {
       console.warn(`[Preload] Evento desconocido para off: ${eventName}`);
     }
   },
-  
+
   // Métodos específicos para remover listeners
   offQwenResponse: (callback) => ipcRenderer.removeListener('qwen:response', callback),
   offQwenViewShown: (callback) => ipcRenderer.removeListener('qwen:view-shown', callback),
@@ -242,7 +245,7 @@ contextBridge.exposeInMainWorld('sandraAPI', {
   authStartGithub: () => ipcRenderer.invoke('auth:startGithub'),
   authGetStatus: () => ipcRenderer.invoke('auth:getStatus'),
   authLogout: () => ipcRenderer.invoke('auth:logout'),
-  
+
   // Eventos de auth
   onAuthSuccess: (callback) => ipcRenderer.on('auth:success', (event, data) => callback(data)),
   onAuthLogout: (callback) => ipcRenderer.on('auth:logout', (event) => callback()),
