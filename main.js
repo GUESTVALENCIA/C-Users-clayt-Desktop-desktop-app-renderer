@@ -2535,13 +2535,12 @@ function setupQwenBidirectionalCommunication(browserView) {
               }
 
               elements.forEach(el => {
-                if (isPureUIElement(el)) return;
+                // if (isPureUIElement(el)) return; // Demasiado agresivo para contenedores principales
                 if (el.querySelector('textarea, input[type="text"]')) return;
                 
-                // IGNORAR elementos que contienen imágenes o botones de acción
+                // IGNORAR elementos que contienen imágenes
                 const hasImages = el.querySelector('img[src*="alicdn"], img[src*="http"]');
-                const hasActionButtons = el.querySelector('button, [role="button"]');
-                if (hasImages || hasActionButtons) return;
+                if (hasImages) return;
                 
                 const rawText = (el.innerText || '').trim();
                 
@@ -2565,10 +2564,11 @@ function setupQwenBidirectionalCommunication(browserView) {
                   return lowerCleaned.includes(btnText.toLowerCase()) && 
                          cleanedText.length < 200; // Si es corto y contiene botón mágico, ignorar
                 });
-                if (isMostlyMagicButtons) return; // Ignorar este mensaje
+                // if (isMostlyMagicButtons) return; // Ignorar este mensaje (Demasiado agresivo)
                 
                 // Solo considerar si tiene contenido real (Permisivo: > 1 char)
                 if (cleanedText.length > 1 || hasCode) {
+                  console.log('[QWEN Observer] 🎯 Mensaje detectado (Estrategia 1):', cleanedText.substring(0, 100) + '...');
                   allMessages.push({
                     text: cleanedText,
                     raw: rawText,
@@ -2595,12 +2595,8 @@ function setupQwenBidirectionalCommunication(browserView) {
               if (div.offsetHeight < 30) return;
               
               // Verificar que no sea un contenedor de UI (muchos botones hijos)
-              const buttons = div.querySelectorAll('button, [role="button"], [class*="btn"], [class*="button"]');
-              if (buttons.length > 0) return; // CAMBIO: Si tiene CUALQUIER botón, ignorar
-              
-              // Verificar que no tenga chips, tags, badges (UI de QWEN)
-              const chips = div.querySelectorAll('[class*="chip"], [class*="tag"], [class*="badge"]');
-              if (chips.length > 0) return;
+              // if (buttons.length > 0) return; 
+              // if (chips.length > 0) return;
               
               // Verificar que no sea un toolbar o menú
               const cls = (div.className || '').toLowerCase();
@@ -2639,10 +2635,12 @@ function setupQwenBidirectionalCommunication(browserView) {
                 return lowerCleaned.includes(btnText.toLowerCase()) && 
                        cleanedText.length < 200; // Si es corto y contiene botón mágico, ignorar
               });
-              if (isMostlyMagicButtons) return; // Ignorar este mensaje
+              // if (isMostlyMagicButtons) return; // Ignorar este mensaje (Demasiado agresivo)
               
               // Solo mensajes con contenido sustancial (Permisivo: > 1 char)
               if (cleanedText.length > 1 || hasCode) {
+                console.log('[QWEN Observer] 🎯 Mensaje candidato encontrado:', cleanedText.substring(0, 100) + '...');
+                
                 // Verificar que no sea principalmente texto de UI después de limpiar
                 const uiWords = ['generación', 'video', 'imagen', 'artefacto', 'edición', 'web', 
                                 'pensamiento', 'buscar', 'copy', 'like', 'dislike'];
@@ -3513,6 +3511,12 @@ async function startQwenResponseCaptureLegacy() {
               }
 
               console.log('[QWEN Capture] 📥 Nueva respuesta (no streaming):', responseText.length, 'chars');
+
+              // SI ES MENSAJE NUEVO, resetear el acumulador para capturar todo el texto
+              if (response.isNewMessage) {
+                console.log('[QWEN Capture] 🆕 Reseteando acumulador por MENSAJE NUEVO');
+                lastCapturedText = '';
+              }
 
               // Enviar respuesta completa
               if (responseText.length > lastCapturedText.length || currentHash !== enhancedHash(lastCapturedText, lastState)) {
