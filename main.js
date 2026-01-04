@@ -1878,16 +1878,16 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
       if (!mainWindow || mainWindow.isDestroyed()) return;
 
       try {
-        // Ocultar visualmente el BrowserView pero mantenerlo activo (Observer Mode)
-        // El usuario quiere que el proceso sea interno
+        // Move off-screen instead of 0x0 size to ensure DOM renders for JS interaction
+        // Some sites stop rendering or script execution if viewport is 0x0
         qwenBrowserView.setBounds({
-          x: 0,
+          x: 10000, // Far off-screen
           y: 0,
-          width: 0,
-          height: 0
+          width: 1280, // Standard size to ensure responsive elements exist
+          height: 1024
         });
 
-        console.log(`[QWEN3] BrowserView en modo OBSERVER (oculto pero activo 0x0)`);
+        console.log(`[QWEN3] BrowserView en modo OBSERVER (off-screen 10000px)`);
       } catch (e) {
         console.error('[QWEN3] Error actualizando bounds:', e.message);
       }
@@ -4210,14 +4210,66 @@ ipcMain.handle('qwen:sendMessage', async (_e, { message }) => {
 
     console.log(`[QWEN] ✅ Mensaje escrito (${message.length} caracteres, método: ${isLongMessage ? 'BLOQUE' : 'carácter por carácter'})`);
 
-    // Pausa antes de enviar Enter (más corta si fue en bloque)
+    // Pausa antes de enviar Enter
     await new Promise(r => setTimeout(r, isLongMessage ? 100 : 150));
 
     // PASO 3: Enviar Enter para enviar el mensaje
     wc.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
     wc.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
 
-    console.log(`[QWEN] ✅ Enter enviado - Mensaje debería estar procesándose`);
+    // PASO 3.5: FALLBACK - Intentar clic en botón de enviar si Enter no funcionó
+    // Muchos chats modernos requieren clic explícito o tienen configuración "Enter = New Line"
+    await new Promise(r => setTimeout(r, 200));
+
+    const clickSendResult = await wc.executeJavaScript(`
+      (function() {
+        const sendSelectors = [
+          'button[aria-label="Send"]',
+          'button[aria-label="Enviar"]',
+          'button[aria-label*="send" i]',
+          'button[data-testid="send-button"]',
+          'button:has(svg)', // Chat UIs often use icon-only buttons
+          '[class*="send"] button',
+          '[class*="submit"] button'
+        ];
+        
+        // Buscar el botón cerca del área de texto activa
+        const input = document.activeElement;
+        let btn = null;
+        
+        if (input) {
+           // Intentar encontrar botón hermano o cercano
+           const container = input.closest('div[class*="input"]') || input.parentElement;
+           if (container) {
+             btn = container.querySelector('button');
+           }
+        }
+        
+        if (!btn) {
+          // Búsqueda global si no se encuentra cerca
+          for (const sel of sendSelectors) {
+             const found = document.querySelectorAll(sel);
+             // Usar el último encontrado (usualmente el del chat actual)
+             if (found.length > 0) btn = found[found.length - 1];
+             if (btn) break;
+          }
+        }
+
+        if (btn && !btn.disabled) {
+          btn.click();
+          return { clicked: true, text: btn.ariaLabel || 'send' };
+        }
+        return { clicked: false };
+      })();
+    `);
+
+    if (clickSendResult.clicked) {
+      console.log(`[QWEN] 🖱️ Fallback: Click en botón de enviar ejecutado`);
+    } else {
+      console.log(`[QWEN] ✅ Enter enviado (no se encontró botón de enviar secundario o no fue necesario)`);
+    }
+
+    console.log(`[QWEN] ✅ Mensaje procesado`);
 
     return {
       success: true,
