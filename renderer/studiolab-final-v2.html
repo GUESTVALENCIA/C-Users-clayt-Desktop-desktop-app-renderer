@@ -3718,10 +3718,28 @@
         let qwenTimeoutId = null; // Timeout global para cancelar cuando llegue respuesta completa
         
         window.sandraAPI.onQwenResponse((data) => {
-          console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state, 'MessageID:', data.messageId?.substring(0, 20), 'isNew:', data.isNewMessage, 'isPartial:', data.isPartial);
+          console.log('[QWEN Listener] 📥 Respuesta recibida:', data.type, data.state, 'MessageID:', data.messageId?.substring(0, 20), 'isNew:', data.isNewMessage, 'isPartial:', data.isPartial, 'content length:', data.content?.length || 0);
           
-          const chatContainer = document.getElementById('chatContainer');
-          if (!chatContainer) return;
+          // CRÍTICO: Usar messagesContainer (donde van los mensajes del usuario) para mantener el orden correcto
+          const messagesContainer = document.getElementById('messagesContainer');
+          const chatContainer = document.getElementById('chatMessages'); // Para scroll
+          
+          if (!messagesContainer) {
+            console.error('[QWEN Listener] ❌ messagesContainer no encontrado');
+            return;
+          }
+          
+          // Asegurar que messagesContainer esté visible
+          messagesContainer.classList.add('visible');
+          
+          // Función helper para hacer scroll
+          const scrollToBottom = () => {
+            if (chatContainer) {
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+          };
+          
+          console.log('[QWEN Listener] ✅ Contenedores encontrados: messagesContainer y chatContainer');
           
           // CRÍTICO: Usar messageId del interceptor (ahora siempre viene)
           const messageId = data.messageId || null;
@@ -3879,13 +3897,17 @@
             if (!qwenMessages.has(msgId)) {
               qwenMessages.set(msgId, { text: '', isComplete: false });
               
+              // Obtener el nombre del modelo actual del estado
+              const currentModelName = state.qwen?.model || 'qwen3-omni-flash';
+              const modelDisplayName = PROVIDERS.qwen?.models?.[currentModelName]?.name || 'Qwen3-Omni-Flash';
+              
               const msgDiv = document.createElement('div');
               msgDiv.className = 'message-row assistant qwen-message qwen-thinking-message';
               msgDiv.dataset.messageId = msgId;
               msgDiv.innerHTML = `
                 <div class="message-bubble assistant">
                   <div class="message-header">
-                    <span class="message-role">Qwen3-Max</span>
+                    <span class="message-role">${modelDisplayName}</span>
                   </div>
                   <div class="message-content qwen-response-content">
                     <div class="thinking-indicator" style="display: flex; align-items: center; gap: 12px; padding: 16px;">
@@ -3898,8 +3920,10 @@
                   </div>
                 </div>
               `;
-              chatContainer.appendChild(msgDiv);
-              chatContainer.scrollTop = chatContainer.scrollHeight;
+              // CRÍTICO: Insertar en messagesContainer (donde van los mensajes del usuario) al FINAL
+              // CRÍTICO: Insertar en messagesContainer al FINAL (después de todos los mensajes existentes)
+              messagesContainer.appendChild(msgDiv);
+              scrollToBottom();
             }
             return;
           }
@@ -3907,18 +3931,30 @@
           // Si es texto o código (aceptar también sin tipo si tiene content)
           // CRÍTICO: Aceptar incluso si data.content está vacío pero data.type existe (puede ser señal de finalización)
           if (data.content !== undefined && (data.type === 'text' || data.type === 'code' || !data.type)) {
-            // CRÍTICO: Usar messageId del sistema
-            const msgId = messageId || Date.now().toString();
+            // CRÍTICO: Usar messageId del sistema - SIEMPRE generar uno nuevo si no viene
+            const msgId = messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             
             // CRÍTICO: Detectar si es realmente un mensaje nuevo
-            // PRIORIDAD: usar isNewMessage del interceptor (más confiable)
+            // PRIORIDAD 1: usar isNewMessage del interceptor (más confiable)
+            // PRIORIDAD 2: Si messageId es diferente al último procesado
+            // PRIORIDAD 3: Si no existe elemento con ese ID
             const existingMsgEl = document.querySelector(`[data-message-id="${msgId}"]`);
             
             // Es nuevo si:
             // 1. El interceptor marca isNewMessage = true (primer chunk de un nuevo request)
-            // 2. messageId es diferente al último procesado Y no existe elemento con ese ID
-            const isActuallyNewMessage = isNewMessage || 
-                                        (messageId && messageId !== lastProcessedMessageId && !existingMsgEl);
+            // 2. messageId es diferente al último procesado
+            // 3. No existe elemento con ese ID
+            const isActuallyNewMessage = isNewMessage === true || 
+                                        (messageId && messageId !== lastProcessedMessageId) ||
+                                        !existingMsgEl;
+            
+            console.log('[QWEN Listener] 🔍 Detección mensaje nuevo:', {
+              msgId: msgId.substring(0, 15),
+              isNewMessage,
+              lastProcessedMessageId: lastProcessedMessageId?.substring(0, 15),
+              existingMsgEl: !!existingMsgEl,
+              isActuallyNewMessage
+            });
             
             // CRÍTICO: Si es un mensaje nuevo, marcar el anterior como completo
             if (isActuallyNewMessage && lastProcessedMessageId && msgId !== lastProcessedMessageId) {
@@ -3948,22 +3984,37 @@
               console.log('[QWEN Render] 🆕 Creando NUEVO mensaje (ID:', msgId.substring(0, 15) + '), anterior se mantiene y se marca como completo');
             }
             
-            // Buscar o crear elemento del mensaje
-            let msgEl = existingMsgEl;
+            // CRÍTICO: Si es mensaje nuevo, SIEMPRE crear nuevo elemento (nunca reutilizar)
+            // Esto evita que los mensajes se mezclen
+            let msgEl = null;
+            if (isActuallyNewMessage) {
+              // Mensaje nuevo: crear nuevo elemento siempre
+              msgEl = null;
+            } else {
+              // Mensaje existente (streaming): buscar elemento existente
+              msgEl = existingMsgEl;
+            }
+            
             if (!msgEl) {
               // CRÍTICO: Si es mensaje nuevo, SIEMPRE crear nuevo elemento
               const msgDiv = document.createElement('div');
               msgDiv.className = 'message-row assistant qwen-message qwen-streaming-message';
               msgDiv.dataset.messageId = msgId;
+              
+              // Obtener el nombre del modelo actual del estado
+              const currentModelName = state.qwen?.model || 'qwen3-omni-flash';
+              const modelDisplayName = PROVIDERS.qwen?.models?.[currentModelName]?.name || 'Qwen3-Omni-Flash';
+              
               msgDiv.innerHTML = `
                 <div class="message-bubble assistant">
                   <div class="message-header">
-                    <span class="message-role">Qwen3-Max</span>
+                    <span class="message-role">${modelDisplayName}</span>
                   </div>
                   <div class="message-content qwen-response-content"></div>
                 </div>
               `;
-              chatContainer.appendChild(msgDiv);
+              // CRÍTICO: Insertar en messagesContainer (donde van los mensajes del usuario) al FINAL
+              messagesContainer.appendChild(msgDiv);
               msgEl = msgDiv;
               qwenMessages.set(msgId, { text: '', isComplete: false, timestamp: currentTimestamp });
               
@@ -3998,10 +4049,10 @@
                 qwenMessages.set(msgId, msgData);
                 console.log('[QWEN Listener] 📝 Streaming actualizado:', msgId.substring(0, 15), 'longitud:', data.content.length);
               } else if (!msgData.text) {
-                // Si no hay texto previo, establecer el nuevo
-                msgData.text = data.content;
+              // Si no hay texto previo, establecer el nuevo
+              msgData.text = data.content;
                 msgData.timestamp = currentTimestamp;
-                qwenMessages.set(msgId, msgData);
+              qwenMessages.set(msgId, msgData);
               }
               // Si el contenido es más corto, no actualizar (puede ser un chunk duplicado)
             }
@@ -4022,8 +4073,17 @@
               
               // CRÍTICO: SIEMPRE renderizar si hay contenido, sea streaming o completo
               // Esto asegura que las respuestas completas también se muestren
-              if (qwenFullText && qwenFullText.length > 0) {
-                console.log('[QWEN Render] 🎨 Renderizando contenido:', qwenFullText.length, 'chars, isStreaming:', isStreaming, 'isPartial:', data.isPartial);
+              // IMPORTANTE: Renderizar incluso si está vacío inicialmente para mostrar el mensaje
+              if (qwenFullText !== undefined && qwenFullText !== null) {
+                const hasContent = qwenFullText && qwenFullText.length > 0;
+                console.log('[QWEN Render] 🎨 Renderizando contenido:', qwenFullText.length || 0, 'chars, isStreaming:', isStreaming, 'isPartial:', data.isPartial, 'hasContent:', hasContent);
+                
+                // Si no hay contenido, mostrar indicador de carga
+                if (!hasContent) {
+                  contentEl.innerHTML = '<div style="opacity: 0.6; font-style: italic; padding: 16px;">Esperando respuesta de QWEN...</div>';
+                  scrollToBottom();
+                  return;
+                }
                 // ⭐ RENDERIZAR INMEDIATAMENTE (síncrono, sin requestAnimationFrame, sin setTimeout)
                 // El contenido acumulado se actualiza en tiempo real, carácter por carácter
                 try {
@@ -4097,14 +4157,14 @@
                 }
               } else {
                 console.warn('[QWEN Render] ⚠️ No hay contenido para renderizar. qwenFullText:', qwenFullText?.length || 0, 'data.content:', data.content?.length || 0);
-              }
-            } else {
+                }
+              } else {
               console.error('[QWEN Render] ⚠️ No se encontró .qwen-response-content en msgEl');
             }
             
             // ⭐ SCROLL INMEDIATAMENTE (sin requestAnimationFrame)
             // Esto permite ver el contenido escribiéndose en tiempo real
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            scrollToBottom();
           }
           
           // Función auxiliar para escapar HTML
@@ -4128,7 +4188,7 @@
                 contentEl.appendChild(img);
               }
             }
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            scrollToBottom();
           }
           
           // Si es video, añadirlo
@@ -4146,7 +4206,7 @@
                 contentEl.appendChild(video);
               }
             }
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            scrollToBottom();
           }
           
           // Si es audio, añadirlo
@@ -4162,7 +4222,7 @@
                 contentEl.appendChild(audio);
               }
             }
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            scrollToBottom();
           }
           
           // Si está completo, finalizar el mensaje (detectar por type='complete' o partial=false)
@@ -4221,9 +4281,9 @@
                   timestamp: Date.now()
                 });
                 if (typeof saveChatHistory === 'function') {
-                  saveChatHistory();
-                }
+                saveChatHistory();
               }
+            }
             }
             console.log('[QWEN Listener] ✅ Respuesta completa (partial: false)');
           }
@@ -5815,14 +5875,15 @@
           if (result.success) {
             console.log(`[callAssistant] ✅ Mensaje enviado a QWEN BrowserView`);
             
-            // Retornar inmediatamente - las respuestas se recibirán via IPC y se mostrarán en tiempo real
-            // El listener global manejará la actualización del mensaje
+            // CRÍTICO: NO retornar mensaje intermedio - el listener onQwenResponse manejará la respuesta directamente
+            // Esto evita mostrar "Mensaje enviado a QWEN. Esperando respuesta..."
             return {
-              text: '✅ Mensaje enviado a QWEN. Esperando respuesta...',
+              text: '', // Vacío - el listener mostrará la respuesta real
               provider: 'qwen',
               model: 'qwen-embedded',
               stream: true,
-              qwenStreaming: true // Flag para indicar que Qwen está transmitiendo
+              qwenStreaming: true,
+              silent: true // Flag para indicar que NO se debe mostrar mensaje intermedio
             };
           } else {
             throw new Error(result.error || 'Error desconocido al enviar');
@@ -6113,14 +6174,24 @@
           // No se necesita el handler antiguo que causaba conflictos
           
           // Para QWEN, el sistema onQwenResponse maneja el streaming automáticamente
-          // Solo mostrar mensaje inicial si no hay respuesta inmediata
-          if (result?.text) {
+          // NO mostrar mensaje intermedio - el listener mostrará la respuesta real directamente
+          if (result?.silent) {
+            // QWEN: No mostrar mensaje intermedio, el listener onQwenResponse lo manejará
+            // Ocultar o eliminar el div del asistente ya que el listener creará su propio mensaje
+            if (assistantDiv) {
+              assistantDiv.style.display = 'none';
+              // Eliminar después de un breve delay para que el listener tenga tiempo de crear el mensaje real
+              setTimeout(() => {
+                if (assistantDiv && assistantDiv.parentNode) {
+                  assistantDiv.parentNode.removeChild(assistantDiv);
+                }
+              }, 100);
+            }
+          } else if (result?.text) {
             updateMessageDiv(assistantDiv, result.text);
-          } else {
-            updateMessageDiv(assistantDiv, '✅ Mensaje enviado a QWEN. Esperando respuesta...');
           }
           
-          // Para otros proveedores, comportamiento normal
+            // Para otros proveedores, comportamiento normal
           if (state.currentProvider !== 'qwen' && result?.text) {
             const responseText = String(result.text);
             if (responseText) {
@@ -6547,10 +6618,10 @@
       // Usar el sistema del MCP Universal - BrowserView embebido (como VS Code extension)
       // No abre ventanas externas, simplemente muestra/oculta el panel embebido
       if (typeof toggleQwen === 'function') {
-        toggleQwen();
+      toggleQwen();
       } else {
         console.warn('[QWEN] toggleQwen no está definido');
-      }
+    }
     };
 
     /**
