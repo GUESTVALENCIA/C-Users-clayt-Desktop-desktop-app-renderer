@@ -4539,24 +4539,6 @@ try {
 }
 
 
-    `;
-
-  // Ejecutar script de inyección con NEON
-  browserView.webContents.executeJavaScript(injectionScript).catch(err => {
-    console.error('[QWEN] Error inyectando prompt y memoria NEON:', err);
-  });
-
-  // También usar el sistema de inyección existente como respaldo
-  const script = injector.generateInjectionScript();
-  browserView.webContents.executeJavaScript(script).catch(err => {
-    console.error('[QWEN] Error inyectando script de respaldo:', err);
-  });
-
-  console.log('[QWEN] ✅ System prompt, memoria NEON e historial completo inyectados automáticamente');
-} catch (error) {
-  console.error('[QWEN] Error en inyección de prompt:', error);
-}
-}
 
 // Función para guardar mensaje de la conversación actual
 function saveQwenMessage(role, content) {
