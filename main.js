@@ -2502,7 +2502,12 @@ function setupQwenBidirectionalCommunication(browserView) {
             '[class*="ai-message"]',
             '[class*="response-content"]',
             '[class*="markdown-body"]',
-            '[class*="prose"]'
+            '[class*="request-output"]', // Generic AI output
+            '[class*="message-content"]', 
+            '[data-testid*="assistant"]',
+            '[data-testid*="message"]',
+            '.result-streaming', // Streaming specific
+            'div[class*="content"]' // Very broad fallback
           ];
           
           let allMessages = [];
@@ -2510,6 +2515,11 @@ function setupQwenBidirectionalCommunication(browserView) {
           for (const selector of assistantSelectors) {
             try {
               const elements = document.querySelectorAll(selector);
+              // DEBUG: Si encontramos elementos, loguear para ver qué son
+              if (elements.length > 0 && Math.random() < 0.05) { // Solo loguear a veces para no spammear
+                 console.log('[QWEN Observer] Found ' + elements.length + ' elements for selector: ' + selector);
+              }
+
               elements.forEach(el => {
                 if (isPureUIElement(el)) return;
                 if (el.querySelector('textarea, input[type="text"]')) return;
