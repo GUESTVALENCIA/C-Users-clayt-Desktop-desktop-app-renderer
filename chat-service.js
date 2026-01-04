@@ -95,8 +95,49 @@ async function callAnthropic(message, role, apiKey) {
 }
 
 // OpenAI (ChatGPT)
-// callOpenAI() REMOVIDO - Usar QWEN3 embebido mediante el webview
-// OpenAI ya no es soportado en favor de una integración QWEN3 completamente embebida
+async function callOpenAI(message, role, apiKey, options = {}) {
+  try {
+    const model = options.model || 'gpt-4o'; // Modelo por defecto
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: 'user', content: `[${role}] ${message}` }
+        ],
+        max_tokens: options.max_tokens || 1024,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        provider: 'openai',
+        error: data.error?.message || `HTTP ${response.status}`
+      };
+    }
+
+    return {
+      success: true,
+      provider: 'openai',
+      response: data.choices[0].message.content,
+      usage: data.usage
+    };
+  } catch (error) {
+    return {
+      success: false,
+      provider: 'openai',
+      error: error.message
+    };
+  }
+}
 
 // QWEN (Alibaba - usando API HTTP)
 async function callQWEN(message, role, apiKey, options = {}) {
