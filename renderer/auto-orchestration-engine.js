@@ -61,14 +61,14 @@ class OrchestrationEngine {
     const sentences = text.split(/[.!?]+/).length;
     const questions = (text.match(/\?/g) || []).length;
     const technicalWords = (text.match(/\b(api|model|function|class|query|algorithm)\b/gi) || []).length;
-    return Math.min(1, (words/100 + questions*0.3 + technicalWords*0.2) / 5);
+    return Math.min(1, (words / 100 + questions * 0.3 + technicalWords * 0.2) / 5);
   }
 
   // 🚀 Ejecuta la estrategia
   async execute(input, options = {}) {
     const { analysis, strategy } = this.analyzeInput(input);
     const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    
+
     console.log(`🎻 Orquestación iniciada [${taskId}]:`, strategy);
 
     try {
@@ -125,11 +125,11 @@ class OrchestrationEngine {
   }
 
   async runParallel(taskId, models, input, postProcess) {
-    const promises = models.map(model => 
-      this.callModel(model, input).catch(e => ({ 
-        success: false, 
-        error: e.message, 
-        source: model 
+    const promises = models.map(model =>
+      this.callModel(model, input).catch(e => ({
+        success: false,
+        error: e.message,
+        source: model
       }))
     );
 
@@ -206,7 +206,7 @@ class OrchestrationEngine {
     // Combina: DeepSeek (visión) + Qwen (técnico)
     const deepseek = results.find(r => r.source === 'deepseek');
     const qwen = results.find(r => r.source === 'qwen');
-    
+
     if (deepseek && qwen) {
       return {
         success: true,
@@ -230,7 +230,7 @@ class OrchestrationEngine {
   recordOutcome(taskId, strategy, success) {
     const key = strategy.primary || strategy.parallel?.join('+') || 'unknown';
     if (!this.modelStats[key]) this.modelStats[key] = { success: 0, failure: 0 };
-    
+
     if (success) {
       this.modelStats[key].success++;
     } else {
@@ -254,5 +254,13 @@ class OrchestrationEngine {
 const orchestrationEngine = new OrchestrationEngine();
 
 // Export
-module.exports = { orchestrationEngine, OrchestrationEngine };
-exports.orchestrationEngine = orchestrationEngine;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { orchestrationEngine, OrchestrationEngine };
+}
+if (typeof exports !== 'undefined') {
+  exports.orchestrationEngine = orchestrationEngine;
+}
+// Browser global
+if (typeof window !== 'undefined') {
+  window.orchestrationEngine = orchestrationEngine;
+}
