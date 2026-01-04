@@ -1908,8 +1908,9 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
     }
 
     // ACTIVAR OBSERVER DOM (Respaldo visual robusto)
-    setupSimplifiedQwenObserver(qwenBrowserView);
-    console.log('[QWEN3] ✅ DOM Observer activado (lectura visual de respuestas)');
+    // ACTIVAR OBSERVER DOM (Respaldo visual robusto V2)
+    injectQwenResponseObserver(qwenBrowserView);
+    console.log('[QWEN3] ✅ DOM Observer V2 activado (lectura visual robusta)');
 
     // INICIAR CAPTURA (Hybrid: Legacy DOM + Network)
     startQwenResponseCapture();
