@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>🧠 Test: Claude + Sandra</title>
+  <style>
+    body { background: #0f0f0f; color: #fff; font-family: sans-serif; padding: 20px; }
+    .card { background: #1a1a1a; padding: 20px; margin: 10px 0; border-radius: 8px; }
+    button { background: #1e88e5; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #1976d2; }
+    pre { background: #222; padding: 12px; border-radius: 6px; overflow-x: auto; }
+    .status { padding: 8px; margin: 8px 0; border-radius: 4px; }
+    .success { background: #2e7d32; }
+    .error { background: #c62828; }
+  </style>
+</head>
+<body>
+  <h1>🔧 Test de Integración: Claude Local</h1>
+
+  <div class="card">
+    <h3>1. 🛠️ Setup automático (1 clic)</h3>
+    <button onclick="setup()">Obtener cookies de Claude</button>
+    <div id="setup-status"></div>
+  </div>
+
+  <div class="card">
+    <h3>2. 🧪 Probar Claude</h3>
+    <button onclick="testClaude()">Enviar: "Resume la teoría de la relatividad en 1 línea"</button>
+    <div id="test-result"></div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // Escuchar resultado del setup
+    ipcRenderer.on('claude-setup', (event, data) => {
+      const el = document.getElementById('setup-status');
+      if (data.status === 'success') {
+        el.innerHTML = `<div class="status success">✅ Cookies guardadas en: ${data.file}</div>`;
+      } else if (data.status === 'already_setup') {
+        el.innerHTML = `<div class="status success">✅ Ya está configurado</div>`;
+      } else {
+        el.innerHTML = `<div class="status error">❌ Falló: ${data.reason}</div>`;
+      }
+    });
+
+    async function setup() {
+      ipcRenderer.send('trigger-claude-setup');
+    }
+
+    async function testClaude() {
+      const el = document.getElementById('test-result');
+      el.innerHTML = '<div class="status">⏳ Enviando a Claude...</div>';
+      
+      try {
+        const { useClaude } = await import('./orchestrator/claude-bridge.js');
+        const res = await useClaude("Resume la teoría de la relatividad en 1 línea", { fallbackToQwen: false });
+        
+        if (res.success) {
+          el.innerHTML = `
+            <div class="status success">✅ ${res.source} respondió:</div>
+            <pre>${res.answer}</pre>
+            <small>Chat ID: ${res.chatId}</small>
+          `;
+        } else {
+          el.innerHTML = `<div class="status error">❌ Error: ${res.error}</div>`;
+        }
+      } catch (e) {
+        el.innerHTML = `<div class="status error">💥 Excepción: ${e.message}</div>`;
+      }
+    }
+  </script>
+</body>
+</html>
