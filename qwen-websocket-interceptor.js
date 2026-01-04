@@ -523,40 +523,59 @@ function handleWebSocketFrame(params, direction) {
  * ⭐ CRÍTICO: Esta función se ejecuta síncronamente para streaming real
  */
 function sendToRenderer(content, isPartial = false, messageId = null, isNewMessage = false) {
-  if (!content || content.length === 0) return;
+  if (!content || content.length === 0) {
+    console.warn('[QWEN-NET] ⚠️ sendToRenderer llamado con contenido vacío');
+    return;
+  }
   
   // Generar messageId si no viene
   const finalMessageId = messageId || `qwen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   // ⭐ STREAMING REAL: Enviar inmediatamente sin logs excesivos (solo cada 10 chunks para no saturar)
   const shouldLog = !isPartial || Math.random() < 0.1; // Log solo 10% de los chunks parciales
-  if (shouldLog) {
+  if (shouldLog || isNewMessage) {
     const statusText = isPartial ? 'CHUNK STREAMING' : 'RESPUESTA COMPLETA';
     console.log(`[QWEN-NET] ✅ ${statusText}:`, content.length, 'chars, msgId:', finalMessageId.substring(0, 15), 'isNew:', isNewMessage);
   }
   
   const codeInfo = detectCodeBlocks(content);
   
-  if (currentMainWindow && !currentMainWindow.isDestroyed()) {
-    // ⭐ ENVIAR INMEDIATAMENTE (síncrono, sin await, sin delay)
-    try {
-      currentMainWindow.webContents.send('qwen:response', {
-        type: codeInfo.hasCode ? 'code' : 'text',
-        content: content,
-        state: isPartial ? 'streaming' : 'complete',
-        stream: true,
-        isStreaming: isPartial,
-        isPartial: isPartial, // ⭐ CRÍTICO: flag para streaming
-        isCode: codeInfo.hasCode,
-        codeBlocks: codeInfo.blocks,
-        source: 'network-interceptor',
-        messageId: finalMessageId, // ⭐ CRÍTICO: messageId único por request
-        isNewMessage: isNewMessage, // ⭐ CRÍTICO: solo true en el primer chunk
-        timestamp: Date.now() // Timestamp para debugging
-      });
-    } catch (err) {
-      console.error('[QWEN-NET] ❌ Error enviando a renderer:', err.message);
+  // CRÍTICO: Verificar que currentMainWindow existe y no está destruido
+  if (!currentMainWindow) {
+    console.error('[QWEN-NET] ❌ currentMainWindow es null - no se puede enviar respuesta');
+    return;
+  }
+  
+  if (currentMainWindow.isDestroyed()) {
+    console.error('[QWEN-NET] ❌ currentMainWindow está destruido - no se puede enviar respuesta');
+    return;
+  }
+  
+  // ⭐ ENVIAR INMEDIATAMENTE (síncrono, sin await, sin delay)
+  try {
+    const payload = {
+      type: codeInfo.hasCode ? 'code' : 'text',
+      content: content,
+      state: isPartial ? 'streaming' : 'complete',
+      stream: true,
+      isStreaming: isPartial,
+      isPartial: isPartial, // ⭐ CRÍTICO: flag para streaming
+      isCode: codeInfo.hasCode,
+      codeBlocks: codeInfo.blocks,
+      source: 'network-interceptor',
+      messageId: finalMessageId, // ⭐ CRÍTICO: messageId único por request
+      isNewMessage: isNewMessage, // ⭐ CRÍTICO: solo true en el primer chunk
+      timestamp: Date.now() // Timestamp para debugging
+    };
+    
+    currentMainWindow.webContents.send('qwen:response', payload);
+    
+    // Log solo para el primer chunk o respuestas completas
+    if (isNewMessage || !isPartial) {
+      console.log('[QWEN-NET] 📤 Enviado a renderer:', payload.type, 'content length:', content.length, 'msgId:', finalMessageId.substring(0, 15));
     }
+  } catch (err) {
+    console.error('[QWEN-NET] ❌ Error enviando a renderer:', err.message, err.stack);
   }
 }
 
