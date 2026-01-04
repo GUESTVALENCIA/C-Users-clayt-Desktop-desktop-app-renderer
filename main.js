@@ -1807,6 +1807,12 @@ ipcMain.handle('qwen:toggle', async (_e, params) => {
           console.warn('[QWEN3] ⚠️ Error guardando cookies:', e.message);
         });
 
+        // INYECTAR OBSERVER V2 (Lectura visual robusta)
+        // Esto es CRÍTICO: re-inyectar cada vez que la página carga/recarga
+        setupQwenBidirectionalCommunication(qwenBrowserView);
+        startQwenResponseCapture();
+        console.log('[QWEN3] ✅ DOM Observer V2 re-inyectado tras carga');
+
         // ============ CONFIGURAR INTERCEPTOR WEBSOCKET DE QWEN ============
         // Usar Chrome DevTools Protocol para capturar respuestas en BLOQUE
         // NO más DOM scraping que causa errores y captura letra por letra
