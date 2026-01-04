@@ -1,0 +1,6 @@
+# No ignorar archivos importantes para el despliegue
+!index.html
+!manifest.json
+!sw.js
+!icon-*.svg
+!vercel.json
