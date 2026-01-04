@@ -4443,7 +4443,7 @@ function injectMCPBridge_DELETED(browserView) {
 // IPC handlers para comunicación desde el BrowserView (usando servidor MCP puerto 19875)
 ipcMain.handle('qwen:mcp:callTool', async (_e, { tool, ...params }) => {
   if (!mcpServer || !mcpServer.tools[tool]) {
-    return { success: false, error: `Tool ${ tool } not available` };
+    return { success: false, error: 'Tool ' + tool + ' not available' };
   }
   try {
     return await mcpServer.tools[tool](params || {});
