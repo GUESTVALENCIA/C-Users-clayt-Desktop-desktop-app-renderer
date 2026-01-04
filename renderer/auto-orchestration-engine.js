@@ -1,461 +1,258 @@
-/**
- * AUTO ORCHESTRATION ENGINE
- * ═══════════════════════════════════════════════════════════════════════════
- * Motor de orquestación multi-modelo que coordina:
- * - Consultas paralelas a múltiples modelos
- * - Interceptación de respuestas en tiempo real
- * - Síntesis inteligente de resultados
- * - Integración con MCP para proposals y consenso
- * ═══════════════════════════════════════════════════════════════════════════
- */
+// 🎻 AUTO-ORCHESTRATION ENGINE 2.0 — con ChatGPT
+// Decide en tiempo real qué modelo usar, combina respuestas, y aprende.
 
-class AutoOrchestrationEngine {
+class OrchestrationEngine {
   constructor() {
-    this.activeQueries = new Map();
-    this.responses = new Map();
-    this.models = {
-      embedded: [
-        { id: 'chatgpt', name: 'ChatGPT Plus', icon: '🤖', speed: 'balanced' },
-        { id: 'qwen', name: 'QWEN 3', icon: '🧠', speed: 'ultra' },
-        { id: 'gemini', name: 'Gemini Pro', icon: '✨', speed: 'balanced' },
-        { id: 'deepseek', name: 'DeepSeek', icon: '🔍', speed: 'balanced' }
-      ],
-      api: [
-        { id: 'groq-llama3.3', name: 'Llama 3.3 70B', icon: '⚡', speed: 'ultra' },
-        { id: 'groq-llama3.1', name: 'Llama 3.1 8B', icon: '🚀', speed: 'ultra' },
-        { id: 'groq-qwen3', name: 'Qwen 3 32B', icon: '🎯', speed: 'balanced' }
-      ]
-    };
+    this.modelStats = this.loadStats(); // Aprende de aciertos/errores
+    this.activeTasks = new Map();
   }
 
-  /**
-   * Modo MÚLTIPLE: Consultar múltiples modelos en paralelo
-   */
-  async executeMultipleMode(messageText, options = {}) {
-    const queryId = `query_${Date.now()}`;
-    console.log(`[AUTO] 🔗 Iniciando modo MÚLTIPLE (ID: ${queryId})`);
+  // 🔍 Analiza el input y decide estrategia
+  analyzeInput(input, context = {}) {
+    const { text = '', attachments = [], buttons = [] } = input;
 
-    this.activeQueries.set(queryId, {
-      message: messageText,
-      startTime: Date.now(),
-      status: 'executing',
-      responses: new Map()
-    });
+    const analysis = {
+      length: text.length,
+      hasCode: /(?:function|const|import|class|def|print\(|=>|{\s*[\w"])/.test(text),
+      codeLang: this.detectLanguage(text),
+      hasPDF: attachments.some(a => a.type === 'pdf'),
+      hasImage: attachments.some(a => a.type === 'image'),
+      hasVideo: attachments.some(a => a.type === 'video'),
+      buttons: buttons.map(b => b.type),
+      complexity: this.estimateComplexity(text)
+    };
 
-    // Mostrar UI de orquestación
-    this.showOrchestrationUI(queryId, messageText);
+    // Estrategia por defecto
+    let strategy = {
+      primary: 'qwen',
+      secondary: null,
+      parallel: [],
+      postProcess: null
+    };
+
+    // 🧠 Lógica de decisión actualizada
+    if (analysis.hasPDF || analysis.length > 800) {
+      strategy = { primary: 'claude', secondary: 'qwen', postProcess: 'compare' };
+    } else if (analysis.hasCode || analysis.codeLang !== 'plaintext') {
+      strategy = { primary: 'qwen', postProcess: 'code-review' };
+    } else if (analysis.hasImage && analysis.text) {
+      strategy = { primary: 'deepseek', secondary: 'qwen', postProcess: 'enrich' };
+    } else if (analysis.hasVideo) {
+      strategy = { primary: 'claude', parallel: ['qwen'], postProcess: 'summarize+analyze' };
+    } else if (/escribe.*cuento|poema|historia|creativo/i.test(text)) {
+      strategy = { primary: 'chatgpt', secondary: 'claude' };
+    } else if (analysis.complexity > 0.7) {
+      strategy = { parallel: ['qwen', 'claude', 'chatgpt'], postProcess: 'vote' };
+    }
+
+    return { analysis, strategy };
+  }
+
+  detectLanguage(text) {
+    const lower = text.toLowerCase();
+    if (/import.*from|export.*from|console\.log|=>/.test(lower)) return 'javascript';
+    if (/def\s+\w+\(|import\s+\w+|print\(/.test(lower)) return 'python';
+    if (/^\s*SELECT\s+.*FROM\s+/i.test(lower)) return 'sql';
+    return 'plaintext';
+  }
+
+  estimateComplexity(text) {
+    const words = text.split(/\s+/).length;
+    const sentences = text.split(/[.!?]+/).length;
+    const questions = (text.match(/\?/g) || []).length;
+    const technicalWords = (text.match(/\b(api|model|function|class|query|algorithm)\b/gi) || []).length;
+    return Math.min(1, (words/100 + questions*0.3 + technicalWords*0.2) / 5);
+  }
+
+  // 🚀 Ejecuta la estrategia
+  async execute(input, options = {}) {
+    const { analysis, strategy } = this.analyzeInput(input);
+    const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    
+    console.log(`🎻 Orquestación iniciada [${taskId}]:`, strategy);
 
     try {
-      // Realizar consultas paralelas
-      const parallelResults = await this.executeParallelQueries(queryId, messageText);
+      let result;
 
-      // Sintetizar respuestas
-      const synthesized = await this.synthesizeResponses(queryId, parallelResults);
+      if (strategy.parallel && strategy.parallel.length > 0) {
+        result = await this.runParallel(taskId, strategy.parallel, input, strategy.postProcess);
+      } else {
+        result = await this.runPrimarySecondary(taskId, strategy, input);
+      }
 
-      // Mostrar resultado final
-      this.displaySynthesizedResult(queryId, synthesized);
-
-      // Enviar propuesta al MCP (si está conectado)
-      await this.sendProposalToMCP(queryId, messageText, synthesized, parallelResults);
+      // Aprender de resultado
+      this.recordOutcome(taskId, strategy, result.success);
 
       return {
-        success: true,
-        queryId,
-        synthesized,
-        individual: parallelResults
+        ...result,
+        taskId,
+        analysis,
+        strategy,
+        timestamp: Date.now()
       };
 
-    } catch (error) {
-      console.error(`[AUTO] ❌ Error en modo MÚLTIPLE:`, error);
-      window.addTerminalLine(`❌ Error en orquestación: ${error.message}`);
-      return { success: false, error: error.message };
+    } catch (e) {
+      return { success: false, error: e.message, taskId };
     }
   }
 
-  /**
-   * Ejecutar consultas paralelas contra múltiples modelos
-   */
-  async executeParallelQueries(queryId, messageText) {
-    const results = {
-      embedded: [],
-      api: []
-    };
-
-    // Preparar promesas para modelos embebidos
-    const embeddedPromises = this.models.embedded.map(model =>
-      this.queryEmbeddedModel(queryId, model, messageText)
-    );
-
-    // Preparar promesas para APIs
-    const apiPromises = this.models.api.map(model =>
-      this.queryAPIModel(queryId, model, messageText)
-    );
-
-    // Ejecutar TODO en paralelo
-    console.log(`[AUTO] 📤 Enviando consultas a ${embeddedPromises.length + apiPromises.length} modelos...`);
-
+  async runPrimarySecondary(taskId, strategy, input) {
+    // Primario
+    let primaryRes;
     try {
-      const embeddedResults = await Promise.allSettled(embeddedPromises);
-      const apiResults = await Promise.allSettled(apiPromises);
-
-      results.embedded = embeddedResults.map((r, i) => ({
-        model: this.models.embedded[i],
-        status: r.status,
-        response: r.status === 'fulfilled' ? r.value : null,
-        error: r.status === 'rejected' ? r.reason?.message : null
-      }));
-
-      results.api = apiResults.map((r, i) => ({
-        model: this.models.api[i],
-        status: r.status,
-        response: r.status === 'fulfilled' ? r.value : null,
-        error: r.status === 'rejected' ? r.reason?.message : null
-      }));
-
-      // Registrar resultados
-      this.responses.set(queryId, results);
-
-      // Log resumen
-      const successful = [
-        ...results.embedded.filter(r => r.status === 'fulfilled'),
-        ...results.api.filter(r => r.status === 'fulfilled')
-      ];
-      console.log(`[AUTO] ✅ ${successful.length} respuestas recibidas`);
-
-      return results;
-
-    } catch (error) {
-      console.error('[AUTO] Error en consultas paralelas:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Consultar modelo embebido (BrowserView)
-   */
-  async queryEmbeddedModel(queryId, model, messageText) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Timeout en ${model.name}`));
-      }, 60000); // 60 segundos timeout
-
-      try {
-        console.log(`[AUTO] 📨 Enviando a ${model.name}...`);
-        window.addTerminalLine(`  📤 → ${model.icon} ${model.name}`);
-
-        // Usar window.aiModels para enviar mensaje
-        if (window.aiModels) {
-          // Registrar callback para respuesta
-          const responseHandler = (data) => {
-            if (data.modelId === model.id) {
-              clearTimeout(timeout);
-              window.aiModels.offResponse(model.id, responseHandler);
-              console.log(`[AUTO] 📨 Respuesta de ${model.name} recibida`);
-              resolve({
-                model: model.id,
-                name: model.name,
-                response: data.response,
-                timestamp: Date.now()
-              });
-            }
-          };
-
-          window.aiModels.onResponse(responseHandler);
-
-          // Enviar mensaje al modelo embebido
-          window.aiModels.sendMessage(model.id, messageText)
-            .catch(error => {
-              clearTimeout(timeout);
-              reject(error);
-            });
-        } else {
-          clearTimeout(timeout);
-          reject(new Error('window.aiModels no disponible'));
-        }
-
-      } catch (error) {
-        clearTimeout(timeout);
-        reject(error);
+      primaryRes = await this.callModel(strategy.primary, input);
+    } catch (e) {
+      console.warn(`🟡 Primario ${strategy.primary} falló:`, e.message);
+      if (strategy.secondary) {
+        primaryRes = await this.callModel(strategy.secondary, input);
+        primaryRes.source = `${strategy.secondary} (fallback)`;
+      } else {
+        throw e;
       }
-    });
-  }
-
-  /**
-   * Consultar modelo API (Groq, OpenAI, etc.)
-   */
-  async queryAPIModel(queryId, model, messageText) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Timeout en ${model.name}`));
-      }, 30000); // 30 segundos timeout
-
-      try {
-        console.log(`[AUTO] 🌐 Enviando a API ${model.name}...`);
-        window.addTerminalLine(`  📤 → ${model.icon} ${model.name}`);
-
-        // Usar window.electron.ipcRenderer para llamar API
-        if (window.electron && window.electron.ipcRenderer) {
-          // Determinar proveedor basado en model.id
-          let provider = 'groq';
-          let modelId = model.id;
-
-          if (model.id.startsWith('groq-')) {
-            provider = 'groq';
-            // Convertir groq-llama3.3 a llama-3.3-70b-versatile, etc.
-            const modelMap = {
-              'groq-llama3.3': 'llama-3.3-70b-versatile',
-              'groq-llama3.1': 'llama-3.1-8b-instant',
-              'groq-qwen3': 'qwen/qwen3-32b'
-            };
-            modelId = modelMap[model.id] || 'llama-3.3-70b-versatile';
-          }
-
-          window.electron.ipcRenderer.invoke('ai:chat', {
-            provider,
-            model: modelId,
-            messages: [
-              {
-                role: 'user',
-                content: messageText
-              }
-            ]
-          }).then(response => {
-            clearTimeout(timeout);
-            console.log(`[AUTO] 📨 Respuesta de API ${model.name} recibida`);
-            resolve({
-              model: model.id,
-              name: model.name,
-              response: response?.content || response?.text || String(response),
-              timestamp: Date.now()
-            });
-          }).catch(error => {
-            clearTimeout(timeout);
-            reject(error);
-          });
-
-        } else {
-          clearTimeout(timeout);
-          reject(new Error('electron.ipcRenderer no disponible'));
-        }
-
-      } catch (error) {
-        clearTimeout(timeout);
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * Sintetizar respuestas de múltiples modelos
-   */
-  async synthesizeResponses(queryId, results) {
-    console.log('[AUTO] 🧠 Sintetizando respuestas...');
-    window.addTerminalLine('  🧠 Sintetizando respuestas de múltiples modelos...');
-
-    const successfulResponses = [
-      ...results.embedded.filter(r => r.status === 'fulfilled'),
-      ...results.api.filter(r => r.status === 'fulfilled')
-    ].map(r => r.response);
-
-    if (successfulResponses.length === 0) {
-      throw new Error('No se recibieron respuestas válidas');
     }
 
-    // Extraer puntos clave de cada respuesta
-    const keyPoints = successfulResponses.map(response => {
-      // Tomar primeras 3 líneas como resumen
-      const lines = response.split('\n').slice(0, 3).filter(l => l.trim());
-      return lines.join(' ');
-    });
+    // Post-procesamiento
+    if (strategy.postProcess === 'code-review' && primaryRes.success) {
+      const review = await this.callModel('qwen', {
+        text: `Revisa este código y sugiere mejoras:\n\`\`\`\n${primaryRes.answer}\n\`\`\``
+      });
+      if (review.success) {
+        primaryRes.answer += `\n\n🔍 Revisión:\n${review.answer}`;
+      }
+    }
 
-    // Síntesis simple (en producción usaría un modelo sintetizador)
-    const synthesized = {
-      summary: `Análisis basado en ${successfulResponses.length} modelos`,
-      keyPoints,
-      fullResponses: successfulResponses,
-      modelsUsed: [
-        ...results.embedded.filter(r => r.status === 'fulfilled').map(r => r.model.name),
-        ...results.api.filter(r => r.status === 'fulfilled').map(r => r.model.name)
-      ],
-      timestamp: Date.now(),
-      consensus: this.calculateConsensus(keyPoints)
-    };
-
-    console.log('[AUTO] ✅ Síntesis completada');
-    return synthesized;
+    return primaryRes;
   }
 
-  /**
-   * Calcular consenso entre respuestas
-   */
-  calculateConsensus(keyPoints) {
-    if (keyPoints.length === 0) return { level: 'none', message: 'Sin respuestas' };
-    if (keyPoints.length === 1) return { level: 'single', message: 'Una única respuesta' };
+  async runParallel(taskId, models, input, postProcess) {
+    const promises = models.map(model => 
+      this.callModel(model, input).catch(e => ({ 
+        success: false, 
+        error: e.message, 
+        source: model 
+      }))
+    );
 
-    // Verificar similitud de las primeras líneas
-    const firstWords = keyPoints.map(p => p.split(' ')[0]);
-    const uniqueWords = new Set(firstWords).size;
-    const similarity = 1 - (uniqueWords / firstWords.length);
+    const results = await Promise.all(promises);
+    const successful = results.filter(r => r.success);
 
-    if (similarity > 0.7) {
-      return { level: 'high', message: `Alto consenso (${Math.round(similarity * 100)}%)` };
-    } else if (similarity > 0.4) {
-      return { level: 'medium', message: `Consenso moderado (${Math.round(similarity * 100)}%)` };
+    if (successful.length === 0) {
+      throw new Error(`Todos los modelos fallaron: ${results.map(r => r.error).join('; ')}`);
+    }
+
+    // Post-procesamiento
+    if (postProcess === 'vote') {
+      return this.voteResults(successful);
+    } else if (postProcess === 'enrich') {
+      return this.enrichResults(successful);
     } else {
-      return { level: 'low', message: `Bajo consenso (${Math.round(similarity * 100)}%)` };
+      return successful[0]; // primero que respondió bien
     }
   }
 
-  /**
-   * Mostrar UI de orquestación en tiempo real
-   */
-  showOrchestrationUI(queryId, messageText) {
-    const canvas = document.getElementById('canvas');
-    if (!canvas) return;
+  async callModel(modelName, input) {
+    const timeout = 60000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    // Crear panel de orquestación
-    const orchestrationPanel = document.createElement('div');
-    orchestrationPanel.id = `orchestration-${queryId}`;
-    orchestrationPanel.className = 'orchestration-panel';
-    orchestrationPanel.innerHTML = `
-      <div class="orchestration-header">
-        <span>🔗 Orquestación Multi-Modelo</span>
-        <button onclick="document.getElementById('orchestration-${queryId}').remove()" style="background: none; border: none; color: #0ff; cursor: pointer;">✕</button>
-      </div>
-      <div class="orchestration-content">
-        <div class="orchestration-query">
-          <strong>Consulta:</strong> ${messageText.substring(0, 100)}...
-        </div>
-        <div class="orchestration-models" id="models-${queryId}">
-          <div style="text-align: center; padding: 20px;">⏳ Consultando modelos...</div>
-        </div>
-      </div>
-    `;
+    try {
+      let res;
 
-    canvas.appendChild(orchestrationPanel);
+      switch (modelName) {
+        case 'qwen':
+          if (typeof window.qwenChat === 'function') {
+            const answer = await window.qwenChat(input.text);
+            res = { success: true, answer, source: 'qwen' };
+          } else {
+            throw new Error('Qwen no disponible');
+          }
+          break;
 
-    // Agregar estilos si no existen
-    if (!document.getElementById('orchestration-styles')) {
-      const styles = document.createElement('style');
-      styles.id = 'orchestration-styles';
-      styles.textContent = `
-        .orchestration-panel {
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          width: 400px;
-          background: rgba(0, 20, 40, 0.95);
-          border: 2px solid #0ff;
-          border-radius: 8px;
-          box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-          z-index: 10000;
-          font-family: 'JetBrains Mono', monospace;
-        }
-        .orchestration-header {
-          background: rgba(0, 100, 150, 0.5);
-          padding: 10px;
-          border-bottom: 1px solid #0ff;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          color: #0ff;
-        }
-        .orchestration-content {
-          padding: 15px;
-          max-height: 400px;
-          overflow-y: auto;
-        }
-        .orchestration-query {
-          color: #0f0;
-          margin-bottom: 15px;
-          padding: 10px;
-          background: rgba(0, 50, 0, 0.3);
-          border-radius: 4px;
-        }
-        .orchestration-models {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
-        .model-status {
-          padding: 10px;
-          border-radius: 4px;
-          background: rgba(0, 50, 50, 0.3);
-          border-left: 3px solid #0ff;
-          font-size: 0.9em;
-        }
-        .model-status.success {
-          border-left-color: #0f0;
-          color: #0f0;
-        }
-        .model-status.error {
-          border-left-color: #f00;
-          color: #f00;
-        }
-      `;
-      document.head.appendChild(styles);
+        case 'claude':
+          const { useClaude } = await import('./tools/claude_local/claude-integration.js');
+          res = await useClaude(input.text, { timeout: 120 });
+          break;
+
+        case 'deepseek':
+          if (typeof window.deepSeekChat === 'function') {
+            const answer = await window.deepSeekChat(input.text);
+            res = { success: true, answer, source: 'deepseek' };
+          } else {
+            throw new Error('DeepSeek no disponible');
+          }
+          break;
+
+        case 'chatgpt':
+          const { useChatGPT } = await import('./tools/chatgpt_local/chatgpt-integration.js');
+          res = await useChatGPT(input.text, { timeout: 120 });
+          break;
+
+        default:
+          throw new Error(`Modelo desconocido: ${modelName}`);
+      }
+
+      return res;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
-  /**
-   * Mostrar resultado sintetizado
-   */
-  displaySynthesizedResult(queryId, synthesized) {
-    const modelsDiv = document.getElementById(`models-${queryId}`);
-    if (!modelsDiv) return;
-
-    // Mostrar estado de cada modelo
-    const statusHTML = synthesized.modelsUsed
-      .map(name => `<div class="model-status success">✅ ${name}</div>`)
-      .join('');
-
-    modelsDiv.innerHTML = `
-      <div style="color: #0ff; margin-bottom: 10px;">Resultados:</div>
-      ${statusHTML}
-      <div style="color: ${synthesized.consensus.level === 'high' ? '#0f0' : '#ff0'}; margin-top: 10px; padding: 10px; background: rgba(50, 50, 0, 0.3); border-radius: 4px;">
-        🎯 ${synthesized.consensus.message}
-      </div>
-    `;
-
-    // Log completo
-    console.log('[AUTO] 📊 Resultado sintetizado:', synthesized);
+  voteResults(results) {
+    // Por ahora: el más largo (asume más detalle)
+    return results.reduce((a, b) => a.answer.length > b.answer.length ? a : b);
   }
 
-  /**
-   * Enviar propuesta al MCP
-   */
-  async sendProposalToMCP(queryId, originalMessage, synthesized, allResponses) {
-    if (!window.mcpAPI) {
-      console.warn('[AUTO] window.mcpAPI no disponible - saltando envío a MCP');
-      return;
+  enrichResults(results) {
+    // Combina: DeepSeek (visión) + Qwen (técnico)
+    const deepseek = results.find(r => r.source === 'deepseek');
+    const qwen = results.find(r => r.source === 'qwen');
+    
+    if (deepseek && qwen) {
+      return {
+        success: true,
+        source: 'deepseek+qwen',
+        answer: `${deepseek.answer}\n\n---\n🔍 Análisis técnico:\n${qwen.answer}`
+      };
+    }
+    return results[0];
+  }
+
+  // 📊 Aprendizaje continuo
+  loadStats() {
+    try {
+      const data = localStorage.getItem('orchestration-stats');
+      return data ? JSON.parse(data) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  recordOutcome(taskId, strategy, success) {
+    const key = strategy.primary || strategy.parallel?.join('+') || 'unknown';
+    if (!this.modelStats[key]) this.modelStats[key] = { success: 0, failure: 0 };
+    
+    if (success) {
+      this.modelStats[key].success++;
+    } else {
+      this.modelStats[key].failure++;
     }
 
     try {
-      console.log('[AUTO] 📨 Enviando propuesta al MCP Universal...');
-
-      const proposal = {
-        title: `AUTO Synthesis: ${originalMessage.substring(0, 50)}`,
-        description: synthesized.summary,
-        changes: {
-          synthesized_response: synthesized.summary,
-          key_points: synthesized.keyPoints,
-          models_consulted: synthesized.modelsUsed,
-          consensus_level: synthesized.consensus.level
-        },
-        reasoning: `Orquestación automática de ${synthesized.modelsUsed.length} modelos con consenso ${synthesized.consensus.level}`,
-        priority: 'normal'
-      };
-
-      // Enviar al MCP
-      const result = await window.mcpAPI.sendProposal(proposal);
-      console.log('[AUTO] ✅ Propuesta enviada al MCP:', result);
-      window.addTerminalLine(`✅ Propuesta enviada al MCP (ID: ${result?.id || 'pending'})`);
-
-    } catch (error) {
-      console.error('[AUTO] Error enviando a MCP:', error);
+      localStorage.setItem('orchestration-stats', JSON.stringify(this.modelStats));
+    } catch (e) {
+      console.warn('No se pudo guardar stats:', e);
     }
+  }
+
+  // 🎯 API pública
+  async process(text, attachments = [], buttons = []) {
+    return this.execute({ text, attachments, buttons });
   }
 }
 
-// Crear instancia global
-window.autoOrchestrationEngine = new AutoOrchestrationEngine();
+// Instancia global
+const orchestrationEngine = new OrchestrationEngine();
+
+// Export
+module.exports = { orchestrationEngine, OrchestrationEngine };
+exports.orchestrationEngine = orchestrationEngine;
