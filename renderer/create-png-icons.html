@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generar Iconos PNG para Safari</title>
+</head>
+<body>
+  <h1>Generar Iconos PNG para Safari iOS</h1>
+  <canvas id="canvas" width="512" height="512" style="border: 1px solid #ccc; margin: 20px;"></canvas>
+  <div>
+    <button onclick="generateIcons()">Generar Iconos PNG</button>
+  </div>
+  <script>
+    function generateIcons() {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Fondo degradado oscuro
+      const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+      gradient.addColorStop(0, '#0c0c1d');
+      gradient.addColorStop(1, '#1a1a2e');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 512, 512);
+      
+      // Texto "🌙" grande
+      ctx.font = 'bold 300px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText('🌙', 256, 256);
+      
+      // Descargar iconos
+      const sizes = [
+        { size: 180, name: 'apple-touch-icon.png' },
+        { size: 192, name: 'icon-192.png' },
+        { size: 512, name: 'icon-512.png' }
+      ];
+      
+      sizes.forEach(({ size, name }) => {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = size;
+        tempCanvas.height = size;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Fondo
+        const tempGradient = tempCtx.createLinearGradient(0, 0, size, size);
+        tempGradient.addColorStop(0, '#0c0c1d');
+        tempGradient.addColorStop(1, '#1a1a2e');
+        tempCtx.fillStyle = tempGradient;
+        tempCtx.fillRect(0, 0, size, size);
+        
+        // Texto
+        tempCtx.font = `bold ${size * 0.6}px Arial`;
+        tempCtx.textAlign = 'center';
+        tempCtx.textBaseline = 'middle';
+        tempCtx.fillStyle = '#ffd700';
+        tempCtx.fillText('🌙', size / 2, size / 2);
+        
+        // Descargar
+        tempCanvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = name;
+          a.click();
+          URL.revokeObjectURL(url);
+        }, 'image/png');
+      });
+      
+      alert('✅ Iconos generados! Descárgalos y colócalos en la raíz del proyecto.');
+    }
+    
+    // Generar al cargar
+    window.onload = () => {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+      gradient.addColorStop(0, '#0c0c1d');
+      gradient.addColorStop(1, '#1a1a2e');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.font = 'bold 300px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText('🌙', 256, 256);
+    };
+  </script>
+</body>
+</html>
