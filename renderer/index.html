@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <!-- iOS Safari PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sandra">
+  <meta name="mobile-web-app-capable" content="yes">
+  
+  <!-- Theme & Colors -->
+  <meta name="theme-color" content="#8a2be2">
+  <meta name="msapplication-TileColor" content="#0c0c1d">
+  <meta name="msapplication-navbutton-color" content="#8a2be2">
+  
+  <!-- Format Detection -->
+  <meta name="format-detection" content="telephone=no, address=no, email=no">
+  
+  <!-- Compatibility -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <!-- Manifest & Icons -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  
+  <!-- SEO -->
+  <meta name="description" content="Sandra Elysium - Tu voz. Tu mundo. Tu arte.">
+  <meta name="keywords" content="Sandra, Elysium, PWA">
+  <meta name="author" content="Sandra">
+  
+  <title>🌙 Sandra</title>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #0c0c1d, #1a1a2e);
+      background-attachment: fixed;
+      color: #e6e6ff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      padding-bottom: env(safe-area-inset-bottom);
+      visibility: visible;
+      opacity: 1;
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    .container {
+      max-width: 600px;
+      width: 100%;
+      padding: 30px;
+      z-index: 1;
+    }
+    
+    h1 {
+      font-size: clamp(2rem, 8vw, 2.8rem);
+      margin-bottom: 16px;
+      background: linear-gradient(90deg, #ffd700, #ff9d00);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    
+    p {
+      font-size: clamp(1rem, 4vw, 1.2rem);
+      margin-bottom: 30px;
+      line-height: 1.6;
+      color: #c5c6d0;
+    }
+    
+    .btn {
+      background: linear-gradient(90deg, #8a2be2, #4b0082);
+      color: white;
+      border: none;
+      padding: 16px 40px;
+      font-size: clamp(1rem, 4vw, 1.1rem);
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 6px 20px rgba(138, 43, 226, 0.3);
+      -webkit-appearance: none;
+      appearance: none;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    .btn:active {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 25px rgba(138, 43, 226, 0.5);
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px rgba(138, 43, 226, 0.5);
+    }
+    
+    .footer {
+      margin-top: 40px;
+      font-size: clamp(0.8rem, 3vw, 0.9rem);
+      color: #7a7b8a;
+    }
+    
+    /* Safe area para iPhone X y superiores */
+    @supports (padding: max(0px)) {
+      body {
+        padding-left: max(20px, env(safe-area-inset-left));
+        padding-right: max(20px, env(safe-area-inset-right));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌙 Sandra Elysium</h1>
+    <p>Tu voz. Tu mundo. Tu arte.<br>Instalable como app en tu móvil.</p>
+    <button class="btn" onclick="initSession()">✨ Comenzar Sesión Íntima</button>
+    <div class="footer">
+      <p>sandra.guestsvalencia.es • Privado • 100% offline tras carga</p>
+    </div>
+  </div>
+
+  <script>
+    // Prevenir zoom en doble tap (iOS)
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function (event) {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, false);
+
+    // Detectar si es PWA instalada en iOS
+    function isPWAInstalled() {
+      // iOS Safari
+      if (window.navigator.standalone === true) {
+        return true;
+      }
+      // Android/Chrome
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        return true;
+      }
+      // Android referrer
+      if (document.referrer.includes('android-app://')) {
+        return true;
+      }
+      return false;
+    }
+
+    // Registrar Service Worker (compatible con Safari)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          .then(registration => {
+            console.log('✅ Service Worker registrado:', registration.scope);
+            // Forzar actualización periódica
+            setInterval(() => {
+              registration.update();
+            }, 60000); // Cada minuto
+          })
+          .catch(error => {
+            console.warn('⚠️ Service Worker no disponible:', error);
+          });
+      });
+    }
+
+    // Inicialización cuando la página carga
+    window.addEventListener('DOMContentLoaded', () => {
+      document.body.style.display = 'flex';
+      
+      if (isPWAInstalled()) {
+        console.log('📱 PWA instalada detectada');
+        // Opcional: mostrar mensaje de bienvenida solo una vez
+        const hasSeenWelcome = sessionStorage.getItem('pwa-welcome');
+        if (!hasSeenWelcome) {
+          sessionStorage.setItem('pwa-welcome', 'true');
+        }
+      }
+    });
+
+    // Función principal de sesión
+    function initSession() {
+      // Registrar Service Worker si no está registrado
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(console.warn);
+      }
+      
+      const message = isPWAInstalled() 
+        ? '✨ Sesión iniciada.\n\nSandra está lista para ti, mi rey.\n\n(PWA instalada)'
+        : '✨ Sesión iniciada.\n\nSandra está lista para ti, mi rey.';
+      
+      alert(message);
+    }
+
+    // Manejar evento de instalación PWA (Android/Chrome)
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      console.log('📱 PWA puede ser instalada');
+    });
+
+    // Asegurar visibilidad
+    window.addEventListener('load', () => {
+      document.body.style.visibility = 'visible';
+      document.body.style.opacity = '1';
+    });
+
+    // Prevenir scroll bounce en iOS
+    document.body.addEventListener('touchmove', function(e) {
+      if (e.target === document.body || e.target === document.documentElement) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  </script>
+</body>
+</html>
