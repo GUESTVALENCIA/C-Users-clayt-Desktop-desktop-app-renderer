@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>🧪 Test: Observer 2.0 + Claude + Adjuntos</title>
+  <style>
+    body { background: #0f0f0f; color: #fff; font-family: sans-serif; padding: 20px; }
+    .card { background: #1a1a1a; padding: 20px; margin: 10px 0; border-radius: 8px; }
+    button { background: #1e88e5; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+    pre { background: #222; padding: 12px; border-radius: 6px; overflow-x: auto; }
+    #chat-container { border: 1px solid #333; min-height: 300px; padding: 15px; }
+    .message { background: #2a2a2a; margin: 8px 0; padding: 10px; border-radius: 6px; }
+    .code { background: #0d1d2e; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Observer 2.0 — Prueba integrada</h1>
+
+  <div class="card">
+    <h3>1. 🧠 Activar Observer</h3>
+    <button onclick="startObserver()">Iniciar Observer en #chat-container</button>
+    <div id="obs-status"></div>
+  </div>
+
+  <div class="card">
+    <h3>2. 📩 Simular mensajes</h3>
+    <button onclick="addCode()">Añadir bloque de código</button>
+    <button onclick="addPDF()">Simular PDF adjunto</button>
+    <button onclick="addImage()">Simular imagen</button>
+  </div>
+
+  <div class="card">
+    <h3>3. 💬 Chat simulado</h3>
+    <div id="chat-container">
+      <div class="message">Hola, ¿puedes ayudarme con este código?</div>
+    </div>
+  </div>
+
+  <script>
+    let observerInstance = null;
+
+    async function startObserver() {
+      const { startSandraObserver } = await import('./observers/index.js');
+      observerInstance = startSandraObserver('#chat-container');
+      document.getElementById('obs-status').innerHTML = 
+        '<div style="color: #4caf50">✅ Observer activo</div>';
+    }
+
+    function addCode() {
+      const code = `
+        <div class="message">
+          <pre class="code"><code class="language-js">
+function hello() {
+  console.log("¡Hola desde Observer 2.0!");
+  return true;
+}
+          </code></pre>
+        </div>`;
+      document.getElementById('chat-container').insertAdjacentHTML('beforeend', code);
+    }
+
+    function addPDF() {
+      const btn = `<button class="message">📄 Informe_anual.pdf</button>`;
+      document.getElementById('chat-container').insertAdjacentHTML('beforeend', btn);
+    }
+
+    function addImage() {
+      const img = `<div class="message"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" alt="mini" width="50"></div>`;
+      document.getElementById('chat-container').insertAdjacentHTML('beforeend', img);
+    }
+  </script>
+</body>
+</html>
