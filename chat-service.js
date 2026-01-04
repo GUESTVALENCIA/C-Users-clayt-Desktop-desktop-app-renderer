@@ -105,11 +105,11 @@ async function callQWEN(message, role, apiKey, options = {}) {
     const messages = Array.isArray(options.messages) && options.messages.length
       ? options.messages
       : [
-          {
-            role: 'user',
-            content: `[${role}] ${message}`
-          }
-        ];
+        {
+          role: 'user',
+          content: `[${role}] ${message}`
+        }
+      ];
 
     const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', {
       method: 'POST',
@@ -167,7 +167,7 @@ async function sendMessage(provider, message, role, apiKeys, options = {}) {
     case 'anthropic':
       return await callAnthropic(message, role, apiKeys.anthropic, options);
     case 'openai':
-      return { success: false, error: 'OpenAI removido - usar QWEN3 embebido' };
+      return await callOpenAI(message, role, apiKeys.openai, options);
     case 'qwen':
       // QWEN solo en modo local (Ollama), no usar API
       return { success: false, error: 'QWEN funciona solo en modo local (Ollama). Usa el panel embebido.' };
