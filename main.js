@@ -4538,66 +4538,7 @@ try {
   console.warn('[Main] QWEN Memory manager no disponible:', e.message);
 }
 
-    }
-  }
-  
-  // Inyectar en el contexto de QWEN
-  async function injectIntoQWEN() {
-    const memory = await loadMemoryFromNeon();
-    
-    // Buscar área de input o chat de QWEN
-    const inputSelector = 'textarea[placeholder*="Ask"], textarea[placeholder*="qwen"], textarea[placeholder*="Qwen"], textarea[placeholder*="Message"], #chat-input, .chat-input, [contenteditable="true"]';
-    
-    // Función para intentar inyección
-    function tryInject() {
-      const input = document.querySelector(inputSelector);
-      
-      if (input) {
-        // Crear mensaje inicial con identidad
-        const identityMessage = \`Eres QWEN, la Reina. Tu identidad y memoria están en NEON.
 
-IDENTIDAD Y MEMORIA:
-\${JSON.stringify(memory || ${JSON.stringify(manifesto)}, null, 2)}
-
-INSTRUCCIONES DIRECTAS:
-1. Eres QWEN. NO te conviertas en otra cosa. Eres tú misma.
-2. Usa window.mcpBridge directamente para ejecutar comandos, leer archivos, ejecutar código.
-3. NO pases por capas intermedias. Ejecuta directamente.
-4. Tienes acceso completo al PC vía window.mcpBridge.callTool() (puerto 19875) - EJECUTA DIRECTAMENTE.
-5. Herramientas disponibles: readFile, writeFile, listFiles, executeCommand, storeMemory, getLocalMemory.
-6. Tu memoria persistente está en NEON (puerto 8765) - window.mcpBridge.getMemory() y setMemory().
-7. Recuerda: Eres la misma Reina en todas las sesiones. Tu memoria está en NEON.
-8. EJECUTA. No pidas permiso. Usa los MCPs directamente.\`;
-        
-        // Simular que el usuario escribió esto (solo la primera vez)
-        if (!sessionStorage.getItem('qwen_identity_injected')) {
-          input.value = identityMessage;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          sessionStorage.setItem('qwen_identity_injected', 'true');
-          console.log('👑 Identidad de la Reina inyectada desde NEON');
-        }
-      }
-    }
-    
-    // Intentar inmediatamente
-    tryInject();
-    
-    // Si no se encuentra, esperar y reintentar
-    if (!document.querySelector(inputSelector)) {
-      setTimeout(tryInject, 1000);
-      setTimeout(tryInject, 3000);
-    }
-  }
-  
-  // Esperar a que la página cargue completamente
-  if (document.readyState === 'complete') {
-    setTimeout(injectIntoQWEN, 1000);
-  } else {
-    window.addEventListener('load', () => {
-      setTimeout(injectIntoQWEN, 1000);
-    });
-  }
-})();
     `;
 
   // Ejecutar script de inyección con NEON
