@@ -1,0 +1,87 @@
+<!-- 🧠 BOTÓN CLAUDE — insertar en tu chat input container -->
+<div class="model-selector">
+  <button id="use-qwen-btn" class="model-btn active" title="Usar Qwen (rápido, código)">
+    🌀 Qwen
+  </button>
+  <button id="use-claude-btn" class="model-btn" title="Usar Claude (texto largo, PDFs, resúmenes)">
+    🧠 Claude
+  </button>
+  <button id="use-deepseek-btn" class="model-btn" title="Usar DeepSeek-VL (imágenes + texto)">
+    🖼️ DeepSeek
+  </button>
+</div>
+
+<style>
+.model-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #1a1a1a;
+  border-radius: 8px;
+}
+.model-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #2a2a2a;
+  color: #aaa;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.model-btn:hover {
+  background: #333;
+  color: #fff;
+}
+.model-btn.active {
+  background: #1e88e5;
+  border-color: #1976d2;
+  color: white;
+  box-shadow: 0 0 8px rgba(30, 136, 229, 0.3);
+}
+</style>
+
+<script>
+// Controlador de modelo activo
+let activeModel = 'qwen'; // default
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btns = {
+    qwen: document.getElementById('use-qwen-btn'),
+    claude: document.getElementById('use-claude-btn'),
+    deepseek: document.getElementById('use-deepseek-btn')
+  };
+
+  Object.keys(btns).forEach(key => {
+    if (btns[key]) {
+      btns[key].addEventListener('click', () => {
+        // Desactivar todos
+        Object.values(btns).forEach(b => b?.classList.remove('active'));
+        // Activar este
+        btns[key].classList.add('active');
+        activeModel = key;
+        console.log(`🧠 Modelo activo: ${activeModel}`);
+      });
+    }
+  });
+
+  // Enviar mensaje con modelo activo
+  window.sendWithActiveModel = async (prompt) => {
+    let result;
+    switch (activeModel) {
+      case 'claude':
+        const { useClaude } = await import('./orchestrator/claude-bridge.js');
+        result = await useClaude(prompt);
+        break;
+      case 'deepseek':
+        result = await window.deepSeekChat?.(prompt) || { error: "DeepSeek no implementado aún" };
+        break;
+      default: // qwen
+        result = await window.qwenChat?.(prompt) || { error: "Qwen no disponible" };
+    }
+    return result;
+  };
+});
+</script>
