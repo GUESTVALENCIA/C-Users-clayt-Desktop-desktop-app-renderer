@@ -2450,7 +2450,7 @@ function setupQwenBidirectionalCommunication(browserView) {
             const lines = cleaned.split('\\n').filter(line => {
               const trimmed = line.trim();
               if (!trimmed) return false;
-              if (trimmed.length < 5) return false;
+              if (trimmed.length < 1) return false;
               
               // Descartar líneas que son solo URLs o tags de imagen (según plan)
               if (/^\\[IMAGE:/.test(trimmed)) return false;
@@ -2561,8 +2561,8 @@ function setupQwenBidirectionalCommunication(browserView) {
                 });
                 if (isMostlyMagicButtons) return; // Ignorar este mensaje
                 
-                // Solo considerar si tiene contenido real después de limpiar O tiene código
-                if (cleanedText.length > 30 || hasCode) {
+                // Solo considerar si tiene contenido real (Permisivo: > 1 char)
+                if (cleanedText.length > 1 || hasCode) {
                   allMessages.push({
                     text: cleanedText,
                     raw: rawText,
@@ -2635,8 +2635,8 @@ function setupQwenBidirectionalCommunication(browserView) {
               });
               if (isMostlyMagicButtons) return; // Ignorar este mensaje
               
-              // Solo mensajes con contenido sustancial Y que no sean solo UI O tiene código
-              if ((cleanedText.length > 50 && cleanedText.split(' ').length > 10) || hasCode) {
+              // Solo mensajes con contenido sustancial (Permisivo: > 1 char)
+              if (cleanedText.length > 1 || hasCode) {
                 // Verificar que no sea principalmente texto de UI después de limpiar
                 const uiWords = ['generación', 'video', 'imagen', 'artefacto', 'edición', 'web', 
                                 'pensamiento', 'buscar', 'copy', 'like', 'dislike'];
