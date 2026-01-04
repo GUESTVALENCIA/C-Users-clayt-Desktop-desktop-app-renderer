@@ -96,9 +96,30 @@ function addQwenActionButtons(element) {
 /**
  * Global helpers for Qwen actions.
  */
+export function toggleQwen() {
+    state.qwen.panelVisible = !state.qwen.panelVisible;
+    const btn = document.getElementById('qwenBtn');
+    if (btn) btn.classList.toggle('active', state.qwen.panelVisible);
+
+    if (window.sandraAPI?.qwenToggle) {
+        window.sandraAPI.qwenToggle(state.qwen.panelVisible)
+            .then(() => {
+                addTerminalLine(`Qwen ${state.qwen.panelVisible ? 'abierto' : 'cerrado'}`);
+            })
+            .catch(err => addTerminalLine(`Error Qwen: ${err.message}`));
+    }
+}
+
+window.toggleQwen = toggleQwen;
+
 window.qwenCopyMessage = function (btn) {
     const content = btn.closest('.message-body').querySelector('.message-content').textContent;
     navigator.clipboard.writeText(content);
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy', 2000);
+};
+
+window.qwenRegenerateMessage = function (btn) {
+    addTerminalLine('Regenerando respuesta de Qwen...');
+    // Implementation trigger logic...
 };
